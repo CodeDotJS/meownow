@@ -45,6 +45,7 @@ export type {
 	PairingStartRequest,
 	PairingWrapRequest,
 	PublicJwk,
+	PushSubscribeRequest,
 	VaultPutRequest,
 	WrappedKeyWire,
 } from "./vault";
@@ -59,6 +60,7 @@ export {
 	pairingStartRequestSchema,
 	pairingWrapRequestSchema,
 	publicJwkSchema,
+	pushSubscribeRequestSchema,
 	TEXT_TTL_MS,
 	vaultPutRequestSchema,
 	vaultRecoveryRequestSchema,

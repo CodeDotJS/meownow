@@ -35,3 +35,7 @@ Items in this milestone are ciphertext-only create/list so a second device can f
 ## Realtime (milestone 4)
 
 Text and link items persist as ciphertext with a 30-day TTL and a 64 KB cap. After a write, Vercel posts an HMAC-ticketed envelope to the Worker. One Durable Object per user vault fans `item.created` / `item.deleted` to hibernated WebSockets. Tickets are 60-second HMAC tokens minted by the app (`HUB_SECRET`); the Worker verifies them and never sees plaintext. A missing or expired ticket is denied. P2P DataChannel remains milestone 7.
+
+## PWA (milestone 5)
+
+The service worker (Serwist) intercepts Android Share Target POSTs, writes the shared text to a local IndexedDB inbox, and redirects home. The signed-in client encrypts and POSTs ciphertext like any other item. The origin never sees the share body. Web Push payloads are only `New item from {displayName}`; the client fetches and decrypts on open. `VAPID_PRIVATE_KEY` is required to send; it is not in the original env list. iOS has no Share Target; do not add a plaintext clipboard ingest route.

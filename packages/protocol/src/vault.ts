@@ -89,6 +89,14 @@ export const pairingQrSchema = z.object({
 	publicJwk: publicJwkSchema,
 });
 
+export const pushSubscribeRequestSchema = z.object({
+	endpoint: z.string().url(),
+	keys: z.object({
+		p256dh: z.string().min(1),
+		auth: z.string().min(1),
+	}),
+});
+
 export type PublicJwk = z.infer<typeof publicJwkSchema>;
 export type WrappedKeyWire = z.infer<typeof wrappedKeyWireSchema>;
 export type VaultPutRequest = z.infer<typeof vaultPutRequestSchema>;
@@ -96,6 +104,7 @@ export type PairingStartRequest = z.infer<typeof pairingStartRequestSchema>;
 export type PairingWrapRequest = z.infer<typeof pairingWrapRequestSchema>;
 export type ItemCreateRequest = z.infer<typeof itemCreateRequestSchema>;
 export type PairingQr = z.infer<typeof pairingQrSchema>;
+export type PushSubscribeRequest = z.infer<typeof pushSubscribeRequestSchema>;
 
 export function asPublicJwk(jwk: unknown): PublicJwk {
 	const parsed = publicJwkSchema.safeParse(jwk);

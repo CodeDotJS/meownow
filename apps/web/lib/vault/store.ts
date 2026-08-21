@@ -46,6 +46,17 @@ export type VaultStore = {
 	createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void>;
 	listItems(ownerId: string): Promise<StoredItem[]>;
 	deleteItem(ownerId: string, id: string): Promise<boolean>;
+	savePushSubscription(input: {
+		deviceId: string;
+		endpoint: string;
+		p256dh: string;
+		auth: string;
+	}): Promise<void>;
+	listPushSubscriptions(
+		userId: string,
+		exceptDeviceId: string,
+	): Promise<Array<{ endpoint: string; p256dh: string; auth: string }>>;
+	deletePushSubscription(endpoint: string): Promise<void>;
 	addDeviceAndSession(input: {
 		userId: string;
 		now: Date;

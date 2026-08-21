@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Martian_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
@@ -14,9 +15,24 @@ const martianMono = Martian_Mono({
 	display: "swap",
 });
 
-export const metadata = {
+export const metadata: Metadata = {
+	applicationName: "meownow",
 	title: "meownow",
 	description: "Private clipboard",
+	appleWebApp: {
+		capable: true,
+		statusBarStyle: "default",
+		title: "meownow",
+	},
+	formatDetection: { telephone: false },
+	icons: {
+		icon: "/icons/icon-192.png",
+		apple: "/icons/icon-192.png",
+	},
+};
+
+export const viewport: Viewport = {
+	themeColor: "#14161a",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

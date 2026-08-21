@@ -14,3 +14,5 @@ test-results
 *.tsbuildinfo
 .vercel
 coverage
+**/public/sw.js
+**/public/swe-worker*

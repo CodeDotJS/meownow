@@ -119,3 +119,18 @@ li {
 	transform-origin: left;
 	pointer-events: none;
 }
+
+.empty {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 1rem;
+	color: var(--ink);
+}
+
+.empty::before {
+	content: "";
+	width: 32px;
+	height: 32px;
+	background: url("/icons/icon-192.png") center / contain no-repeat;
+}

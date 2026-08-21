@@ -4,6 +4,8 @@ import { decrypt, encrypt } from "@meownow/crypto";
 import { TEXT_PLAIN_MAX_BYTES, TEXT_TTL_MS } from "@meownow/protocol";
 import { useCallback, useEffect, useState } from "react";
 import { deleteJson, errorCode, getJson, postJson } from "@/lib/client/http";
+import { takeIncomingShare } from "@/lib/pwa/inbox";
+import { registerPush } from "@/lib/pwa/register-push";
 import { loadVault } from "@/lib/vault/idb";
 import { connectHub } from "@/lib/vault/live";
 import { b64urlToBytes, bytesToB64url } from "@/lib/vault/wire";
@@ -110,18 +112,19 @@ export default function Page() {
 		});
 	}, [me, hasLocal, openItem]);
 
-	async function onSend() {
+	const sendPlain = useCallback(async (plain: string) => {
 		const stored = await loadVault();
-		if (!stored || !draft.trim()) {
+		const trimmed = plain.trim();
+		if (!stored || !trimmed) {
 			return;
 		}
-		const bytes = new TextEncoder().encode(draft);
+		const bytes = new TextEncoder().encode(trimmed);
 		if (bytes.byteLength > TEXT_PLAIN_MAX_BYTES) {
 			setStatus("item_invalid");
 			return;
 		}
 		const id = crypto.randomUUID();
-		const kind = draft.includes("://") ? ("link" as const) : ("text" as const);
+		const kind = /^https?:\/\//i.test(trimmed) ? ("link" as const) : ("text" as const);
 		const sealed = await encrypt(stored.vaultKey, bytes, { itemId: id, kind });
 		const meta = await encrypt(stored.vaultKey, new TextEncoder().encode("{}"), {
 			itemId: id,
@@ -143,9 +146,51 @@ export default function Page() {
 		}
 		setDraft("");
 		setItems((current) => [
-			{ id, text: draft, expiresAt },
+			{ id, text: trimmed, expiresAt },
 			...current.filter((row) => row.id !== id),
 		]);
+	}, []);
+
+	useEffect(() => {
+		if (!me || !hasLocal) {
+			return;
+		}
+		void takeIncomingShare().then((incoming) => {
+			if (incoming) {
+				void sendPlain(incoming.text);
+			}
+		});
+	}, [me, hasLocal, sendPlain]);
+
+	useEffect(() => {
+		if (!me || !hasLocal) {
+			return;
+		}
+		function onPaste(event: ClipboardEvent) {
+			const target = event.target;
+			if (target instanceof HTMLElement && target.closest("textarea, input, [contenteditable]")) {
+				return;
+			}
+			const text = event.clipboardData?.getData("text/plain");
+			if (!text?.trim()) {
+				return;
+			}
+			event.preventDefault();
+			void sendPlain(text);
+		}
+		document.addEventListener("paste", onPaste);
+		return () => document.removeEventListener("paste", onPaste);
+	}, [me, hasLocal, sendPlain]);
+
+	useEffect(() => {
+		if (!me || !hasLocal) {
+			return;
+		}
+		void registerPush();
+	}, [me, hasLocal]);
+
+	async function onSend() {
+		await sendPlain(draft);
 	}
 
 	async function onLogout() {
@@ -205,6 +250,7 @@ export default function Page() {
 							<button type="button" onClick={() => void onSend()}>
 								Send
 							</button>
+							{items.length === 0 ? <p className="empty">Nothing on the clipboard.</p> : null}
 							<ul>
 								{items.map((item) => {
 									const remain = Math.max(

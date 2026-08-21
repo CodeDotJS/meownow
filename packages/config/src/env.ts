@@ -22,6 +22,14 @@ export const webEnvSchema = z.object({
 	EDGE_URL: z.string().url().optional(),
 	SENTRY_DSN: z.string().url().optional(),
 	VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+	VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+	VAPID_SUBJECT: z
+		.string()
+		.min(1)
+		.refine((value) => value.startsWith("mailto:") || /^https?:\/\//.test(value), {
+			message: "VAPID_SUBJECT must be a mailto: or https: URL",
+		})
+		.optional(),
 	CAPABILITY_TOKEN_PUBLIC_KEY: z.string().min(1).optional(),
 });
 

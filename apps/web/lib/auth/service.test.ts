@@ -275,3 +275,23 @@ test("session cookie flags are set on successful enroll", async () => {
 	expect(sid).toMatch(/SameSite=Lax/);
 	expect(sid).toMatch(/Path=\//);
 });
+
+test("push subscribe without a session cookie is denied", async () => {
+	const handlers = createHandlers({
+		env: { ...env, VAPID_PUBLIC_KEY: "vapid-public" },
+		store: new MemoryAuthStore(),
+		webauthn: mockWebAuthn(),
+	});
+	const res = await handlers.postPushSubscribe(
+		new Request("https://meownow.example/api/push/subscribe", {
+			method: "POST",
+			headers: { origin: env.APP_URL, "content-type": "application/json" },
+			body: JSON.stringify({
+				endpoint: "https://push.example/sub",
+				keys: { p256dh: "p256dh", auth: "auth" },
+			}),
+		}),
+	);
+	expect(res.status).toBe(401);
+	expect(await res.json()).toEqual({ error: "unauthorized" });
+});

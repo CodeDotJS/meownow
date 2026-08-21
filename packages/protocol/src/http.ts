@@ -25,6 +25,7 @@ export const errorCodeSchema = z.enum([
 	"item_invalid",
 	"item_expired",
 	"hub_unconfigured",
+	"push_unconfigured",
 ]);
 
 export const errorEnvelopeSchema = z.object({

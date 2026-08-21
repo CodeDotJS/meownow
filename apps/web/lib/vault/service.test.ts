@@ -336,6 +336,70 @@ test("expired and oversized items are denied or omitted", async () => {
 	expect(listed.items).toEqual([]);
 });
 
+test("createItem push payload is a name only and skips the sending device", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const notices: Array<{ exceptDeviceId: string; title: string }> = [];
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({
+		env,
+		auth: store,
+		vault: store,
+		webauthn,
+		push: {
+			notify: async (input) => {
+				notices.push({ exceptDeviceId: input.exceptDeviceId, title: input.title });
+			},
+		},
+	});
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const vault = await createVault({ argon2: ARGON2_TEST });
+	const identity = await generateIdentityKeyPair();
+	await vaultApi.putVault(enrolled.sessionToken, {
+		identityPub: asPublicJwk(await publicJwk(identity.publicKey)),
+		wrappedVaultRecovery: {
+			iv: wire(vault.wrappedVaultRecovery.iv),
+			bytes: wire(vault.wrappedVaultRecovery.bytes),
+		},
+		recoverySalt: wire(vault.recoverySalt),
+		recoveryVerifier: wire(await recoveryVerifier(vault.mnemonic, vault.recoverySalt, ARGON2_TEST)),
+	});
+	const ciphertext = wire(new Uint8Array([9, 9, 9]));
+	await vaultApi.createItem(enrolled.sessionToken, {
+		id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+		kind: "text",
+		ciphertext,
+		metaCiphertext: "YQ",
+		iv: "YQ",
+		byteSize: 3,
+		expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+	});
+	const sender = [...store.devices.values()][0];
+	expect(notices).toEqual([{ exceptDeviceId: sender?.id, title: "New item from Rishi" }]);
+	expect(JSON.stringify(notices)).not.toContain(ciphertext);
+});
+
+test("push subscribe without a session is denied", async () => {
+	const store = new MemoryAuthStore();
+	const vaultApi = new VaultService({
+		env: { ...env, VAPID_PUBLIC_KEY: "vapid-public" },
+		auth: store,
+		vault: store,
+		webauthn: mockWebAuthn(),
+	});
+	await expect(
+		vaultApi.subscribePush(undefined, {
+			endpoint: "https://push.example/sub",
+			keys: { p256dh: "p", auth: "a" },
+		}),
+	).rejects.toMatchObject({ code: "unauthorized" });
+});
+
 test("deleteItem without a session is denied", async () => {
 	const store = new MemoryAuthStore();
 	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn: mockWebAuthn() });

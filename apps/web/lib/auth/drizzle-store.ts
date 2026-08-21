@@ -9,6 +9,7 @@ import {
 	invites,
 	items,
 	pairingSessions,
+	pushSubscriptions,
 	sessions,
 	users,
 } from "@meownow/db";
@@ -18,7 +19,7 @@ import type {
 	PublicJwk,
 	WrappedKeyWire,
 } from "@meownow/protocol";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import type { PairingRecord, StoredItem, VaultRecord, VaultStore } from "../vault/store";
 import type {
 	AdminEnrollCommit,
@@ -520,6 +521,53 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 				.where(and(eq(items.id, id), eq(items.ownerId, ownerId)))
 				.returning({ id: items.id });
 			return deleted.length > 0;
+		});
+	}
+
+	async savePushSubscription(input: {
+		deviceId: string;
+		endpoint: string;
+		p256dh: string;
+		auth: string;
+	}): Promise<void> {
+		await this.withDb(async (db) => {
+			await db
+				.insert(pushSubscriptions)
+				.values(input)
+				.onConflictDoUpdate({
+					target: pushSubscriptions.endpoint,
+					set: { deviceId: input.deviceId, p256dh: input.p256dh, auth: input.auth },
+				});
+		});
+	}
+
+	async listPushSubscriptions(
+		userId: string,
+		exceptDeviceId: string,
+	): Promise<Array<{ endpoint: string; p256dh: string; auth: string }>> {
+		return this.withDb(async (db) => {
+			const rows = await db
+				.select({
+					endpoint: pushSubscriptions.endpoint,
+					p256dh: pushSubscriptions.p256dh,
+					auth: pushSubscriptions.auth,
+				})
+				.from(pushSubscriptions)
+				.innerJoin(devices, eq(devices.id, pushSubscriptions.deviceId))
+				.where(
+					and(
+						eq(devices.userId, userId),
+						ne(devices.id, exceptDeviceId),
+						isNull(devices.revokedAt),
+					),
+				);
+			return rows;
+		});
+	}
+
+	async deletePushSubscription(endpoint: string): Promise<void> {
+		await this.withDb(async (db) => {
+			await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
 		});
 	}
 

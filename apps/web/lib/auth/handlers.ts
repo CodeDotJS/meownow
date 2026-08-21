@@ -10,6 +10,7 @@ import {
 	loginVerifyRequestSchema,
 	pairingStartRequestSchema,
 	pairingWrapRequestSchema,
+	pushSubscribeRequestSchema,
 	registerOptionsRequestSchema,
 	registerVerifyRequestSchema,
 	vaultPutRequestSchema,
@@ -27,6 +28,7 @@ import {
 } from "../cookies";
 import { originAllowed } from "../origin";
 import type { HubPort } from "../vault/hub";
+import { type PushPort, silentPush } from "../vault/push";
 import { VaultService } from "../vault/service";
 import type { VaultStore } from "../vault/store";
 import { AuthService } from "./service";
@@ -37,6 +39,7 @@ export type HandlerDeps = {
 	env: WebEnv;
 	store: AuthStore & VaultStore;
 	hub?: HubPort;
+	push?: PushPort;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
@@ -48,6 +51,7 @@ export function createHandlers(deps: HandlerDeps) {
 		auth: deps.store,
 		vault: deps.store,
 		hub: deps.hub,
+		push: deps.push ?? silentPush(),
 		webauthn: deps.webauthn,
 		now: deps.now,
 	});
@@ -199,6 +203,12 @@ export function createHandlers(deps: HandlerDeps) {
 				return json({ ok: true });
 			}),
 		getHubTicket: (request: Request) => run(async () => json(await vault.hubTicket(sid(request)))),
+		getVapid: (request: Request) => run(async () => json(await vault.vapidPublic(sid(request)))),
+		postPushSubscribe: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, pushSubscribeRequestSchema);
+				return json(await vault.subscribePush(sid(request), body));
+			}),
 	};
 }
 

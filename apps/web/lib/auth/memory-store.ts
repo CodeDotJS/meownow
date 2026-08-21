@@ -35,6 +35,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 	vaults = new Map<string, VaultRecord>();
 	pairings = new Map<string, PairingRecord>();
 	items: StoredItem[] = [];
+	pushes: Array<{ deviceId: string; endpoint: string; p256dh: string; auth: string }> = [];
 
 	constructor() {
 		this.users.set(ADMIN_ID, {
@@ -310,6 +311,30 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		const before = this.items.length;
 		this.items = this.items.filter((item) => !(item.ownerId === ownerId && item.id === id));
 		return this.items.length < before;
+	}
+
+	async savePushSubscription(input: {
+		deviceId: string;
+		endpoint: string;
+		p256dh: string;
+		auth: string;
+	}): Promise<void> {
+		this.pushes = this.pushes.filter((row) => row.endpoint !== input.endpoint);
+		this.pushes.push(input);
+	}
+
+	async listPushSubscriptions(
+		userId: string,
+		exceptDeviceId: string,
+	): Promise<Array<{ endpoint: string; p256dh: string; auth: string }>> {
+		return this.pushes.filter((row) => {
+			const device = this.devices.get(row.deviceId);
+			return device?.userId === userId && row.deviceId !== exceptDeviceId && !device.revokedAt;
+		});
+	}
+
+	async deletePushSubscription(endpoint: string): Promise<void> {
+		this.pushes = this.pushes.filter((row) => row.endpoint !== endpoint);
 	}
 
 	async addDeviceAndSession(input: {

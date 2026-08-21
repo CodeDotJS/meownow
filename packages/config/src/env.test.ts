@@ -39,6 +39,19 @@ test("webEnv accepts DATABASE_URL, APP_URL, and auth secrets", () => {
 	expect(result.SESSION_SECRET).toHaveLength(32);
 });
 
+test("webEnv treats VAPID keys as optional", () => {
+	const result = webEnvSchema.parse({
+		DATABASE_URL: "postgresql://user:pass@localhost:5432/meownow",
+		APP_URL: "https://meownow.example",
+		SESSION_SECRET: "0".repeat(32),
+		ADMIN_ENROLL_SECRET: "0".repeat(16),
+		VAPID_PUBLIC_KEY: "pub",
+		VAPID_PRIVATE_KEY: "priv",
+		VAPID_SUBJECT: "mailto:admin@example.com",
+	});
+	expect(result.VAPID_PUBLIC_KEY).toBe("pub");
+});
+
 test("edgeEnv requires a hub secret and app origin", () => {
 	expect(edgeEnvSchema.safeParse({ HUB: {}, BLOBS: {} }).success).toBe(false);
 	const result = edgeEnvSchema.parse({

@@ -25,6 +25,7 @@ import { defaultWebAuthn, type WebAuthnPort } from "../auth/webauthn";
 import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } from "../challenge";
 import { rpFromAppUrl } from "../env";
 import { type HubPort, silentHub } from "./hub";
+import { type PushPort, silentPush } from "./push";
 import type { VaultStore } from "./store";
 
 export type VaultServiceOptions = {
@@ -32,6 +33,7 @@ export type VaultServiceOptions = {
 	auth: AuthStore;
 	vault: VaultStore;
 	hub?: HubPort;
+	push?: PushPort;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
@@ -41,6 +43,7 @@ export class VaultService {
 	private readonly auth: AuthStore;
 	private readonly vault: VaultStore;
 	private readonly hub: HubPort;
+	private readonly push: PushPort;
 	private readonly webauthn: WebAuthnPort;
 	private readonly now: () => Date;
 	private readonly rp: { origin: string; rpID: string; rpName: string };
@@ -50,6 +53,7 @@ export class VaultService {
 		this.auth = opts.auth;
 		this.vault = opts.vault;
 		this.hub = opts.hub ?? silentHub();
+		this.push = opts.push ?? silentPush();
 		this.webauthn = opts.webauthn ?? defaultWebAuthn;
 		this.now = opts.now ?? (() => new Date());
 		this.rp = rpFromAppUrl(opts.env.APP_URL);
@@ -119,15 +123,20 @@ export class VaultService {
 	}
 
 	async createItem(sessionToken: string | undefined, item: ItemCreateRequest) {
-		const user = await this.requireUser(sessionToken);
-		if (!user.hasVault) {
+		const ctx = await this.requireCtx(sessionToken);
+		if (!ctx.user.hasVault) {
 			throw new AuthError("vault_missing", 409);
 		}
 		const now = this.now();
 		this.assertLiveItem(item, now);
-		await this.vault.createItem(user.id, item, now);
+		await this.vault.createItem(ctx.user.id, item, now);
 		const record = { ...item, createdAt: now.toISOString() };
-		await this.hub.publish(user.id, { v: 1, type: "item.created", item: record });
+		await this.hub.publish(ctx.user.id, { v: 1, type: "item.created", item: record });
+		await this.push.notify({
+			userId: ctx.user.id,
+			exceptDeviceId: ctx.device.id,
+			title: `New item from ${ctx.user.displayName}`,
+		});
 		return record;
 	}
 
@@ -167,6 +176,31 @@ export class VaultService {
 			exp: this.now().getTime() + HUB_WS_TTL_MS,
 		});
 		return { ticket, url: `${this.env.EDGE_URL.replace(/\/$/, "")}/ws` };
+	}
+
+	async vapidPublic(sessionToken: string | undefined) {
+		await this.requireUser(sessionToken);
+		if (!this.env.VAPID_PUBLIC_KEY) {
+			throw new AuthError("push_unconfigured", 503);
+		}
+		return { publicKey: this.env.VAPID_PUBLIC_KEY };
+	}
+
+	async subscribePush(
+		sessionToken: string | undefined,
+		body: { endpoint: string; keys: { p256dh: string; auth: string } },
+	) {
+		if (!this.env.VAPID_PUBLIC_KEY) {
+			throw new AuthError("push_unconfigured", 503);
+		}
+		const ctx = await this.requireCtx(sessionToken);
+		await this.vault.savePushSubscription({
+			deviceId: ctx.device.id,
+			endpoint: body.endpoint,
+			p256dh: body.keys.p256dh,
+			auth: body.keys.auth,
+		});
+		return { ok: true as const };
 	}
 
 	async pairingRegisterOptions(pairingId: string, deviceLabel: string) {
