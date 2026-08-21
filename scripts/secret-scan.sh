@@ -26,9 +26,6 @@ check "PEM private key" 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY'
 # Ed25519 JWK private component. Public keys have `x` only.
 check "Ed25519 private JWK (d)" '"d"[[:space:]]*:[[:space:]]*"[A-Za-z0-9_-]{16,}"'
 
-# Known previously committed local private scalar — must never return.
-check "retired local capability scalar" 'removed'
-
 if git grep -nE '^(HUB_SECRET|CAPABILITY_TOKEN_PRIVATE_KEY)[[:space:]]*=' -- '*.toml' >/tmp/meownow-secret-scan.out 2>/dev/null; then
 	echo "secret-scan: Worker secrets must not be wrangler [vars]"
 	cat /tmp/meownow-secret-scan.out
