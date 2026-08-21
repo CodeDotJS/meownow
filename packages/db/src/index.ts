@@ -5,8 +5,8 @@ export {
 	toBase64Url,
 	uuidToBytes,
 } from "./bytes";
-export type { AppDatabase } from "./client";
-export { createDb, createPool, withDb } from "./client";
+export type { AppDatabase, HttpDatabase } from "./client";
+export { createDb, createHttpDb, createPool, withDb, withTx } from "./client";
 export type { InviteRecord, InviteState } from "./invites";
 export { INVITE_TTL_MS, inviteExpiresAt, inviteState } from "./invites";
 export * from "./schema";

@@ -24,7 +24,13 @@ const nextConfig: NextConfig = {
 		"@meownow/db",
 		"@meownow/crypto",
 	],
-	serverExternalPackages: ["@neondatabase/serverless", "ws", "web-push"],
+	serverExternalPackages: [
+		"@neondatabase/serverless",
+		"ws",
+		"bufferutil",
+		"utf-8-validate",
+		"web-push",
+	],
 };
 
 export default withSerwist(nextConfig);

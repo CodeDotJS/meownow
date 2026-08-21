@@ -4,8 +4,10 @@ import {
 	blobs,
 	claimSeat,
 	createDb,
+	createHttpDb,
 	createPool,
 	devices,
+	type HttpDatabase,
 	inviteState,
 	invites,
 	items,
@@ -79,11 +81,15 @@ function mapInvite(row: typeof invites.$inferSelect): InviteRow {
 export class DrizzleAuthStore implements AuthStore, VaultStore {
 	constructor(private readonly connectionString: string) {}
 
-	private async withDb<T>(fn: (db: AppDatabase) => Promise<T>): Promise<T> {
+	private async withDb<T>(fn: (db: HttpDatabase) => Promise<T>): Promise<T> {
+		return fn(createHttpDb(this.connectionString));
+	}
+
+	private async withTx<T>(fn: (tx: DbTx) => Promise<T>): Promise<T> {
 		const pool = createPool(this.connectionString);
 		const db = createDb(pool);
 		try {
-			return await fn(db);
+			return await db.transaction(fn);
 		} finally {
 			await pool.end();
 		}
@@ -243,71 +249,40 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 	}
 
 	async completeRegistration(input: RegistrationCommit): Promise<RegistrationCommitResult> {
-		return this.withDb(async (db) => {
-			try {
-				return await db.transaction(async (tx) => {
-					const inviteRows = await tx
-						.select()
-						.from(invites)
-						.where(eq(invites.tokenHash, input.inviteTokenHash))
-						.limit(1);
-					const invite = inviteRows[0];
-					if (!invite || inviteState(invite, input.now) !== "ok") {
-						return "invite_invalid" as const;
-					}
-					const existing = await tx
-						.select({ id: users.id })
-						.from(users)
-						.where(eq(users.handle, input.handle))
-						.limit(1);
-					if (existing[0]) {
-						return "handle_taken" as const;
-					}
-					await tx.insert(users).values({
-						id: input.userId,
-						handle: input.handle,
-						displayName: input.displayName,
-						role: "member",
-					});
-					const seatNo = await claimSeat(tx, input.userId);
-					if (seatNo === null) {
-						throw new SeatFullRollback();
-					}
-					await insertDevice(tx, input.userId, input.device);
-					await tx
-						.update(invites)
-						.set({ redeemedBy: input.userId, redeemedAt: input.now })
-						.where(eq(invites.id, invite.id));
-					await tx.insert(sessions).values({
-						tokenHash: input.session.tokenHash,
-						deviceId: input.device.id,
-						expiresAt: input.session.expiresAt,
-						createdAt: input.now,
-						lastUsed: input.now,
-					});
-					return "ok" as const;
-				});
-			} catch (err) {
-				if (err instanceof SeatFullRollback) {
-					return "seats_full";
+		try {
+			return await this.withTx(async (tx) => {
+				const inviteRows = await tx
+					.select()
+					.from(invites)
+					.where(eq(invites.tokenHash, input.inviteTokenHash))
+					.limit(1);
+				const invite = inviteRows[0];
+				if (!invite || inviteState(invite, input.now) !== "ok") {
+					return "invite_invalid" as const;
 				}
-				throw err;
-			}
-		});
-	}
-
-	async completeAdminEnroll(input: AdminEnrollCommit): Promise<AdminEnrollCommitResult> {
-		return this.withDb((db) =>
-			db.transaction(async (tx) => {
 				const existing = await tx
-					.select({ id: devices.id })
-					.from(devices)
-					.where(eq(devices.userId, input.userId))
+					.select({ id: users.id })
+					.from(users)
+					.where(eq(users.handle, input.handle))
 					.limit(1);
 				if (existing[0]) {
-					return "admin_enrolled" as const;
+					return "handle_taken" as const;
+				}
+				await tx.insert(users).values({
+					id: input.userId,
+					handle: input.handle,
+					displayName: input.displayName,
+					role: "member",
+				});
+				const seatNo = await claimSeat(tx, input.userId);
+				if (seatNo === null) {
+					throw new SeatFullRollback();
 				}
 				await insertDevice(tx, input.userId, input.device);
+				await tx
+					.update(invites)
+					.set({ redeemedBy: input.userId, redeemedAt: input.now })
+					.where(eq(invites.id, invite.id));
 				await tx.insert(sessions).values({
 					tokenHash: input.session.tokenHash,
 					deviceId: input.device.id,
@@ -316,26 +291,51 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 					lastUsed: input.now,
 				});
 				return "ok" as const;
-			}),
-		);
+			});
+		} catch (err) {
+			if (err instanceof SeatFullRollback) {
+				return "seats_full";
+			}
+			throw err;
+		}
+	}
+
+	async completeAdminEnroll(input: AdminEnrollCommit): Promise<AdminEnrollCommitResult> {
+		return this.withTx(async (tx) => {
+			const existing = await tx
+				.select({ id: devices.id })
+				.from(devices)
+				.where(eq(devices.userId, input.userId))
+				.limit(1);
+			if (existing[0]) {
+				return "admin_enrolled" as const;
+			}
+			await insertDevice(tx, input.userId, input.device);
+			await tx.insert(sessions).values({
+				tokenHash: input.session.tokenHash,
+				deviceId: input.device.id,
+				expiresAt: input.session.expiresAt,
+				createdAt: input.now,
+				lastUsed: input.now,
+			});
+			return "ok" as const;
+		});
 	}
 
 	async completeLogin(input: LoginCommit): Promise<void> {
-		await this.withDb((db) =>
-			db.transaction(async (tx) => {
-				await tx
-					.update(devices)
-					.set({ signCount: input.signCount, lastSeenAt: input.now })
-					.where(eq(devices.id, input.deviceId));
-				await tx.insert(sessions).values({
-					tokenHash: input.session.tokenHash,
-					deviceId: input.deviceId,
-					expiresAt: input.session.expiresAt,
-					createdAt: input.now,
-					lastUsed: input.now,
-				});
-			}),
-		);
+		await this.withTx(async (tx) => {
+			await tx
+				.update(devices)
+				.set({ signCount: input.signCount, lastSeenAt: input.now })
+				.where(eq(devices.id, input.deviceId));
+			await tx.insert(sessions).values({
+				tokenHash: input.session.tokenHash,
+				deviceId: input.deviceId,
+				expiresAt: input.session.expiresAt,
+				createdAt: input.now,
+				lastUsed: input.now,
+			});
+		});
 	}
 
 	async deleteSession(tokenHash: Buffer): Promise<void> {
@@ -415,44 +415,40 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 	}
 
 	async revokeDevice(id: string, now: Date): Promise<{ userId: string } | "missing" | "already"> {
-		return this.withDb((db) =>
-			db.transaction(async (tx) => {
-				const rows = await tx.select().from(devices).where(eq(devices.id, id)).limit(1);
-				const device = rows[0];
-				if (!device) {
-					return "missing" as const;
-				}
-				if (device.revokedAt) {
-					return "already" as const;
-				}
-				await tx.update(devices).set({ revokedAt: now }).where(eq(devices.id, id));
-				await tx.delete(sessions).where(eq(sessions.deviceId, id));
-				return { userId: device.userId };
-			}),
-		);
+		return this.withTx(async (tx) => {
+			const rows = await tx.select().from(devices).where(eq(devices.id, id)).limit(1);
+			const device = rows[0];
+			if (!device) {
+				return "missing" as const;
+			}
+			if (device.revokedAt) {
+				return "already" as const;
+			}
+			await tx.update(devices).set({ revokedAt: now }).where(eq(devices.id, id));
+			await tx.delete(sessions).where(eq(sessions.deviceId, id));
+			return { userId: device.userId };
+		});
 	}
 
 	async removeUser(id: string): Promise<"ok" | "missing" | "last_admin"> {
-		return this.withDb((db) =>
-			db.transaction(async (tx) => {
-				const rows = await tx.select().from(users).where(eq(users.id, id)).limit(1);
-				const user = rows[0];
-				if (!user) {
-					return "missing" as const;
+		return this.withTx(async (tx) => {
+			const rows = await tx.select().from(users).where(eq(users.id, id)).limit(1);
+			const user = rows[0];
+			if (!user) {
+				return "missing" as const;
+			}
+			if (user.role === "admin") {
+				const others = await tx
+					.select({ id: users.id })
+					.from(users)
+					.where(and(eq(users.role, "admin"), ne(users.id, id)));
+				if (others.length === 0) {
+					return "last_admin" as const;
 				}
-				if (user.role === "admin") {
-					const others = await tx
-						.select({ id: users.id })
-						.from(users)
-						.where(and(eq(users.role, "admin"), ne(users.id, id)));
-					if (others.length === 0) {
-						return "last_admin" as const;
-					}
-				}
-				await tx.delete(users).where(eq(users.id, id));
-				return "ok" as const;
-			}),
-		);
+			}
+			await tx.delete(users).where(eq(users.id, id));
+			return "ok" as const;
+		});
 	}
 
 	async getVault(userId: string): Promise<VaultRecord | null> {
@@ -727,39 +723,37 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		decisionNote: string | null;
 		now: Date;
 	}): Promise<"ok" | "missing" | "decided"> {
-		return this.withDb((db) =>
-			db.transaction(async (tx) => {
-				const rows = await tx
-					.select()
-					.from(uploadRequests)
-					.where(eq(uploadRequests.id, input.id))
-					.limit(1);
-				const row = rows[0];
-				if (!row) {
-					return "missing" as const;
-				}
-				if (row.status !== "pending") {
-					return "decided" as const;
-				}
+		return this.withTx(async (tx) => {
+			const rows = await tx
+				.select()
+				.from(uploadRequests)
+				.where(eq(uploadRequests.id, input.id))
+				.limit(1);
+			const row = rows[0];
+			if (!row) {
+				return "missing" as const;
+			}
+			if (row.status !== "pending") {
+				return "decided" as const;
+			}
+			await tx
+				.update(uploadRequests)
+				.set({
+					status: input.status,
+					decidedBy: input.decidedBy,
+					decidedAt: input.now,
+					decisionNote: input.decisionNote,
+					grantedBytes: input.grantedBytes,
+				})
+				.where(eq(uploadRequests.id, input.id));
+			if (input.status === "approved" && input.grantedBytes) {
 				await tx
-					.update(uploadRequests)
-					.set({
-						status: input.status,
-						decidedBy: input.decidedBy,
-						decidedAt: input.now,
-						decisionNote: input.decisionNote,
-						grantedBytes: input.grantedBytes,
-					})
-					.where(eq(uploadRequests.id, input.id));
-				if (input.status === "approved" && input.grantedBytes) {
-					await tx
-						.update(users)
-						.set({ canUpload: true, storageQuotaBytes: input.grantedBytes })
-						.where(eq(users.id, row.userId));
-				}
-				return "ok" as const;
-			}),
-		);
+					.update(users)
+					.set({ canUpload: true, storageQuotaBytes: input.grantedBytes })
+					.where(eq(users.id, row.userId));
+			}
+			return "ok" as const;
+		});
 	}
 
 	async createPendingBlob(input: {
@@ -822,46 +816,44 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		};
 		now: Date;
 	}): Promise<"ok" | "quota"> {
-		return this.withDb((db) =>
-			db.transaction(async (tx) => {
-				const locked = await tx
-					.select()
-					.from(users)
-					.where(eq(users.id, input.blob.ownerId))
-					.for("update")
-					.limit(1);
-				const user = locked[0];
-				if (!user || user.storageUsedBytes + input.actualBytes > user.storageQuotaBytes) {
-					return "quota" as const;
-				}
-				await tx
-					.update(blobs)
-					.set({
-						state: "committed",
-						byteSize: input.actualBytes,
-						sha256: input.sha256,
-						committedAt: input.now,
-					})
-					.where(eq(blobs.id, input.blob.id));
-				await tx.insert(items).values({
-					id: input.item.id,
-					ownerId: input.blob.ownerId,
-					kind: input.item.kind,
-					metaCiphertext: Buffer.from(input.item.metaCiphertext, "base64url"),
-					iv: Buffer.from(input.item.iv, "base64url"),
-					wrappedKey: Buffer.from(JSON.stringify(input.item.wrappedKey), "utf8"),
-					blobId: input.blob.id,
+		return this.withTx(async (tx) => {
+			const locked = await tx
+				.select()
+				.from(users)
+				.where(eq(users.id, input.blob.ownerId))
+				.for("update")
+				.limit(1);
+			const user = locked[0];
+			if (!user || user.storageUsedBytes + input.actualBytes > user.storageQuotaBytes) {
+				return "quota" as const;
+			}
+			await tx
+				.update(blobs)
+				.set({
+					state: "committed",
 					byteSize: input.actualBytes,
-					expiresAt: input.item.expiresAt,
-					createdAt: input.now,
-				});
-				await tx
-					.update(users)
-					.set({ storageUsedBytes: sql`${users.storageUsedBytes} + ${input.actualBytes}` })
-					.where(eq(users.id, input.blob.ownerId));
-				return "ok" as const;
-			}),
-		);
+					sha256: input.sha256,
+					committedAt: input.now,
+				})
+				.where(eq(blobs.id, input.blob.id));
+			await tx.insert(items).values({
+				id: input.item.id,
+				ownerId: input.blob.ownerId,
+				kind: input.item.kind,
+				metaCiphertext: Buffer.from(input.item.metaCiphertext, "base64url"),
+				iv: Buffer.from(input.item.iv, "base64url"),
+				wrappedKey: Buffer.from(JSON.stringify(input.item.wrappedKey), "utf8"),
+				blobId: input.blob.id,
+				byteSize: input.actualBytes,
+				expiresAt: input.item.expiresAt,
+				createdAt: input.now,
+			});
+			await tx
+				.update(users)
+				.set({ storageUsedBytes: sql`${users.storageUsedBytes} + ${input.actualBytes}` })
+				.where(eq(users.id, input.blob.ownerId));
+			return "ok" as const;
+		});
 	}
 
 	async addDeviceAndSession(input: {
@@ -870,18 +862,16 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		device: RegistrationCommit["device"];
 		session: RegistrationCommit["session"];
 	}): Promise<void> {
-		await this.withDb((db) =>
-			db.transaction(async (tx) => {
-				await insertDevice(tx, input.userId, input.device);
-				await tx.insert(sessions).values({
-					tokenHash: input.session.tokenHash,
-					deviceId: input.device.id,
-					expiresAt: input.session.expiresAt,
-					createdAt: input.now,
-					lastUsed: input.now,
-				});
-			}),
-		);
+		await this.withTx(async (tx) => {
+			await insertDevice(tx, input.userId, input.device);
+			await tx.insert(sessions).values({
+				tokenHash: input.session.tokenHash,
+				deviceId: input.device.id,
+				expiresAt: input.session.expiresAt,
+				createdAt: input.now,
+				lastUsed: input.now,
+			});
+		});
 	}
 
 	async usageSnapshot(): Promise<{
@@ -907,65 +897,61 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 	}
 
 	async prune(now: Date): Promise<{ keepR2Keys: string[]; deleteR2Keys: string[] }> {
-		return this.withDb((db) =>
-			db.transaction(async (tx) => {
-				const [itemRows, blobRows, pairingRows, sessionRows] = await Promise.all([
-					tx.select().from(items),
-					tx.select().from(blobs),
-					tx.select().from(pairingSessions),
-					tx.select().from(sessions),
-				]);
-				const plan = planPrune({
-					now: now.getTime(),
-					items: itemRows.map((row) => ({
-						id: row.id,
-						pinned: row.pinned,
-						expiresAt: row.expiresAt.getTime(),
-						blobId: row.blobId,
-					})),
-					blobs: blobRows.map((row) => ({
-						id: row.id,
-						r2Key: row.r2Key,
-						state: row.state === "committed" ? "committed" : "pending",
-						createdAt: row.createdAt.getTime(),
-						ownerId: row.ownerId,
-						byteSize: row.byteSize,
-					})),
-					pairings: pairingRows.map((row) => ({
-						id: row.id,
-						expiresAt: row.expiresAt.getTime(),
-					})),
-					sessions: sessionRows.map((row) => ({
-						key: row.tokenHash.toString("hex"),
-						expiresAt: row.expiresAt.getTime(),
-					})),
-				});
-				if (plan.deleteItemIds.length > 0) {
-					await tx.delete(items).where(inArray(items.id, plan.deleteItemIds));
-				}
-				if (plan.deletePairingIds.length > 0) {
-					await tx
-						.delete(pairingSessions)
-						.where(inArray(pairingSessions.id, plan.deletePairingIds));
-				}
-				if (plan.deleteSessionKeys.length > 0) {
-					const hashes = plan.deleteSessionKeys.map((key) => Buffer.from(key, "hex"));
-					await tx.delete(sessions).where(inArray(sessions.tokenHash, hashes));
-				}
-				if (plan.deleteBlobIds.length > 0) {
-					await tx.delete(blobs).where(inArray(blobs.id, plan.deleteBlobIds));
-				}
-				for (const row of plan.decrementUsage) {
-					await tx
-						.update(users)
-						.set({
-							storageUsedBytes: sql`greatest(0, ${users.storageUsedBytes} - ${row.bytes})`,
-						})
-						.where(eq(users.id, row.ownerId));
-				}
-				return { keepR2Keys: plan.keepR2Keys, deleteR2Keys: plan.deleteR2Keys };
-			}),
-		);
+		return this.withTx(async (tx) => {
+			const [itemRows, blobRows, pairingRows, sessionRows] = await Promise.all([
+				tx.select().from(items),
+				tx.select().from(blobs),
+				tx.select().from(pairingSessions),
+				tx.select().from(sessions),
+			]);
+			const plan = planPrune({
+				now: now.getTime(),
+				items: itemRows.map((row) => ({
+					id: row.id,
+					pinned: row.pinned,
+					expiresAt: row.expiresAt.getTime(),
+					blobId: row.blobId,
+				})),
+				blobs: blobRows.map((row) => ({
+					id: row.id,
+					r2Key: row.r2Key,
+					state: row.state === "committed" ? "committed" : "pending",
+					createdAt: row.createdAt.getTime(),
+					ownerId: row.ownerId,
+					byteSize: row.byteSize,
+				})),
+				pairings: pairingRows.map((row) => ({
+					id: row.id,
+					expiresAt: row.expiresAt.getTime(),
+				})),
+				sessions: sessionRows.map((row) => ({
+					key: row.tokenHash.toString("hex"),
+					expiresAt: row.expiresAt.getTime(),
+				})),
+			});
+			if (plan.deleteItemIds.length > 0) {
+				await tx.delete(items).where(inArray(items.id, plan.deleteItemIds));
+			}
+			if (plan.deletePairingIds.length > 0) {
+				await tx.delete(pairingSessions).where(inArray(pairingSessions.id, plan.deletePairingIds));
+			}
+			if (plan.deleteSessionKeys.length > 0) {
+				const hashes = plan.deleteSessionKeys.map((key) => Buffer.from(key, "hex"));
+				await tx.delete(sessions).where(inArray(sessions.tokenHash, hashes));
+			}
+			if (plan.deleteBlobIds.length > 0) {
+				await tx.delete(blobs).where(inArray(blobs.id, plan.deleteBlobIds));
+			}
+			for (const row of plan.decrementUsage) {
+				await tx
+					.update(users)
+					.set({
+						storageUsedBytes: sql`greatest(0, ${users.storageUsedBytes} - ${row.bytes})`,
+					})
+					.where(eq(users.id, row.ownerId));
+			}
+			return { keepR2Keys: plan.keepR2Keys, deleteR2Keys: plan.deleteR2Keys };
+		});
 	}
 }
 
