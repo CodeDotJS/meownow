@@ -448,13 +448,13 @@ export default function Page() {
 				<Panel>
 					<h1>This browser is empty</h1>
 					<p className="lead">
-						Your keys are on another device. Open meownow there, tap Add device, and scan the QR
-						that this page will show.
+						Your keys are on another device. On this one tap Pair. On the working one tap Scan.
 					</p>
 					<nav className="stack">
-						<a className="select" href="/pair">
-							Show a QR
+						<a className="select" href="/pair/show">
+							Pair
 						</a>
+						<a href="/pair/scan">Scan</a>
 					</nav>
 					<p className="hint">
 						Lost every device? <a href="/recover">Use the 12 words</a>

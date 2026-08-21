@@ -18,11 +18,12 @@ import {
 	uploadRequests,
 	users,
 } from "@meownow/db";
-import type {
-	ItemCreateRequest,
-	PairingWrapRequest,
-	PublicJwk,
-	WrappedKeyWire,
+import {
+	type ItemCreateRequest,
+	type PairingWrapRequest,
+	type PublicJwk,
+	pairingWrapRequestSchema,
+	type WrappedKeyWire,
 } from "@meownow/protocol";
 import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { planPrune } from "../vault/prune";
@@ -526,9 +527,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 				id: row.id,
 				userId: row.userId,
 				publicJwk: row.newDevicePub as PublicJwk,
-				wrap: row.wrappedVault
-					? (JSON.parse(row.wrappedVault.toString("utf8")) as PairingWrapRequest)
-					: null,
+				wrap: row.wrappedVault ? parsePairingWrap(row.wrappedVault) : null,
 				fingerprint: row.fingerprint,
 				expiresAt: row.expiresAt,
 				createdAt: row.createdAt,
@@ -984,8 +983,16 @@ function wireToBytes(wire: WrappedKeyWire): Buffer {
 	return Buffer.from(JSON.stringify(wire), "utf8");
 }
 
+function utf8FromBytea(value: Buffer | Uint8Array): string {
+	return Buffer.from(value).toString("utf8");
+}
+
 function bytesToWire(value: Buffer): WrappedKeyWire {
-	return JSON.parse(value.toString("utf8")) as WrappedKeyWire;
+	return JSON.parse(utf8FromBytea(value)) as WrappedKeyWire;
+}
+
+function parsePairingWrap(value: Buffer | Uint8Array): PairingWrapRequest {
+	return pairingWrapRequestSchema.parse(JSON.parse(utf8FromBytea(value)));
 }
 
 function vaultFromUser(row: typeof users.$inferSelect): VaultRecord | null {

@@ -346,7 +346,10 @@ function signedIn(handle: string, sessionToken: string): Response {
 }
 
 function json(data: unknown, cookies: string[] = [], status = 200): Response {
-	const headers = new Headers({ "content-type": "application/json" });
+	const headers = new Headers({
+		"content-type": "application/json",
+		"cache-control": "no-store",
+	});
 	for (const cookie of cookies) {
 		headers.append("Set-Cookie", cookie);
 	}

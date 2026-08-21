@@ -176,6 +176,61 @@ h1 {
 	color: var(--ink);
 }
 
+.pair-choice {
+	display: grid;
+	gap: 1rem;
+	margin-top: 1.75rem;
+}
+
+@media (min-width: 768px) {
+	.pair-choice {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.pair-card {
+	display: block;
+	width: auto;
+	padding: 1.2rem 1.25rem 1.35rem;
+	background: var(--surface);
+	border: 1px solid var(--rule);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow);
+}
+
+.pair-card h2 {
+	margin: 0;
+	font-size: 1.35rem;
+	font-weight: 550;
+	letter-spacing: -0.04em;
+}
+
+.pair-card p {
+	margin: 0.45rem 0 0;
+	color: var(--muted);
+	max-width: 28ch;
+}
+
+a.pair-card:hover,
+a.pair-card:focus-visible {
+	background: var(--surface);
+	color: inherit;
+	box-shadow:
+		var(--shadow),
+		0 0 0 2px var(--ink);
+}
+
+.pair-roles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	margin: 0 0 1.1rem;
+}
+
+.pair-role {
+	padding: 0.4rem 0.75rem;
+}
+
 .panel {
 	background: var(--surface);
 	border: 1px solid var(--rule);
@@ -232,12 +287,12 @@ textarea {
 
 .qr {
 	display: block;
-	width: min(16rem, 100%);
+	width: min(18rem, 100%);
 	height: auto;
-	margin: 1.5rem 0;
+	margin: 1.25rem 0 0.75rem;
 	image-rendering: pixelated;
 	background: #ffffff;
-	padding: 0.75rem;
+	padding: 0.85rem;
 	border-radius: var(--radius-sm);
 	border: 1px solid var(--rule);
 }

@@ -11,8 +11,8 @@ export function PairingQrCanvas({ payload }: { payload: string }) {
 		if (!canvas || !payload) {
 			return;
 		}
-		const qr = encode(payload, { ecc: "M", border: 4 });
-		const scale = 4;
+		const qr = encode(payload, { ecc: "Q", border: 4 });
+		const scale = 6;
 		canvas.width = qr.size * scale;
 		canvas.height = qr.size * scale;
 		const ctx = canvas.getContext("2d");

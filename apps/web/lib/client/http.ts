@@ -26,7 +26,7 @@ export async function getJson(url: string): Promise<{
 	status: number;
 	data: unknown;
 }> {
-	const res = await fetch(url, { credentials: "include" });
+	const res = await fetch(url, { credentials: "include", cache: "no-store" });
 	let data: unknown = null;
 	try {
 		data = await res.json();

@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { getJson, postJson } from "@/lib/client/http";
-import { loadVault } from "@/lib/vault/idb";
 import { dropStaleLocalVault } from "@/lib/vault/local";
 import { CommandPalette, type PaletteAction } from "./palette";
 
@@ -17,7 +16,6 @@ type FrameMe = {
 export function AppFrame({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
 	const [me, setMe] = useState<FrameMe | null>(null);
-	const [hasLocal, setHasLocal] = useState(false);
 	const [open, setOpen] = useState(false);
 	const [mod, setMod] = useState("⌘K");
 
@@ -37,8 +35,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			} else {
 				setMe(null);
 			}
-			const local = await loadVault();
-			setHasLocal(local !== null);
 		})();
 	}, [pathname]);
 
@@ -62,7 +58,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			return [
 				{ id: "login", label: "Continue with passkey", href: "/login" },
 				{ id: "join", label: "Paste an invite code", href: "/join" },
-				{ id: "pair", label: "This is a new device", href: "/pair" },
+				{ id: "pair", label: "Pair or scan", href: "/pair" },
 				{ id: "enroll", label: "First admin", href: "/enroll" },
 				{ id: "recover", label: "Use the 12 words", href: "/recover" },
 			];
@@ -71,11 +67,11 @@ export function AppFrame({ children }: { children: ReactNode }) {
 		if (!me.hasVault) {
 			rows.push({ id: "setup", label: "Finish setup", href: "/setup" });
 		}
-		if (me.hasVault && !hasLocal) {
-			rows.push({ id: "pair", label: "Show a pairing QR", href: "/pair" });
-		}
-		if (hasLocal) {
-			rows.push({ id: "scan", label: "Add a device", href: "/pair/scan" });
+		if (me.hasVault) {
+			rows.push(
+				{ id: "pair", label: "Pair", href: "/pair/show" },
+				{ id: "scan", label: "Scan", href: "/pair/scan" },
+			);
 		}
 		rows.push({ id: "recover", label: "Use the 12 words", href: "/recover" });
 		if (!me.canUpload) {
@@ -99,7 +95,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			},
 		});
 		return rows;
-	}, [hasLocal, me]);
+	}, [me]);
 
 	return (
 		<div className="frame">
@@ -114,10 +110,15 @@ export function AppFrame({ children }: { children: ReactNode }) {
 							Invites
 						</a>
 					) : null}
-					{hasLocal ? (
-						<a className="chrome-add" href="/pair/scan">
-							Add device
-						</a>
+					{me?.hasVault ? (
+						<>
+							<a className="chrome-add" href="/pair/show">
+								Pair
+							</a>
+							<a className="chrome-add" href="/pair/scan">
+								Scan
+							</a>
+						</>
 					) : null}
 					<button type="button" className="chrome-k" onClick={() => setOpen(true)}>
 						<kbd>{mod}</kbd>

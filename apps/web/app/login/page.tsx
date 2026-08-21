@@ -48,8 +48,8 @@ export default function LoginPage() {
 				</nav>
 				<Status value={status} />
 				<p className="hint">
-					This only unlocks a passkey already saved on this browser. A passkey from meownow.vercel.app
-					will not appear here.
+					This only unlocks a passkey already saved on this browser. A passkey from
+					meownow.vercel.app will not appear here.
 					<br />
 					New here? You need an invite link.
 				</p>

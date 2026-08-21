@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { parsePairingQr } from "./qr";
+import { pairingQrFromRaw, parsePairingQr } from "./qr";
 
 const sample = {
 	v: 1 as const,
@@ -19,4 +19,9 @@ test("parsePairingQr accepts a pairing QR payload", () => {
 test("parsePairingQr rejects junk", () => {
 	expect(parsePairingQr("not json")).toBeNull();
 	expect(parsePairingQr("{}")).toBeNull();
+});
+
+test("pairingQrFromRaw wraps a valid payload", () => {
+	expect(pairingQrFromRaw(JSON.stringify(sample))?.qr).toEqual(sample);
+	expect(pairingQrFromRaw("not json")).toBeNull();
 });

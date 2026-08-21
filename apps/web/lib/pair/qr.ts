@@ -10,3 +10,8 @@ export function parsePairingQr(raw: string): PairingQr | null {
 	const result = pairingQrSchema.safeParse(parsed);
 	return result.success ? result.data : null;
 }
+
+export function pairingQrFromRaw(raw: string): { qr: PairingQr; raw: string } | null {
+	const qr = parsePairingQr(raw);
+	return qr ? { qr, raw } : null;
+}

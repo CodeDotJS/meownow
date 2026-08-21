@@ -5,41 +5,27 @@ import { asPublicJwk, type PairingQr } from "@meownow/protocol";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
 import { parsePairingQr } from "@/lib/pair/qr";
+import { readPairingQrFromVideo } from "@/lib/pair/read-qr";
+import { PairRoles } from "@/lib/ui/pair-roles";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 import { loadVault } from "@/lib/vault/idb";
 import { wrapToWire } from "@/lib/vault/wire";
 
-type Detector = {
-	detect: (source: CanvasImageSource) => Promise<Array<{ rawValue: string }>>;
-};
-
 export default function PairScanPage() {
 	const [raw, setRaw] = useState("");
 	const [scanning, setScanning] = useState(false);
-	const [cameraOk, setCameraOk] = useState(false);
 	const [fingerprint, setFingerprint] = useState<string | null>(null);
-	const [pending, setPending] = useState<{
-		id: string;
-		wrap: {
-			fingerprint: string;
-			vaultWrap: ReturnType<typeof wrapToWire> & { ephPublicJwk: JsonWebKey };
-			identityWrap: ReturnType<typeof wrapToWire>;
-			identityPub: JsonWebKey;
-		};
-	} | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [scanned, setScanned] = useState<PairingQr | null>(null);
+	const [sent, setSent] = useState(false);
 	const videoRef = useRef<HTMLVideoElement>(null);
+	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const streamRef = useRef<MediaStream | null>(null);
 
 	useEffect(() => {
-		setCameraOk(typeof window !== "undefined" && "BarcodeDetector" in window);
-	}, []);
-
-	useEffect(() => {
-		if (!scanning) {
+		if (!scanning || scanned) {
 			const idle = streamRef.current;
 			streamRef.current = null;
 			if (idle) {
@@ -72,27 +58,17 @@ export default function PairScanPage() {
 				}
 				video.srcObject = stream;
 				await video.play();
-				const Detector = (
-					window as unknown as { BarcodeDetector: new (opts: { formats: string[] }) => Detector }
-				).BarcodeDetector;
-				const detector = new Detector({ formats: ["qr_code"] });
 				const tick = async () => {
-					if (cancelled || !videoRef.current) {
+					if (cancelled || !videoRef.current || !canvasRef.current) {
 						return;
 					}
-					try {
-						const found = await detector.detect(videoRef.current);
-						const value = found[0]?.rawValue;
-						const qr = value ? parsePairingQr(value) : null;
-						if (qr) {
-							cancelled = true;
-							setScanning(false);
-							setRaw(value ?? "");
-							setScanned(qr);
-							return;
-						}
-					} catch {
-						// keep scanning
+					const found = await readPairingQrFromVideo(videoRef.current, canvasRef.current);
+					if (found) {
+						cancelled = true;
+						setScanning(false);
+						setRaw(found.raw);
+						setScanned(found.qr);
+						return;
 					}
 					window.requestAnimationFrame(() => {
 						void tick();
@@ -117,7 +93,7 @@ export default function PairScanPage() {
 				videoRef.current.srcObject = null;
 			}
 		};
-	}, [scanning]);
+	}, [scanning, scanned]);
 
 	const prepare = useCallback(async (qr: PairingQr) => {
 		setBusy(true);
@@ -133,16 +109,19 @@ export default function PairScanPage() {
 				stored.wrappedExtractable,
 			);
 			const wrap = await wrapVaultForPairing(extractable, qr.publicJwk);
+			const body = {
+				fingerprint: wrap.fingerprint,
+				vaultWrap: { ...wrapToWire(wrap), ephPublicJwk: asPublicJwk(wrap.ephPublicJwk) },
+				identityWrap: wrapToWire(stored.wrappedIdentity),
+				identityPub: asPublicJwk(stored.identityPub),
+			};
+			const res = await postJson(`/api/pairing/${qr.id}/wrap`, body);
+			if (!res.ok) {
+				setStatus(errorCode(res.data));
+				return;
+			}
 			setFingerprint(wrap.fingerprint);
-			setPending({
-				id: qr.id,
-				wrap: {
-					fingerprint: wrap.fingerprint,
-					vaultWrap: { ...wrapToWire(wrap), ephPublicJwk: asPublicJwk(wrap.ephPublicJwk) },
-					identityWrap: wrapToWire(stored.wrappedIdentity),
-					identityPub: asPublicJwk(stored.identityPub),
-				},
-			});
+			setSent(true);
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "wrap_failed");
 		} finally {
@@ -167,63 +146,49 @@ export default function PairScanPage() {
 		await prepare(qr);
 	}
 
-	async function onConfirm() {
-		if (!pending) {
-			return;
-		}
-		setBusy(true);
-		const res = await postJson(`/api/pairing/${pending.id}/wrap`, pending.wrap);
-		if (!res.ok) {
-			setStatus(errorCode(res.data));
-			setBusy(false);
-			return;
-		}
-		window.location.href = "/";
-	}
-
 	return (
 		<main>
 			<Panel>
-				<h1>Add a device</h1>
+				<PairRoles current="scan" />
+				<h1>Scan</h1>
 				{fingerprint ? (
 					<>
-						<p className="lead">Read these numbers on both screens.</p>
+						<p className="lead">
+							The other screen should show these numbers now. If they match, you are done here.
+						</p>
 						<p className="fp">{fingerprint}</p>
-						<button
-							className="select"
-							type="button"
-							onClick={() => void onConfirm()}
-							disabled={busy}
-						>
-							Numbers match
-						</button>
+						{sent ? (
+							<p className="hint">Sent. Keep this open until the other device confirms.</p>
+						) : null}
+						<a className="select" href="/">
+							Done
+						</a>
 					</>
 				) : (
 					<>
-						<p className="lead">Point the camera at the QR on the new browser.</p>
-						{cameraOk ? (
-							<>
-								<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
-								<button
-									className="select"
-									type="button"
-									onClick={() => setScanning((on) => !on)}
-									disabled={busy}
-								>
-									{scanning ? "Stop camera" : "Open camera"}
-								</button>
-							</>
-						) : (
-							<p className="hint">This browser cannot decode a QR. Paste the payload instead.</p>
-						)}
+						<p className="lead">
+							Point this camera at the Pair QR. Scan inside meownow, not the phone Camera app.
+						</p>
+						<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
+						<canvas ref={canvasRef} className="file-hidden" aria-hidden />
+						<nav className="stack">
+							<button
+								className="select"
+								type="button"
+								onClick={() => setScanning((on) => !on)}
+								disabled={busy}
+							>
+								{scanning ? "Stop camera" : busy ? "Working…" : "Scan"}
+							</button>
+						</nav>
 						<form onSubmit={(event) => void onPrepare(event)}>
 							<label>
-								QR payload
+								Or paste the payload
 								<textarea
 									className="mono"
 									value={raw}
 									onChange={(e) => setRaw(e.target.value)}
-									rows={6}
+									rows={4}
 								/>
 							</label>
 							<button type="submit" disabled={busy}>
