@@ -26,6 +26,9 @@ jobs:
 
       - run: pnpm exec biome ci .
 
+      - name: Secret scan
+        run: bash scripts/secret-scan.sh
+
       - run: pnpm test
 
       - name: Drizzle drift check

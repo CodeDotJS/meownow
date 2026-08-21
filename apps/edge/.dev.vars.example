@@ -1,2 +1,3 @@
 HUB_SECRET=dev-hub-secret-must-be-32-char!!
+# Public JWK only. Private `d` lives in local `.env`, never in git.
 CAPABILITY_TOKEN_PUBLIC_KEY={"kty":"OKP","crv":"Ed25519","x":"hhT-BvZi_645PEVLTTtWJvQ-OFOU5XEo2_GbnRRd6WY"}
