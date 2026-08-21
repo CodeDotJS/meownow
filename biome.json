@@ -1,0 +1,49 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": true,
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/.next",
+			"!**/.turbo",
+			"!**/.wrangler",
+			"!**/dist",
+			"!**/packages/db/migrations"
+		]
+	},
+	"formatter": {
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double",
+			"semicolons": "always"
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"suspicious": {
+				"noExplicitAny": "error"
+			},
+			"style": {
+				"noNonNullAssertion": "error"
+			}
+		}
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	}
+}

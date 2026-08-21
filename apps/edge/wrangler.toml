@@ -1,0 +1,17 @@
+name = "meownow-edge"
+main = "src/index.ts"
+compatibility_date = "2026-08-21"
+
+[durable_objects]
+bindings = [{ name = "HUB", class_name = "HubDO" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["HubDO"]
+
+[[r2_buckets]]
+binding = "BLOBS"
+bucket_name = "meownow-blobs"
+
+[triggers]
+crons = ["0 3 * * *"]

@@ -1,0 +1,17 @@
+@import "@meownow/ui/tokens.css";
+@import "tailwindcss";
+
+html,
+body {
+	background: var(--paper);
+	color: var(--ink);
+	margin: 0;
+}
+
+body {
+	font-family: var(--font-ui), sans-serif;
+}
+
+.mono {
+	font-family: var(--font-mono), ui-monospace, monospace;
+}
