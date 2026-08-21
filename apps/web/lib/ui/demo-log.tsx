@@ -4,8 +4,8 @@ import { animate } from "animejs";
 import { useEffect, useRef, useState } from "react";
 
 export const DEMO_LINES = [
-	{ time: "14:32", text: "copy on this device" },
-	{ time: "14:31", text: "paste on the other" },
+	{ time: "14:32", text: "copy here" },
+	{ time: "14:31", text: "paste there" },
 	{ time: "09:12", text: "ten seats. encrypted." },
 ] as const;
 

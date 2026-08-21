@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans, Martian_Mono } from "next/font/google";
+import { Martian_Mono, Outfit } from "next/font/google";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { AppFrame } from "@/lib/ui/app-frame";
 import "./globals.css";
 
-const instrumentSans = Instrument_Sans({
+const outfit = Outfit({
 	subsets: ["latin"],
 	variable: "--font-ui",
 	display: "swap",
@@ -45,13 +45,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-	themeColor: "#f1f2f4",
+	themeColor: "#eef0f3",
+	colorScheme: "only light",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
 	await connection();
 	return (
-		<html lang="en" className={`${instrumentSans.variable} ${martianMono.variable}`}>
+		<html lang="en" className={`${outfit.variable} ${martianMono.variable}`}>
 			<body>
 				<AppFrame>{children}</AppFrame>
 			</body>

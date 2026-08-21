@@ -1,27 +1,52 @@
 "use client";
 
+import { motion, useReducedMotion } from "motion/react";
 import { DemoLog } from "./demo-log";
 
 export function Landing() {
+	const reduce = useReducedMotion();
+	const hidden = reduce ? false : { opacity: 0, y: 18 };
+
 	return (
 		<main className="landing">
-			<h1 className="lede">
-				<mark>Copy</mark> on this device.
-				<br />
-				Paste on the other.
-			</h1>
-			<p className="colophon mono">Ten seats. The server never reads it.</p>
-			<nav className="stack">
-				<a className="select" href="/login">
-					Use passkey
-				</a>
-				<a href="/join">Join with invite</a>
-				<a href="/recover">Recover with phrase</a>
-			</nav>
-			<DemoLog />
-			<p className="hint">
-				<a href="/enroll">First admin</a>
-			</p>
+			<section className="hero">
+				<motion.div
+					className="hero-copy"
+					initial={hidden}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+				>
+					<h1 className="lede">
+						Copy here.
+						<br />
+						Paste there.
+					</h1>
+					<p className="lead">
+						A private clipboard for ten people. If someone sent you this page, ask them for an
+						invite link.
+					</p>
+					<nav className="stack">
+						<a className="select" href="/login">
+							Continue with passkey
+						</a>
+						<a href="/pair">This is a new device</a>
+					</nav>
+					<p className="hint">
+						I have a code to paste. <a href="/join">Open join</a>
+						<br />
+						Lost every device. <a href="/recover">Use the 12 words</a>
+					</p>
+				</motion.div>
+				<motion.div
+					className="hero-sheet"
+					initial={hidden}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: 0.65, delay: reduce ? 0 : 0.08, ease: [0.16, 1, 0.3, 1] }}
+				>
+					<p className="sheet-label">What it looks like</p>
+					<DemoLog />
+				</motion.div>
+			</section>
 		</main>
 	);
 }

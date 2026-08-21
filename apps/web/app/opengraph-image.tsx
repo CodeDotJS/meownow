@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "meownow — copy on this device. paste on the other.";
+export const alt = "meownow - copy here. paste there.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -8,8 +8,8 @@ export default function OpengraphImage() {
 	return new ImageResponse(
 		<div
 			style={{
-				background: "#F1F2F4",
-				color: "#14161A",
+				background: "#EEF0F3",
+				color: "#17181C",
 				width: "100%",
 				height: "100%",
 				display: "flex",
@@ -21,8 +21,9 @@ export default function OpengraphImage() {
 			<div
 				style={{
 					display: "flex",
-					fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
 					fontSize: 28,
+					fontWeight: 560,
+					letterSpacing: "-0.04em",
 					marginBottom: 48,
 				}}
 			>
@@ -31,31 +32,15 @@ export default function OpengraphImage() {
 			<div
 				style={{
 					display: "flex",
-					flexWrap: "wrap",
+					flexDirection: "column",
 					fontSize: 64,
-					lineHeight: 1.1,
-					letterSpacing: "-0.04em",
-					fontFamily: "sans-serif",
+					lineHeight: 1.05,
+					letterSpacing: "-0.05em",
+					fontWeight: 500,
 				}}
 			>
-				<div
-					style={{ display: "flex", background: "#2C46F0", color: "#FFFFFF", padding: "4px 12px" }}
-				>
-					Copy
-				</div>
-				<div style={{ display: "flex", padding: "4px 8px" }}>on this device.</div>
-			</div>
-			<div
-				style={{
-					display: "flex",
-					fontSize: 64,
-					lineHeight: 1.1,
-					letterSpacing: "-0.04em",
-					marginTop: 8,
-					fontFamily: "sans-serif",
-				}}
-			>
-				Paste on the other.
+				<div style={{ display: "flex" }}>Copy here.</div>
+				<div style={{ display: "flex" }}>Paste there.</div>
 			</div>
 		</div>,
 		{ ...size },

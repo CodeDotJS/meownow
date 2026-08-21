@@ -5,8 +5,8 @@ export default function manifest() {
 		description: "Copy on one device. Paste on the next.",
 		start_url: "/",
 		display: "standalone",
-		background_color: "#f1f2f4",
-		theme_color: "#f1f2f4",
+		background_color: "#eef0f3",
+		theme_color: "#eef0f3",
 		orientation: "any",
 		icons: [
 			{
