@@ -1,5 +1,5 @@
 import { argon2id } from "hash-wasm";
-import { toArrayBuffer } from "./bytes";
+import { concatBytes, toArrayBuffer } from "./bytes";
 import { CryptoFailure } from "./errors";
 import { generateMnemonic, validateMnemonic } from "./mnemonic";
 import { importAesGcmKey, unwrapRawKey, type WrappedKey } from "./wrap";
@@ -34,10 +34,31 @@ export async function deriveRecoveryKey(
 	salt: Uint8Array,
 	params: Argon2Params = ARGON2_PRODUCTION,
 ): Promise<CryptoKey> {
+	const raw = await argon2Raw(mnemonic, salt, params);
+	return importAesGcmKey(toArrayBuffer(raw), false);
+}
+
+export async function recoveryVerifier(
+	mnemonic: string,
+	salt: Uint8Array,
+	params: Argon2Params = ARGON2_PRODUCTION,
+): Promise<Uint8Array> {
+	const raw = await argon2Raw(mnemonic, salt, params);
+	const info = new TextEncoder().encode("meownow-recover-v1");
+	return new Uint8Array(
+		await crypto.subtle.digest("SHA-256", toArrayBuffer(concatBytes(info, raw))),
+	);
+}
+
+async function argon2Raw(
+	mnemonic: string,
+	salt: Uint8Array,
+	params: Argon2Params,
+): Promise<Uint8Array> {
 	if (!(await validateMnemonic(mnemonic))) {
 		throw new CryptoFailure("mnemonic", "recovery phrase checksum failed");
 	}
-	const raw = await argon2id({
+	return argon2id({
 		password: mnemonic,
 		salt,
 		parallelism: params.parallelism,
@@ -46,7 +67,6 @@ export async function deriveRecoveryKey(
 		hashLength: params.hashLength,
 		outputType: "binary",
 	});
-	return importAesGcmKey(toArrayBuffer(raw), false);
 }
 
 export async function recoverVault(input: {
@@ -55,8 +75,29 @@ export async function recoverVault(input: {
 	wrapped: WrappedKey;
 	argon2?: Argon2Params;
 }): Promise<CryptoKey> {
+	return recover(input, false);
+}
+
+export async function recoverExtractableVault(input: {
+	mnemonic: string;
+	salt: Uint8Array;
+	wrapped: WrappedKey;
+	argon2?: Argon2Params;
+}): Promise<CryptoKey> {
+	return recover(input, true);
+}
+
+async function recover(
+	input: {
+		mnemonic: string;
+		salt: Uint8Array;
+		wrapped: WrappedKey;
+		argon2?: Argon2Params;
+	},
+	extractable: boolean,
+): Promise<CryptoKey> {
 	const wrappingKey = await deriveRecoveryKey(input.mnemonic, input.salt, input.argon2);
-	return unwrapRawKey(wrappingKey, input.wrapped, false, [
+	return unwrapRawKey(wrappingKey, input.wrapped, extractable, [
 		"encrypt",
 		"decrypt",
 		"wrapKey",

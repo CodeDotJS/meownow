@@ -1,0 +1,121 @@
+"use client";
+
+import {
+	generateIdentityKeyPair,
+	generateVaultKey,
+	publicJwk,
+	recoverExtractableVault,
+	recoveryVerifier,
+	validateMnemonic,
+	wrapExtractableForDevice,
+	wrapIdentityKey,
+} from "@meownow/crypto";
+import { asPublicJwk } from "@meownow/protocol";
+import { startRegistration } from "@simplewebauthn/browser";
+import { type FormEvent, useState } from "react";
+import { errorCode, postJson } from "@/lib/client/http";
+import { saveVault } from "@/lib/vault/idb";
+import { b64urlToBytes, bytesToB64url, wrapFromWire } from "@/lib/vault/wire";
+
+export default function RecoverPage() {
+	const [handle, setHandle] = useState("");
+	const [phrase, setPhrase] = useState("");
+	const [status, setStatus] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+
+	async function onSubmit(event: FormEvent) {
+		event.preventDefault();
+		setBusy(true);
+		setStatus(null);
+		try {
+			const mnemonic = phrase.trim();
+			if (!(await validateMnemonic(mnemonic))) {
+				setStatus("recovery_invalid");
+				return;
+			}
+			const rec = await postJson("/api/vault/recovery", { handle });
+			if (!rec.ok) {
+				setStatus(errorCode(rec.data));
+				return;
+			}
+			const material = rec.data as {
+				recoverySalt: string;
+				wrappedVaultRecovery: { iv: string; bytes: string };
+			};
+			const salt = b64urlToBytes(material.recoverySalt);
+			const extractable = await recoverExtractableVault({
+				mnemonic,
+				salt,
+				wrapped: wrapFromWire(material.wrappedVaultRecovery),
+			});
+			const deviceKey = await generateVaultKey();
+			const wrappedExtractable = await wrapExtractableForDevice(deviceKey, extractable);
+			const raw = await crypto.subtle.exportKey("raw", extractable);
+			const vaultKey = await crypto.subtle.importKey(
+				"raw",
+				raw,
+				{ name: "AES-GCM", length: 256 },
+				false,
+				["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+			);
+			const identity = await generateIdentityKeyPair();
+			const identityPub = asPublicJwk(await publicJwk(identity.publicKey));
+			const wrappedIdentity = await wrapIdentityKey(vaultKey, identity.privateKey);
+			await saveVault({
+				userId: handle,
+				vaultKey,
+				deviceKey,
+				wrappedExtractable,
+				wrappedIdentity,
+				identityPub,
+			});
+			const optionsRes = await postJson("/api/recovery/register/options", {
+				handle,
+				verifier: bytesToB64url(await recoveryVerifier(mnemonic, salt)),
+				deviceLabel: "this device",
+			});
+			if (!optionsRes.ok) {
+				setStatus(errorCode(optionsRes.data));
+				return;
+			}
+			const payload = optionsRes.data as {
+				options: Parameters<typeof startRegistration>[0]["optionsJSON"];
+			};
+			const credential = await startRegistration({ optionsJSON: payload.options });
+			const verifyRes = await postJson("/api/recovery/register/verify", { credential });
+			if (!verifyRes.ok) {
+				setStatus(errorCode(verifyRes.data));
+				return;
+			}
+			window.location.href = "/";
+		} catch (err) {
+			setStatus(err instanceof Error ? err.message : "recover_failed");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<main>
+			<h1>Recover</h1>
+			<form onSubmit={(event) => void onSubmit(event)}>
+				<label>
+					Handle
+					<input
+						value={handle}
+						onChange={(e) => setHandle(e.target.value)}
+						autoComplete="username"
+					/>
+				</label>
+				<label>
+					Recovery phrase
+					<textarea value={phrase} onChange={(e) => setPhrase(e.target.value)} rows={3} />
+				</label>
+				<button type="submit" disabled={busy}>
+					Recover
+				</button>
+			</form>
+			{status ? <p className="status mono">{status}</p> : null}
+		</main>
+	);
+}

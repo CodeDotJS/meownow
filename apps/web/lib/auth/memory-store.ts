@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { inviteState, seatNumbers } from "@meownow/db";
+import type { ItemCreateRequest } from "@meownow/protocol";
+import type { PairingRecord, StoredItem, VaultRecord, VaultStore } from "../vault/store";
 import type {
 	AdminEnrollCommit,
 	AdminEnrollCommitResult,
@@ -19,7 +21,7 @@ type SeatRow = { seatNo: number; userId: string | null; claimedAt: Date | null }
 
 const ADMIN_ID = "00000000-0000-4000-8000-000000000001";
 
-export class MemoryAuthStore implements AuthStore {
+export class MemoryAuthStore implements AuthStore, VaultStore {
 	users = new Map<string, UserRow>();
 	seats: SeatRow[] = seatNumbers().map((seatNo) => ({
 		seatNo,
@@ -30,6 +32,9 @@ export class MemoryAuthStore implements AuthStore {
 	devices = new Map<string, DeviceRow>();
 	sessions = new Map<string, SessionRow>();
 	audit: Array<{ actorId: string | null; action: string }> = [];
+	vaults = new Map<string, VaultRecord>();
+	pairings = new Map<string, PairingRecord>();
+	items: StoredItem[] = [];
 
 	constructor() {
 		this.users.set(ADMIN_ID, {
@@ -38,6 +43,7 @@ export class MemoryAuthStore implements AuthStore {
 			displayName: "Rishi",
 			role: "admin",
 			canUpload: true,
+			hasVault: false,
 			suspendedAt: null,
 		});
 		const seat = this.seats[0];
@@ -171,6 +177,7 @@ export class MemoryAuthStore implements AuthStore {
 			displayName: input.displayName,
 			role: "member",
 			canUpload: false,
+			hasVault: false,
 			suspendedAt: null,
 		});
 		seat.userId = input.userId;
@@ -215,6 +222,98 @@ export class MemoryAuthStore implements AuthStore {
 
 	async insertAudit(input: { actorId: string | null; action: string }): Promise<void> {
 		this.audit.push({ actorId: input.actorId, action: input.action });
+	}
+
+	async getVault(userId: string): Promise<VaultRecord | null> {
+		return this.vaults.get(userId) ?? null;
+	}
+
+	async saveVault(userId: string, vault: VaultRecord): Promise<"ok" | "vault_exists"> {
+		if (this.vaults.has(userId)) {
+			return "vault_exists";
+		}
+		this.vaults.set(userId, vault);
+		const user = this.users.get(userId);
+		if (user) {
+			user.hasVault = true;
+		}
+		return "ok";
+	}
+
+	async getVaultByHandle(handle: string): Promise<{ userId: string; vault: VaultRecord } | null> {
+		const user = await this.getUserByHandle(handle);
+		if (!user) {
+			return null;
+		}
+		const vault = this.vaults.get(user.id);
+		if (!vault) {
+			return null;
+		}
+		return { userId: user.id, vault };
+	}
+
+	async createPairing(input: {
+		id: string;
+		publicJwk: PairingRecord["publicJwk"];
+		expiresAt: Date;
+		now: Date;
+	}): Promise<void> {
+		this.pairings.set(input.id, {
+			id: input.id,
+			userId: null,
+			publicJwk: input.publicJwk,
+			wrap: null,
+			fingerprint: "",
+			expiresAt: input.expiresAt,
+			createdAt: input.now,
+		});
+	}
+
+	async getPairing(id: string): Promise<PairingRecord | null> {
+		return this.pairings.get(id) ?? null;
+	}
+
+	async savePairingWrap(input: {
+		id: string;
+		userId: string;
+		wrap: NonNullable<PairingRecord["wrap"]>;
+		now: Date;
+	}): Promise<"ok" | "missing" | "complete"> {
+		const row = this.pairings.get(input.id);
+		if (!row) {
+			return "missing";
+		}
+		if (row.wrap) {
+			return "complete";
+		}
+		row.userId = input.userId;
+		row.wrap = input.wrap;
+		row.fingerprint = input.wrap.fingerprint;
+		return "ok";
+	}
+
+	async deletePairing(id: string): Promise<void> {
+		this.pairings.delete(id);
+	}
+
+	async createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void> {
+		this.items.push({ ...item, ownerId, createdAt: now });
+	}
+
+	async listItems(ownerId: string): Promise<StoredItem[]> {
+		return this.items
+			.filter((item) => item.ownerId === ownerId)
+			.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+	}
+
+	async addDeviceAndSession(input: {
+		userId: string;
+		now: Date;
+		device: RegistrationCommit["device"];
+		session: RegistrationCommit["session"];
+	}): Promise<void> {
+		this.addDevice(input.userId, input.device);
+		this.addSession(input.device.id, input.session, input.now);
 	}
 
 	private addDevice(userId: string, device: RegistrationCommit["device"]): void {

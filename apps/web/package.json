@@ -12,6 +12,7 @@
 	},
 	"dependencies": {
 		"@meownow/config": "workspace:*",
+		"@meownow/crypto": "workspace:*",
 		"@meownow/db": "workspace:*",
 		"@meownow/protocol": "workspace:*",
 		"@meownow/ui": "workspace:*",

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { decrypt, encrypt } from "./aead";
-import { ARGON2_TEST, recoverVault, validateMnemonic } from "./recovery";
+import { ARGON2_TEST, recoverVault, recoveryVerifier, validateMnemonic } from "./recovery";
 import { createVault } from "./vault";
 
 const aad = { itemId: "cccccccc-cccc-cccc-cccc-cccccccccccc", kind: "link" as const };
@@ -41,4 +41,15 @@ test("wrong recovery phrase cannot unwrap the vault", async () => {
 			argon2: ARGON2_TEST,
 		}),
 	).rejects.toThrow();
+});
+
+test("recovery verifier matches only the originating phrase", async () => {
+	const vault = await createVault({ argon2: ARGON2_TEST });
+	const other = await createVault({ argon2: ARGON2_TEST });
+	const verifier = await recoveryVerifier(vault.mnemonic, vault.recoverySalt, ARGON2_TEST);
+	const again = await recoveryVerifier(vault.mnemonic, vault.recoverySalt, ARGON2_TEST);
+	expect(verifier).toEqual(again);
+	expect(verifier).not.toEqual(
+		await recoveryVerifier(other.mnemonic, vault.recoverySalt, ARGON2_TEST),
+	);
 });

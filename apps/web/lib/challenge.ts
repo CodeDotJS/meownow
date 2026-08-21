@@ -5,7 +5,7 @@ export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
 export const challengePayloadSchema = z.object({
 	v: z.literal(1),
-	purpose: z.enum(["register", "login", "admin_enroll"]),
+	purpose: z.enum(["register", "login", "admin_enroll", "pairing_enroll", "recovery_enroll"]),
 	challenge: z.string().min(1),
 	exp: z.number(),
 	userId: z.string().uuid().optional(),
@@ -13,6 +13,7 @@ export const challengePayloadSchema = z.object({
 	displayName: z.string().optional(),
 	deviceLabel: z.string().optional(),
 	inviteTokenHash: z.string().optional(),
+	pairingId: z.string().uuid().optional(),
 });
 
 export type ChallengePayload = z.infer<typeof challengePayloadSchema>;

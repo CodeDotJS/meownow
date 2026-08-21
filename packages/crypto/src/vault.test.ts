@@ -1,7 +1,21 @@
 import { expect, test } from "vitest";
 import { decrypt, encrypt } from "./aead";
+import {
+	generatePairingKeyPair,
+	publicJwk,
+	unwrapVaultFromPairing,
+	wrapVaultForPairing,
+} from "./pairing";
 import { ARGON2_TEST } from "./recovery";
-import { createVault, generateFileKey, unwrapFileKey, wrapFileKey } from "./vault";
+import {
+	createVault,
+	generateFileKey,
+	generateVaultKey,
+	unwrapExtractableForPairing,
+	unwrapFileKey,
+	wrapExtractableForDevice,
+	wrapFileKey,
+} from "./vault";
 
 const aad = { itemId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", kind: "text" as const };
 
@@ -29,4 +43,18 @@ test("a different vault cannot unwrap a FileKey", async () => {
 	const fileKey = await generateFileKey();
 	const wrapped = await wrapFileKey(a.vaultKey, fileKey);
 	await expect(unwrapFileKey(b.vaultKey, wrapped)).rejects.toThrow();
+});
+
+test("device wrap drops the live extractable handle and still pairs", async () => {
+	const vault = await createVault({ argon2: ARGON2_TEST });
+	const sealed = await encrypt(vault.vaultKey, new TextEncoder().encode("across"), aad);
+	const deviceKey = await generateVaultKey();
+	const wrapped = await wrapExtractableForDevice(deviceKey, vault.extractableVaultKey);
+	const extractable = await unwrapExtractableForPairing(deviceKey, wrapped);
+	expect(extractable.extractable).toBe(true);
+	const newDevice = await generatePairingKeyPair();
+	const payload = await wrapVaultForPairing(extractable, await publicJwk(newDevice.publicKey));
+	const imported = await unwrapVaultFromPairing(newDevice.privateKey, payload);
+	expect(imported.extractable).toBe(false);
+	expect(new TextDecoder().decode(await decrypt(imported, sealed, aad))).toBe("across");
 });

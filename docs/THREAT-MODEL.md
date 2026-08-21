@@ -20,4 +20,14 @@ Passkeys are origin-bound discoverable credentials. There is no password. Invite
 
 The 10-seat cap is a `FOR UPDATE SKIP LOCKED` claim, not a `COUNT(*)`. Zero rows means full.
 
-The seeded admin has no passkey. First enroll is invite-less and gated by `ADMIN_ENROLL_SECRET`. Anyone who knows that secret can bind the first admin device; after a device exists the route is closed. Vault generation and recovery phrase remain milestone 3.
+The seeded admin has no passkey. First enroll is invite-less and gated by `ADMIN_ENROLL_SECRET`. Anyone who knows that secret can bind the first admin device; after a device exists the route is closed.
+
+## Vault and pairing (milestone 3)
+
+`createVault()` wraps recovery while the key is extractable, then imports a non-extractable working copy. Each browser stores a device-local wrapping key in IndexedDB and a device-wrapped extractable clone so a later pairing wrap can proceed without keeping extractable material in RAM.
+
+Pairing: the new device creates a 5-minute session with its ephemeral ECDH public JWK (no login yet — `pairing_sessions.user_id` is null until wrap). The enrolled device wraps VaultKey plus a vault-wrapped identity private key, shows a 6-digit fingerprint of the ECDH shared secret, and posts the blob only after the user confirms. The new device computes the same fingerprint locally and does not unwrap until the numbers match. The server cannot MITM silently. After unwrap, the new device enrolls a passkey onto the existing user (no extra seat).
+
+Recovery: Argon2id over the 12-word phrase unwraps `wrapped_vault_recovery`. A phrase-derived verifier hash (`recovery_verifier_hash`) lets a lost-all-devices client prove possession without giving the server VaultKey. Total-loss recovery rotates the identity key because identity private has no server column.
+
+Items in this milestone are ciphertext-only create/list so a second device can fetch and decrypt. Live fan-out is milestone 4.

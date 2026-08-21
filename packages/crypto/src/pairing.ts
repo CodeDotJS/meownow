@@ -52,8 +52,28 @@ export async function unwrapVaultFromPairing(
 	newDevicePrivateKey: CryptoKey,
 	payload: PairingWrap,
 ): Promise<CryptoKey> {
+	return unwrapPairing(newDevicePrivateKey, payload, false);
+}
+
+export async function unwrapExtractableFromPairing(
+	newDevicePrivateKey: CryptoKey,
+	payload: PairingWrap,
+): Promise<CryptoKey> {
+	return unwrapPairing(newDevicePrivateKey, payload, true);
+}
+
+async function unwrapPairing(
+	newDevicePrivateKey: CryptoKey,
+	payload: PairingWrap,
+	extractable: boolean,
+): Promise<CryptoKey> {
 	const ephPub = await importEcdhPublic(payload.ephPublicJwk);
 	const ikm = await ecdhBits(newDevicePrivateKey, ephPub);
 	const wrappingKey = await hkdfAesGcmKey(ikm, HKDF_INFO_PAIRING);
-	return unwrapRawKey(wrappingKey, payload, false, ["encrypt", "decrypt", "wrapKey", "unwrapKey"]);
+	return unwrapRawKey(wrappingKey, payload, extractable, [
+		"encrypt",
+		"decrypt",
+		"wrapKey",
+		"unwrapKey",
+	]);
 }

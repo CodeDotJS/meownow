@@ -29,5 +29,7 @@ export function readU32be(bytes: Uint8Array): number {
 }
 
 export function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-	return bytes.slice().buffer;
+	const copy = new Uint8Array(bytes.byteLength);
+	copy.set(bytes);
+	return copy.buffer;
 }

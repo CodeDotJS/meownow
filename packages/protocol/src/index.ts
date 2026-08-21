@@ -39,3 +39,28 @@ export {
 	webAuthnAuthenticationResponseSchema,
 	webAuthnRegistrationResponseSchema,
 } from "./http";
+export type {
+	ItemCreateRequest,
+	PairingQr,
+	PairingStartRequest,
+	PairingWrapRequest,
+	PublicJwk,
+	VaultPutRequest,
+	WrappedKeyWire,
+} from "./vault";
+export {
+	asPublicJwk,
+	itemCreateRequestSchema,
+	itemListResponseSchema,
+	PAIRING_TTL_MS,
+	pairingGetResponseSchema,
+	pairingQrSchema,
+	pairingStartRequestSchema,
+	pairingWrapRequestSchema,
+	publicJwkSchema,
+	TEXT_TTL_MS,
+	vaultPutRequestSchema,
+	vaultRecoveryRequestSchema,
+	vaultRecoveryResponseSchema,
+	wrappedKeyWireSchema,
+} from "./vault";

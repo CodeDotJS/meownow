@@ -23,16 +23,26 @@ export {
 	generatePairingKeyPair,
 	type PairingWrap,
 	publicJwk,
+	unwrapExtractableFromPairing,
 	unwrapVaultFromPairing,
 	wrapVaultForPairing,
 } from "./pairing";
-export { ARGON2_PRODUCTION, ARGON2_TEST, recoverVault, validateMnemonic } from "./recovery";
+export {
+	ARGON2_PRODUCTION,
+	ARGON2_TEST,
+	recoverExtractableVault,
+	recoverVault,
+	recoveryVerifier,
+	validateMnemonic,
+} from "./recovery";
 export {
 	createVault,
 	generateFileKey,
 	generateVaultKey,
+	unwrapExtractableForPairing,
 	unwrapFileKey,
 	type Vault,
+	wrapExtractableForDevice,
 	wrapFileKey,
 } from "./vault";
 export type { WrappedKey } from "./wrap";

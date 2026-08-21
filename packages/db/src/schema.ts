@@ -45,6 +45,7 @@ export const users = pgTable("users", {
 	identityPub: jsonb("identity_pub"),
 	wrappedVaultRecovery: bytea("wrapped_vault_recovery"),
 	recoverySalt: bytea("recovery_salt"),
+	recoveryVerifierHash: bytea("recovery_verifier_hash"),
 	suspendedAt: timestamp("suspended_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -166,12 +167,10 @@ export const uploadRequests = pgTable(
 
 export const pairingSessions = pgTable("pairing_sessions", {
 	id: uuid("id").primaryKey().defaultRandom(),
-	userId: uuid("user_id")
-		.notNull()
-		.references(() => users.id, { onDelete: "cascade" }),
+	userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
 	newDevicePub: jsonb("new_device_pub").notNull(),
 	wrappedVault: bytea("wrapped_vault"),
-	fingerprint: text("fingerprint").notNull(),
+	fingerprint: text("fingerprint").notNull().default(""),
 	expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

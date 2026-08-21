@@ -374,10 +374,12 @@ export class AuthService {
 		await this.store.touchSession(ctx.session.tokenHash, expiresAt, now);
 		return {
 			profile: {
+				id: ctx.user.id,
 				handle: ctx.user.handle,
 				displayName: ctx.user.displayName,
 				role: ctx.user.role,
 				canUpload: ctx.user.canUpload,
+				hasVault: ctx.user.hasVault,
 			},
 			sessionToken: sessionToken ?? "",
 		};

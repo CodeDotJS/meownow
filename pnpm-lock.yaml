@@ -42,6 +42,9 @@ importers:
       '@meownow/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@meownow/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@meownow/db':
         specifier: workspace:*
         version: link:../../packages/db

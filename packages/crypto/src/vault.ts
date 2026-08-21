@@ -49,3 +49,17 @@ export async function createVault(options?: { argon2?: Argon2Params }): Promise<
 		wrappedVaultRecovery,
 	};
 }
+
+export async function wrapExtractableForDevice(
+	deviceKey: CryptoKey,
+	extractableVaultKey: CryptoKey,
+): Promise<WrappedKey> {
+	return wrapRawKey(deviceKey, extractableVaultKey);
+}
+
+export async function unwrapExtractableForPairing(
+	deviceKey: CryptoKey,
+	wrapped: WrappedKey,
+): Promise<CryptoKey> {
+	return unwrapRawKey(deviceKey, wrapped, true, VAULT_USAGES);
+}

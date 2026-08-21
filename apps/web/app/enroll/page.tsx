@@ -34,7 +34,7 @@ export default function EnrollPage() {
 				setStatus(errorCode(verifyRes.data));
 				return;
 			}
-			window.location.href = "/";
+			window.location.href = "/setup";
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "passkey_failed");
 		} finally {

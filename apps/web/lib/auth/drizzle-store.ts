@@ -7,10 +7,19 @@ import {
 	devices,
 	inviteState,
 	invites,
+	items,
+	pairingSessions,
 	sessions,
 	users,
 } from "@meownow/db";
+import type {
+	ItemCreateRequest,
+	PairingWrapRequest,
+	PublicJwk,
+	WrappedKeyWire,
+} from "@meownow/protocol";
 import { eq } from "drizzle-orm";
+import type { PairingRecord, StoredItem, VaultRecord, VaultStore } from "../vault/store";
 import type {
 	AdminEnrollCommit,
 	AdminEnrollCommitResult,
@@ -33,6 +42,7 @@ function mapUser(row: typeof users.$inferSelect): UserRow {
 		displayName: row.displayName,
 		role: row.role,
 		canUpload: row.canUpload,
+		hasVault: row.wrappedVaultRecovery !== null,
 		suspendedAt: row.suspendedAt,
 	};
 }
@@ -51,7 +61,7 @@ function mapInvite(row: typeof invites.$inferSelect): InviteRow {
 	};
 }
 
-export class DrizzleAuthStore implements AuthStore {
+export class DrizzleAuthStore implements AuthStore, VaultStore {
 	constructor(private readonly connectionString: string) {}
 
 	private async withDb<T>(fn: (db: AppDatabase) => Promise<T>): Promise<T> {
@@ -345,6 +355,183 @@ export class DrizzleAuthStore implements AuthStore {
 			});
 		});
 	}
+
+	async getVault(userId: string): Promise<VaultRecord | null> {
+		return this.withDb(async (db) => {
+			const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+			const row = rows[0];
+			return row ? vaultFromUser(row) : null;
+		});
+	}
+
+	async saveVault(userId: string, vault: VaultRecord): Promise<"ok" | "vault_exists"> {
+		return this.withDb(async (db) => {
+			const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+			const row = rows[0];
+			if (!row) {
+				throw new Error("user missing");
+			}
+			if (row.wrappedVaultRecovery) {
+				return "vault_exists" as const;
+			}
+			await db
+				.update(users)
+				.set({
+					identityPub: vault.identityPub,
+					wrappedVaultRecovery: wireToBytes(vault.wrappedVaultRecovery),
+					recoverySalt: Buffer.from(vault.recoverySalt, "base64url"),
+					recoveryVerifierHash: vault.recoveryVerifierHash,
+				})
+				.where(eq(users.id, userId));
+			return "ok" as const;
+		});
+	}
+
+	async getVaultByHandle(handle: string): Promise<{ userId: string; vault: VaultRecord } | null> {
+		return this.withDb(async (db) => {
+			const rows = await db.select().from(users).where(eq(users.handle, handle)).limit(1);
+			const row = rows[0];
+			const vault = row ? vaultFromUser(row) : null;
+			if (!row || !vault) {
+				return null;
+			}
+			return { userId: row.id, vault };
+		});
+	}
+
+	async createPairing(input: {
+		id: string;
+		publicJwk: PublicJwk;
+		expiresAt: Date;
+		now: Date;
+	}): Promise<void> {
+		await this.withDb(async (db) => {
+			await db.insert(pairingSessions).values({
+				id: input.id,
+				newDevicePub: input.publicJwk,
+				fingerprint: "",
+				expiresAt: input.expiresAt,
+				createdAt: input.now,
+			});
+		});
+	}
+
+	async getPairing(id: string): Promise<PairingRecord | null> {
+		return this.withDb(async (db) => {
+			const rows = await db
+				.select()
+				.from(pairingSessions)
+				.where(eq(pairingSessions.id, id))
+				.limit(1);
+			const row = rows[0];
+			if (!row) {
+				return null;
+			}
+			return {
+				id: row.id,
+				userId: row.userId,
+				publicJwk: row.newDevicePub as PublicJwk,
+				wrap: row.wrappedVault
+					? (JSON.parse(row.wrappedVault.toString("utf8")) as PairingWrapRequest)
+					: null,
+				fingerprint: row.fingerprint,
+				expiresAt: row.expiresAt,
+				createdAt: row.createdAt,
+			};
+		});
+	}
+
+	async savePairingWrap(input: {
+		id: string;
+		userId: string;
+		wrap: PairingWrapRequest;
+		now: Date;
+	}): Promise<"ok" | "missing" | "complete"> {
+		return this.withDb(async (db) => {
+			const rows = await db
+				.select()
+				.from(pairingSessions)
+				.where(eq(pairingSessions.id, input.id))
+				.limit(1);
+			const row = rows[0];
+			if (!row) {
+				return "missing" as const;
+			}
+			if (row.wrappedVault) {
+				return "complete" as const;
+			}
+			await db
+				.update(pairingSessions)
+				.set({
+					userId: input.userId,
+					wrappedVault: Buffer.from(JSON.stringify(input.wrap), "utf8"),
+					fingerprint: input.wrap.fingerprint,
+				})
+				.where(eq(pairingSessions.id, input.id));
+			return "ok" as const;
+		});
+	}
+
+	async deletePairing(id: string): Promise<void> {
+		await this.withDb(async (db) => {
+			await db.delete(pairingSessions).where(eq(pairingSessions.id, id));
+		});
+	}
+
+	async createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void> {
+		await this.withDb(async (db) => {
+			await db.insert(items).values({
+				id: item.id,
+				ownerId,
+				kind: item.kind,
+				ciphertext: Buffer.from(item.ciphertext, "base64url"),
+				metaCiphertext: Buffer.from(item.metaCiphertext, "base64url"),
+				iv: Buffer.from(item.iv, "base64url"),
+				byteSize: item.byteSize,
+				expiresAt: new Date(item.expiresAt),
+				createdAt: now,
+			});
+		});
+	}
+
+	async listItems(ownerId: string): Promise<StoredItem[]> {
+		return this.withDb(async (db) => {
+			const rows = await db.select().from(items).where(eq(items.ownerId, ownerId));
+			return rows
+				.map((row) => ({
+					id: row.id,
+					kind: row.kind as ItemCreateRequest["kind"],
+					ciphertext: (row.ciphertext ?? Buffer.alloc(0)).toString("base64url"),
+					metaCiphertext: row.metaCiphertext.toString("base64url"),
+					iv: row.iv.toString("base64url"),
+					byteSize: row.byteSize,
+					expiresAt: row.expiresAt.toISOString(),
+					ownerId: row.ownerId,
+					createdAt: row.createdAt,
+				}))
+				.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+		});
+	}
+
+	async addDeviceAndSession(input: {
+		userId: string;
+		now: Date;
+		device: RegistrationCommit["device"];
+		session: RegistrationCommit["session"];
+	}): Promise<void> {
+		await this.withDb((db) =>
+			db.transaction(async (tx) => {
+				await insertDevice(tx, input.userId, input.device);
+				await tx.insert(sessions).values({
+					tokenHash: input.session.tokenHash,
+					deviceId: input.device.id,
+					expiresAt: input.session.expiresAt,
+					createdAt: input.now,
+					lastUsed: input.now,
+				});
+			}),
+		);
+	}
 }
 
 class SeatFullRollback extends Error {
@@ -370,4 +557,29 @@ async function insertDevice(
 		aaguid: device.aaguid,
 		backedUp: device.backedUp,
 	});
+}
+
+function wireToBytes(wire: WrappedKeyWire): Buffer {
+	return Buffer.from(JSON.stringify(wire), "utf8");
+}
+
+function bytesToWire(value: Buffer): WrappedKeyWire {
+	return JSON.parse(value.toString("utf8")) as WrappedKeyWire;
+}
+
+function vaultFromUser(row: typeof users.$inferSelect): VaultRecord | null {
+	if (
+		!row.wrappedVaultRecovery ||
+		!row.recoverySalt ||
+		!row.recoveryVerifierHash ||
+		!row.identityPub
+	) {
+		return null;
+	}
+	return {
+		identityPub: row.identityPub as PublicJwk,
+		wrappedVaultRecovery: bytesToWire(row.wrappedVaultRecovery),
+		recoverySalt: row.recoverySalt.toString("base64url"),
+		recoveryVerifierHash: row.recoveryVerifierHash,
+	};
 }

@@ -18,6 +18,7 @@ export type UserRow = {
 	displayName: string;
 	role: UserRole;
 	canUpload: boolean;
+	hasVault: boolean;
 	suspendedAt: Date | null;
 };
 

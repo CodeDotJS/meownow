@@ -1,13 +1,21 @@
 import type { WebEnv } from "@meownow/config/env";
 import {
 	adminEnrollOptionsRequestSchema,
+	deviceLabelSchema,
 	type ErrorCode,
 	errorEnvelopeSchema,
+	handleSchema,
 	inviteCreateRequestSchema,
+	itemCreateRequestSchema,
 	loginVerifyRequestSchema,
+	pairingStartRequestSchema,
+	pairingWrapRequestSchema,
 	registerOptionsRequestSchema,
 	registerVerifyRequestSchema,
+	vaultPutRequestSchema,
+	vaultRecoveryRequestSchema,
 } from "@meownow/protocol";
+import { z } from "zod";
 import {
 	CHALLENGE_COOKIE,
 	challengeCookieOptions,
@@ -18,19 +26,28 @@ import {
 	sessionCookieOptions,
 } from "../cookies";
 import { originAllowed } from "../origin";
+import { VaultService } from "../vault/service";
+import type { VaultStore } from "../vault/store";
 import { AuthService } from "./service";
 import { AuthError, type AuthStore } from "./store";
 import { toAuthenticationResponse, toRegistrationResponse, type WebAuthnPort } from "./webauthn";
 
 export type HandlerDeps = {
 	env: WebEnv;
-	store: AuthStore;
+	store: AuthStore & VaultStore;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
 
 export function createHandlers(deps: HandlerDeps) {
 	const auth = new AuthService(deps);
+	const vault = new VaultService({
+		env: deps.env,
+		auth: deps.store,
+		vault: deps.store,
+		webauthn: deps.webauthn,
+		now: deps.now,
+	});
 
 	return {
 		postInvite: (request: Request) =>
@@ -105,6 +122,74 @@ export function createHandlers(deps: HandlerDeps) {
 					serializeCookie(SESSION_COOKIE, result.sessionToken, sessionCookieOptions()),
 				]);
 			}),
+		putVault: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, vaultPutRequestSchema);
+				await vault.putVault(sid(request), body);
+				return json({ ok: true });
+			}),
+		postVaultRecovery: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, vaultRecoveryRequestSchema);
+				return json(await vault.getRecovery(body.handle));
+			}),
+		postPairing: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, pairingStartRequestSchema);
+				return json(await vault.startPairing(body.publicJwk));
+			}),
+		getPairing: (_request: Request, id: string) =>
+			run(async () => json(await vault.getPairing(id))),
+		postPairingWrap: (request: Request, id: string) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, pairingWrapRequestSchema);
+				await vault.postWrap(sid(request), id, body);
+				return json({ ok: true });
+			}),
+		postPairingRegisterOptions: (request: Request, id: string) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, z.object({ deviceLabel: deviceLabelSchema }));
+				const result = await vault.pairingRegisterOptions(id, body.deviceLabel);
+				return json({ options: result.options }, [challengeSet(result.challenge)]);
+			}),
+		postPairingRegisterVerify: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, registerVerifyRequestSchema);
+				const result = await vault.pairingRegisterVerify(
+					toRegistrationResponse(body.credential),
+					wn(request),
+				);
+				return signedIn(result.handle, result.sessionToken);
+			}),
+		postRecoveryRegisterOptions: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(
+					request,
+					z.object({
+						handle: handleSchema,
+						verifier: z.string().min(1),
+						deviceLabel: deviceLabelSchema,
+					}),
+				);
+				const result = await vault.recoveryRegisterOptions(body);
+				return json({ options: result.options }, [challengeSet(result.challenge)]);
+			}),
+		postRecoveryRegisterVerify: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, registerVerifyRequestSchema);
+				const result = await vault.recoveryRegisterVerify(
+					toRegistrationResponse(body.credential),
+					wn(request),
+				);
+				return signedIn(result.handle, result.sessionToken);
+			}),
+		postItem: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, itemCreateRequestSchema);
+				await vault.createItem(sid(request), body);
+				return json({ ok: true });
+			}),
+		getItems: (request: Request) => run(async () => json(await vault.listItems(sid(request)))),
 	};
 }
 

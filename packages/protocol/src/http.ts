@@ -16,6 +16,13 @@ export const errorCodeSchema = z.enum([
 	"admin_enrolled",
 	"suspended",
 	"device_revoked",
+	"vault_exists",
+	"vault_missing",
+	"pairing_expired",
+	"pairing_missing",
+	"pairing_complete",
+	"recovery_invalid",
+	"item_invalid",
 ]);
 
 export const errorEnvelopeSchema = z.object({
@@ -118,10 +125,12 @@ export const okHandleResponseSchema = z.object({
 });
 
 export const meResponseSchema = z.object({
+	id: z.string().uuid(),
 	handle: z.string(),
 	displayName: z.string(),
 	role: z.enum(["admin", "member"]),
 	canUpload: z.boolean(),
+	hasVault: z.boolean(),
 });
 
 export const logoutResponseSchema = z.object({
