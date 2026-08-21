@@ -52,6 +52,7 @@ export {
 	asPublicJwk,
 	itemCreateRequestSchema,
 	itemListResponseSchema,
+	itemRecordSchema,
 	PAIRING_TTL_MS,
 	pairingGetResponseSchema,
 	pairingQrSchema,
@@ -64,3 +65,13 @@ export {
 	vaultRecoveryResponseSchema,
 	wrappedKeyWireSchema,
 } from "./vault";
+export type { HubTicket, WsEnvelope } from "./ws";
+export {
+	HUB_FANOUT_TTL_MS,
+	HUB_WS_TTL_MS,
+	mintHubTicket,
+	openHubTicket,
+	TEXT_CIPHERTEXT_MAX_BYTES,
+	TEXT_PLAIN_MAX_BYTES,
+	wsEnvelopeSchema,
+} from "./ws";

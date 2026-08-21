@@ -23,6 +23,8 @@ export const errorCodeSchema = z.enum([
 	"pairing_complete",
 	"recovery_invalid",
 	"item_invalid",
+	"item_expired",
+	"hub_unconfigured",
 ]);
 
 export const errorEnvelopeSchema = z.object({

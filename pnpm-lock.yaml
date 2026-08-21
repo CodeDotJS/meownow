@@ -23,6 +23,9 @@ importers:
       '@meownow/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@meownow/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 5.20260821.1

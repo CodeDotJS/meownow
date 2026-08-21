@@ -26,6 +26,7 @@ import {
 	sessionCookieOptions,
 } from "../cookies";
 import { originAllowed } from "../origin";
+import type { HubPort } from "../vault/hub";
 import { VaultService } from "../vault/service";
 import type { VaultStore } from "../vault/store";
 import { AuthService } from "./service";
@@ -35,6 +36,7 @@ import { toAuthenticationResponse, toRegistrationResponse, type WebAuthnPort } f
 export type HandlerDeps = {
 	env: WebEnv;
 	store: AuthStore & VaultStore;
+	hub?: HubPort;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
@@ -45,6 +47,7 @@ export function createHandlers(deps: HandlerDeps) {
 		env: deps.env,
 		auth: deps.store,
 		vault: deps.store,
+		hub: deps.hub,
 		webauthn: deps.webauthn,
 		now: deps.now,
 	});
@@ -190,6 +193,12 @@ export function createHandlers(deps: HandlerDeps) {
 				return json({ ok: true });
 			}),
 		getItems: (request: Request) => run(async () => json(await vault.listItems(sid(request)))),
+		deleteItem: (request: Request, id: string) =>
+			mutating(request, deps.env, async () => {
+				await vault.deleteItem(sid(request), id);
+				return json({ ok: true });
+			}),
+		getHubTicket: (request: Request) => run(async () => json(await vault.hubTicket(sid(request)))),
 	};
 }
 

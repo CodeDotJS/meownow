@@ -18,7 +18,7 @@ import type {
 	PublicJwk,
 	WrappedKeyWire,
 } from "@meownow/protocol";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { PairingRecord, StoredItem, VaultRecord, VaultStore } from "../vault/store";
 import type {
 	AdminEnrollCommit,
@@ -510,6 +510,16 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 					createdAt: row.createdAt,
 				}))
 				.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+		});
+	}
+
+	async deleteItem(ownerId: string, id: string): Promise<boolean> {
+		return this.withDb(async (db) => {
+			const deleted = await db
+				.delete(items)
+				.where(and(eq(items.id, id), eq(items.ownerId, ownerId)))
+				.returning({ id: items.id });
+			return deleted.length > 0;
 		});
 	}
 

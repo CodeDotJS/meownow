@@ -306,6 +306,12 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 	}
 
+	async deleteItem(ownerId: string, id: string): Promise<boolean> {
+		const before = this.items.length;
+		this.items = this.items.filter((item) => !(item.ownerId === ownerId && item.id === id));
+		return this.items.length < before;
+	}
+
 	async addDeviceAndSession(input: {
 		userId: string;
 		now: Date;

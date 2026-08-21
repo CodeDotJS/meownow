@@ -8,24 +8,30 @@ import {
 	toBase64Url,
 	uuidToBytes,
 } from "@meownow/db";
-import type {
-	ItemCreateRequest,
-	PairingWrapRequest,
-	PublicJwk,
-	VaultPutRequest,
+import {
+	HUB_WS_TTL_MS,
+	type ItemCreateRequest,
+	mintHubTicket,
+	PAIRING_TTL_MS,
+	type PairingWrapRequest,
+	type PublicJwk,
+	TEXT_CIPHERTEXT_MAX_BYTES,
+	TEXT_TTL_MS,
+	type VaultPutRequest,
 } from "@meownow/protocol";
-import { PAIRING_TTL_MS } from "@meownow/protocol";
-import { AuthError, type AuthStore } from "../auth/store";
+import { AuthError, type AuthStore, type SessionContext } from "../auth/store";
 import type { RegistrationResponseJSON } from "../auth/webauthn";
 import { defaultWebAuthn, type WebAuthnPort } from "../auth/webauthn";
 import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } from "../challenge";
 import { rpFromAppUrl } from "../env";
+import { type HubPort, silentHub } from "./hub";
 import type { VaultStore } from "./store";
 
 export type VaultServiceOptions = {
 	env: WebEnv;
 	auth: AuthStore;
 	vault: VaultStore;
+	hub?: HubPort;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
@@ -34,6 +40,7 @@ export class VaultService {
 	private readonly env: WebEnv;
 	private readonly auth: AuthStore;
 	private readonly vault: VaultStore;
+	private readonly hub: HubPort;
 	private readonly webauthn: WebAuthnPort;
 	private readonly now: () => Date;
 	private readonly rp: { origin: string; rpID: string; rpName: string };
@@ -42,6 +49,7 @@ export class VaultService {
 		this.env = opts.env;
 		this.auth = opts.auth;
 		this.vault = opts.vault;
+		this.hub = opts.hub ?? silentHub();
 		this.webauthn = opts.webauthn ?? defaultWebAuthn;
 		this.now = opts.now ?? (() => new Date());
 		this.rp = rpFromAppUrl(opts.env.APP_URL);
@@ -115,18 +123,50 @@ export class VaultService {
 		if (!user.hasVault) {
 			throw new AuthError("vault_missing", 409);
 		}
-		await this.vault.createItem(user.id, item, this.now());
+		const now = this.now();
+		this.assertLiveItem(item, now);
+		await this.vault.createItem(user.id, item, now);
+		const record = { ...item, createdAt: now.toISOString() };
+		await this.hub.publish(user.id, { v: 1, type: "item.created", item: record });
+		return record;
 	}
 
 	async listItems(sessionToken: string | undefined) {
 		const user = await this.requireUser(sessionToken);
+		const now = this.now().getTime();
 		const rows = await this.vault.listItems(user.id);
 		return {
-			items: rows.map(({ ownerId: _ownerId, ...item }) => ({
-				...item,
-				createdAt: item.createdAt.toISOString(),
-			})),
+			items: rows
+				.filter((item) => Date.parse(item.expiresAt) > now)
+				.map(({ ownerId: _ownerId, ...item }) => ({
+					...item,
+					createdAt: item.createdAt.toISOString(),
+				})),
 		};
+	}
+
+	async deleteItem(sessionToken: string | undefined, id: string) {
+		const user = await this.requireUser(sessionToken);
+		const ok = await this.vault.deleteItem(user.id, id);
+		if (!ok) {
+			throw new AuthError("item_invalid", 404);
+		}
+		await this.hub.publish(user.id, { v: 1, type: "item.deleted", id });
+	}
+
+	async hubTicket(sessionToken: string | undefined) {
+		if (!this.env.HUB_SECRET || !this.env.EDGE_URL) {
+			throw new AuthError("hub_unconfigured", 503);
+		}
+		const ctx = await this.requireCtx(sessionToken);
+		const ticket = await mintHubTicket(this.env.HUB_SECRET, {
+			v: 1,
+			purpose: "ws",
+			userId: ctx.user.id,
+			deviceId: ctx.device.id,
+			exp: this.now().getTime() + HUB_WS_TTL_MS,
+		});
+		return { ticket, url: `${this.env.EDGE_URL.replace(/\/$/, "")}/ws` };
 	}
 
 	async pairingRegisterOptions(pairingId: string, deviceLabel: string) {
@@ -280,6 +320,10 @@ export class VaultService {
 	}
 
 	private async requireUser(sessionToken: string | undefined) {
+		return (await this.requireCtx(sessionToken)).user;
+	}
+
+	private async requireCtx(sessionToken: string | undefined): Promise<SessionContext> {
 		if (!sessionToken) {
 			throw new AuthError("unauthorized", 401);
 		}
@@ -294,7 +338,21 @@ export class VaultService {
 		if (ctx.user.suspendedAt) {
 			throw new AuthError("suspended", 403);
 		}
-		return ctx.user;
+		return ctx;
+	}
+
+	private assertLiveItem(item: ItemCreateRequest, now: Date): void {
+		const cipher = fromBase64Url(item.ciphertext);
+		if (cipher.byteLength > TEXT_CIPHERTEXT_MAX_BYTES) {
+			throw new AuthError("item_invalid", 400);
+		}
+		const expiresAt = Date.parse(item.expiresAt);
+		if (Number.isNaN(expiresAt) || expiresAt <= now.getTime()) {
+			throw new AuthError("item_expired", 400);
+		}
+		if (expiresAt > now.getTime() + TEXT_TTL_MS + 60_000) {
+			throw new AuthError("item_invalid", 400);
+		}
 	}
 
 	private requireChallenge(sealed: string | undefined, purpose: ChallengePayload["purpose"]) {

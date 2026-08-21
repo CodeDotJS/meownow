@@ -36,6 +36,21 @@ export async function getJson(url: string): Promise<{
 	return { ok: res.ok, status: res.status, data };
 }
 
+export async function deleteJson(url: string): Promise<{
+	ok: boolean;
+	status: number;
+	data: unknown;
+}> {
+	const res = await fetch(url, { method: "DELETE", credentials: "include" });
+	let data: unknown = null;
+	try {
+		data = await res.json();
+	} catch {
+		data = null;
+	}
+	return { ok: res.ok, status: res.status, data };
+}
+
 export function errorCode(data: unknown): string {
 	if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
 		return data.error;

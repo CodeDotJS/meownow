@@ -39,11 +39,13 @@ test("webEnv accepts DATABASE_URL, APP_URL, and auth secrets", () => {
 	expect(result.SESSION_SECRET).toHaveLength(32);
 });
 
-test("edgeEnv accepts Worker binding names without process.env", () => {
+test("edgeEnv requires a hub secret and app origin", () => {
+	expect(edgeEnvSchema.safeParse({ HUB: {}, BLOBS: {} }).success).toBe(false);
 	const result = edgeEnvSchema.parse({
 		HUB: {},
 		BLOBS: {},
+		HUB_SECRET: "0".repeat(32),
+		APP_URL: "https://meownow.example",
 	});
-	expect(result.HUB).toBeDefined();
-	expect(result.BLOBS).toBeDefined();
+	expect(result.APP_URL).toBe("https://meownow.example");
 });

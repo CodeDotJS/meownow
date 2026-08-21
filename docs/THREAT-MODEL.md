@@ -31,3 +31,7 @@ Pairing: the new device creates a 5-minute session with its ephemeral ECDH publi
 Recovery: Argon2id over the 12-word phrase unwraps `wrapped_vault_recovery`. A phrase-derived verifier hash (`recovery_verifier_hash`) lets a lost-all-devices client prove possession without giving the server VaultKey. Total-loss recovery rotates the identity key because identity private has no server column.
 
 Items in this milestone are ciphertext-only create/list so a second device can fetch and decrypt. Live fan-out is milestone 4.
+
+## Realtime (milestone 4)
+
+Text and link items persist as ciphertext with a 30-day TTL and a 64 KB cap. After a write, Vercel posts an HMAC-ticketed envelope to the Worker. One Durable Object per user vault fans `item.created` / `item.deleted` to hibernated WebSockets. Tickets are 60-second HMAC tokens minted by the app (`HUB_SECRET`); the Worker verifies them and never sees plaintext. A missing or expired ticket is denied. P2P DataChannel remains milestone 7.

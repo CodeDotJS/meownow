@@ -1,25 +1,49 @@
 import { DurableObject } from "cloudflare:workers";
 import { parseEdgeEnv } from "@meownow/config/env";
+import { wsEnvelopeSchema } from "@meownow/protocol";
 import { handleRequest } from "./http";
 
 export interface Env {
 	HUB: DurableObjectNamespace;
 	BLOBS: R2Bucket;
+	HUB_SECRET: string;
+	APP_URL: string;
 }
 
 export class HubDO extends DurableObject<Env> {
 	override async fetch(request: Request): Promise<Response> {
-		return handleRequest(request);
+		const url = new URL(request.url);
+		if (url.pathname === "/connect") {
+			if (request.headers.get("Upgrade") !== "websocket") {
+				return new Response("expected websocket", { status: 426 });
+			}
+			const deviceId = url.searchParams.get("deviceId") ?? "";
+			const pair = new WebSocketPair();
+			this.ctx.acceptWebSocket(pair[1]);
+			pair[1].serializeAttachment({ deviceId });
+			pair[1].send(JSON.stringify({ v: 1, type: "hello", deviceId }));
+			return new Response(null, { status: 101, webSocket: pair[0] });
+		}
+		if (url.pathname === "/fanout" && request.method === "POST") {
+			const parsed = wsEnvelopeSchema.safeParse(await request.json().catch(() => null));
+			if (!parsed.success) {
+				return new Response("invalid_body", { status: 400 });
+			}
+			const payload = JSON.stringify(parsed.data);
+			for (const socket of this.ctx.getWebSockets()) {
+				socket.send(payload);
+			}
+			return new Response(null, { status: 204 });
+		}
+		return new Response("not found", { status: 404 });
 	}
 
-	// M4 will call this.ctx.acceptWebSocket(server) so idle sockets hibernate.
 	override async webSocketMessage(_ws: WebSocket, _message: string | ArrayBuffer): Promise<void> {}
 }
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
-		parseEdgeEnv(env);
-		return handleRequest(request);
+		return handleRequest(request, parseEdgeEnv(env));
 	},
 
 	async scheduled(

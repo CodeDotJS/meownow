@@ -2,6 +2,11 @@ name = "meownow-edge"
 main = "src/index.ts"
 compatibility_date = "2026-08-21"
 
+[vars]
+APP_URL = "http://localhost:3000"
+# Local default. Production: `wrangler secret put HUB_SECRET`.
+HUB_SECRET = "dev-hub-secret-must-be-32-char!!"
+
 [durable_objects]
 bindings = [{ name = "HUB", class_name = "HubDO" }]
 

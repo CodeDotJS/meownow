@@ -10,7 +10,8 @@
 		"test": "vitest run --passWithNoTests"
 	},
 	"dependencies": {
-		"@meownow/config": "workspace:*"
+		"@meownow/config": "workspace:*",
+		"@meownow/protocol": "workspace:*"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "5.20260821.1",

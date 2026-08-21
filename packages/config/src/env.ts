@@ -18,6 +18,8 @@ export const webEnvSchema = z.object({
 	APP_URL: z.string().url(),
 	SESSION_SECRET: z.string().min(32),
 	ADMIN_ENROLL_SECRET: z.string().min(16),
+	HUB_SECRET: z.string().min(32).optional(),
+	EDGE_URL: z.string().url().optional(),
 	SENTRY_DSN: z.string().url().optional(),
 	VAPID_PUBLIC_KEY: z.string().min(1).optional(),
 	CAPABILITY_TOKEN_PUBLIC_KEY: z.string().min(1).optional(),
@@ -26,6 +28,8 @@ export const webEnvSchema = z.object({
 export const edgeEnvSchema = z.object({
 	HUB: z.unknown(),
 	BLOBS: z.unknown(),
+	HUB_SECRET: z.string().min(32),
+	APP_URL: z.string().url(),
 });
 
 export type DbEnv = z.infer<typeof dbEnvSchema>;

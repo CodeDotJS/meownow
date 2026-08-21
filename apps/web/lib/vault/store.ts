@@ -45,6 +45,7 @@ export type VaultStore = {
 	deletePairing(id: string): Promise<void>;
 	createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void>;
 	listItems(ownerId: string): Promise<StoredItem[]>;
+	deleteItem(ownerId: string, id: string): Promise<boolean>;
 	addDeviceAndSession(input: {
 		userId: string;
 		now: Date;

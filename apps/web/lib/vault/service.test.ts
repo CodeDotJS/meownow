@@ -236,3 +236,112 @@ test("wrong recovery verifier cannot enroll a device", async () => {
 		}),
 	).rejects.toMatchObject({ code: "recovery_invalid" });
 });
+
+test("createItem fans out ciphertext to every hub subscriber", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const received: unknown[] = [];
+	const vaultApi = new VaultService({
+		env,
+		auth: store,
+		vault: store,
+		webauthn,
+		hub: {
+			publish: async (_userId, envelope) => {
+				received.push(envelope);
+			},
+		},
+	});
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const vault = await createVault({ argon2: ARGON2_TEST });
+	const identity = await generateIdentityKeyPair();
+	await vaultApi.putVault(enrolled.sessionToken, {
+		identityPub: asPublicJwk(await publicJwk(identity.publicKey)),
+		wrappedVaultRecovery: {
+			iv: wire(vault.wrappedVaultRecovery.iv),
+			bytes: wire(vault.wrappedVaultRecovery.bytes),
+		},
+		recoverySalt: wire(vault.recoverySalt),
+		recoveryVerifier: wire(await recoveryVerifier(vault.mnemonic, vault.recoverySalt, ARGON2_TEST)),
+	});
+	const itemId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+	await vaultApi.createItem(enrolled.sessionToken, {
+		id: itemId,
+		kind: "text",
+		ciphertext: wire(new Uint8Array([1, 2, 3])),
+		metaCiphertext: wire(new Uint8Array([4])),
+		iv: wire(new Uint8Array(12)),
+		byteSize: 3,
+		expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+	});
+	expect(received).toHaveLength(1);
+	expect(received[0]).toMatchObject({
+		type: "item.created",
+		item: { id: itemId, ciphertext: wire(new Uint8Array([1, 2, 3])) },
+	});
+});
+
+test("expired and oversized items are denied or omitted", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	let now = new Date("2026-08-22T00:00:00.000Z");
+	const auth = new AuthService({ env, store, webauthn, now: () => now });
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn, now: () => now });
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const vault = await createVault({ argon2: ARGON2_TEST });
+	const identity = await generateIdentityKeyPair();
+	await vaultApi.putVault(enrolled.sessionToken, {
+		identityPub: asPublicJwk(await publicJwk(identity.publicKey)),
+		wrappedVaultRecovery: {
+			iv: wire(vault.wrappedVaultRecovery.iv),
+			bytes: wire(vault.wrappedVaultRecovery.bytes),
+		},
+		recoverySalt: wire(vault.recoverySalt),
+		recoveryVerifier: wire(await recoveryVerifier(vault.mnemonic, vault.recoverySalt, ARGON2_TEST)),
+	});
+	await expect(
+		vaultApi.createItem(enrolled.sessionToken, {
+			id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+			kind: "text",
+			ciphertext: wire(new Uint8Array(65_536 + 17)),
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 1,
+			expiresAt: new Date(now.getTime() + 86_400_000).toISOString(),
+		}),
+	).rejects.toMatchObject({ code: "item_invalid" });
+	const id = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+	await vaultApi.createItem(enrolled.sessionToken, {
+		id,
+		kind: "text",
+		ciphertext: "YQ",
+		metaCiphertext: "YQ",
+		iv: "YQ",
+		byteSize: 1,
+		expiresAt: new Date(now.getTime() + 1_000).toISOString(),
+	});
+	now = new Date(now.getTime() + 2_000);
+	const listed = await vaultApi.listItems(enrolled.sessionToken);
+	expect(listed.items).toEqual([]);
+});
+
+test("deleteItem without a session is denied", async () => {
+	const store = new MemoryAuthStore();
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn: mockWebAuthn() });
+	await expect(
+		vaultApi.deleteItem(undefined, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+	).rejects.toMatchObject({
+		code: "unauthorized",
+	});
+});
