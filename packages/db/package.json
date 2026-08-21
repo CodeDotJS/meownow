@@ -12,8 +12,8 @@
 		"test": "vitest run --passWithNoTests",
 		"generate": "drizzle-kit generate",
 		"check": "drizzle-kit check",
-		"migrate": "tsx src/migrate.ts",
-		"seed": "tsx src/seed.ts"
+		"migrate": "tsx --env-file=../../.env src/migrate.ts",
+		"seed": "tsx --env-file=../../.env src/seed.ts"
 	},
 	"dependencies": {
 		"@meownow/config": "workspace:*",
