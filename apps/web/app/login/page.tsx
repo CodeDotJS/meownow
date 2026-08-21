@@ -3,6 +3,8 @@
 import { startAuthentication } from "@simplewebauthn/browser";
 import { useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 
 export default function LoginPage() {
 	const [status, setStatus] = useState<string | null>(null);
@@ -36,11 +38,16 @@ export default function LoginPage() {
 
 	return (
 		<main>
-			<h1>Login</h1>
-			<button type="button" onClick={onLogin} disabled={busy}>
-				Use passkey
-			</button>
-			{status ? <p className="status mono">{status}</p> : null}
+			<Panel>
+				<h1>Login</h1>
+				<p className="lead">Use the passkey for this device.</p>
+				<nav className="stack">
+					<button className="select" type="button" onClick={onLogin} disabled={busy}>
+						Use passkey
+					</button>
+				</nav>
+				<Status value={status} />
+			</Panel>
 		</main>
 	);
 }

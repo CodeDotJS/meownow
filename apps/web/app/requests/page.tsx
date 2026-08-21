@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 
 type Row = {
 	id: string;
@@ -52,29 +54,32 @@ export default function RequestsPage() {
 
 	return (
 		<main>
-			<h1>Upload requests</h1>
-			<label>
-				Grant bytes
-				<input value={grant} onChange={(e) => setGrant(e.target.value)} className="mono" />
-			</label>
-			{status ? <p className="status mono">{status}</p> : null}
-			<ul>
-				{rows.map((row) => (
-					<li key={row.id}>
-						<span className="mono">{row.handle}</span> {row.reason} {row.status}
-						{row.status === "pending" ? (
-							<>
-								<button type="button" onClick={() => void decide(row.id, "approved")}>
-									Approve
-								</button>
-								<button type="button" onClick={() => void decide(row.id, "denied")}>
-									Deny
-								</button>
-							</>
-						) : null}
-					</li>
-				))}
-			</ul>
+			<Panel>
+				<h1>Upload requests</h1>
+				<p className="lead">Grant R2 quota. Text and links do not need this.</p>
+				<label>
+					Grant bytes
+					<input value={grant} onChange={(e) => setGrant(e.target.value)} className="mono" />
+				</label>
+				<Status value={status} />
+				<ul>
+					{rows.map((row) => (
+						<li key={row.id}>
+							<span className="mono">{row.handle}</span> {row.reason} {row.status}
+							{row.status === "pending" ? (
+								<>
+									<button type="button" onClick={() => void decide(row.id, "approved")}>
+										Approve
+									</button>
+									<button type="button" onClick={() => void decide(row.id, "denied")}>
+										Deny
+									</button>
+								</>
+							) : null}
+						</li>
+					))}
+				</ul>
+			</Panel>
 		</main>
 	);
 }

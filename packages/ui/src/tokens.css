@@ -1,19 +1,21 @@
 :root {
 	--ink: #14161a;
 	--paper: #f1f2f4;
+	--surface: #e7e9ed;
 	--select: #2c46f0;
 	--select-ink: #ffffff;
 	--rule: #d2d5db;
 	--decay: #b0212f;
+	--muted: #5c616b;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
 		--ink: #e6e8ec;
 		--paper: #0f1114;
+		--surface: #16181d;
+		--select: #4d6bff;
 		--rule: #262a31;
-		--select: #2c46f0;
-		--select-ink: #ffffff;
-		--decay: #b0212f;
+		--muted: #8b909a;
 	}
 }

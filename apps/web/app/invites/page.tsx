@@ -2,6 +2,8 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 
 type Invite = {
 	id: string;
@@ -67,34 +69,39 @@ export default function InvitesPage() {
 
 	return (
 		<main>
-			<h1>Invites</h1>
-			<form onSubmit={onCreate}>
-				<label>
-					Note
-					<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={120} />
-				</label>
-				<button type="submit">Issue invite</button>
-			</form>
-			{token ? (
-				<p>
-					Token (shown once): <span className="mono">{token}</span>
-				</p>
-			) : null}
-			{status ? <p className="status mono">{status}</p> : null}
-			<ul>
-				{invites.map((invite) => (
-					<li key={invite.id}>
-						<span className="mono">{invite.id.slice(0, 8)}</span>
-						{invite.note ? ` ${invite.note}` : ""}
-						{invite.redeemedAt ? " redeemed" : invite.revokedAt ? " revoked" : " open"}
-						{invite.redeemedAt || invite.revokedAt ? null : (
-							<button type="button" onClick={() => void onRevoke(invite.id)}>
-								Revoke
-							</button>
-						)}
-					</li>
-				))}
-			</ul>
+			<Panel>
+				<h1>Invites</h1>
+				<p className="lead">One token, one seat. Shown once.</p>
+				<form onSubmit={onCreate}>
+					<label>
+						Note
+						<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={120} />
+					</label>
+					<button className="select" type="submit">
+						Issue invite
+					</button>
+				</form>
+				{token ? (
+					<p>
+						Token (shown once): <span className="mono">{token}</span>
+					</p>
+				) : null}
+				<Status value={status} />
+				<ul>
+					{invites.map((invite) => (
+						<li key={invite.id}>
+							<span className="mono">{invite.id.slice(0, 8)}</span>
+							{invite.note ? ` ${invite.note}` : ""}
+							{invite.redeemedAt ? " redeemed" : invite.revokedAt ? " revoked" : " open"}
+							{invite.redeemedAt || invite.revokedAt ? null : (
+								<button type="button" onClick={() => void onRevoke(invite.id)}>
+									Revoke
+								</button>
+							)}
+						</li>
+					))}
+				</ul>
+			</Panel>
 		</main>
 	);
 }

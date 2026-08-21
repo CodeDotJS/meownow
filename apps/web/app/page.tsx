@@ -1,13 +1,18 @@
 "use client";
 
 import { decrypt, encrypt } from "@meownow/crypto";
-import { TEXT_PLAIN_MAX_BYTES, TEXT_TTL_MS } from "@meownow/protocol";
+import { BLOB_TTL_MS, TEXT_PLAIN_MAX_BYTES, TEXT_TTL_MS } from "@meownow/protocol";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteJson, errorCode, getJson, postJson } from "@/lib/client/http";
 import { Mesh } from "@/lib/p2p/mesh";
 import { sendOnMesh, shouldPersist } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
+import { Landing } from "@/lib/ui/landing";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
+import { formatGutterTime, ttlRemain, ttlWarn } from "@/lib/ui/time";
 import { loadVault } from "@/lib/vault/idb";
 import { connectHub } from "@/lib/vault/live";
 import { downloadBlobItem, sendBlobFile } from "@/lib/vault/upload-client";
@@ -37,6 +42,7 @@ type ItemRow = {
 type Shown = {
 	id: string;
 	text: string;
+	createdAt: string;
 	expiresAt: string;
 	kind: ItemRow["kind"];
 	blobId?: string;
@@ -44,6 +50,10 @@ type Shown = {
 	iv?: string;
 	wrappedKey?: { iv: string; bytes: string };
 };
+
+function itemTtl(kind: Shown["kind"]): number {
+	return kind === "image" || kind === "file" ? BLOB_TTL_MS : TEXT_TTL_MS;
+}
 
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
@@ -55,7 +65,12 @@ export default function Page() {
 	const [now, setNow] = useState(() => Date.now());
 	const [local, setLocal] = useState(false);
 	const [ephemeral, setEphemeral] = useState(false);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const meshRef = useRef<Mesh | null>(null);
+	const fileRef = useRef<HTMLInputElement>(null);
+	const itemsRef = useRef<Shown[]>([]);
+	const reduceMotion = useReducedMotion();
+	itemsRef.current = items;
 
 	useEffect(() => {
 		void (async () => {
@@ -78,6 +93,7 @@ export default function Page() {
 		const stored = await loadVault();
 		const base = {
 			id: item.id,
+			createdAt: item.createdAt,
 			expiresAt: item.expiresAt,
 			kind: item.kind,
 			blobId: item.blobId,
@@ -237,10 +253,12 @@ export default function Page() {
 				return;
 			}
 			setDraft("");
+			const createdAt = new Date().toISOString();
 			setItems((current) => [
-				{ id, text: trimmed, expiresAt, kind },
+				{ id, text: trimmed, createdAt, expiresAt, kind },
 				...current.filter((row) => row.id !== id),
 			]);
+			setSelectedId(id);
 		},
 		[ephemeral],
 	);
@@ -283,27 +301,98 @@ export default function Page() {
 		void registerPush();
 	}, [me, hasLocal]);
 
-	async function onSend() {
-		await sendPlain(draft);
-	}
-
-	async function onLogout() {
-		await postJson("/api/auth/logout", {});
-		window.location.reload();
-	}
-
-	async function onCopy(text: string) {
+	const onCopy = useCallback(async (text: string) => {
 		await navigator.clipboard.writeText(text);
 		setStatus("Copied.");
-	}
+	}, []);
 
-	async function onForget(id: string) {
+	const onForget = useCallback(async (id: string) => {
 		const res = await deleteJson(`/api/items/${id}`);
 		if (!res.ok) {
 			setStatus(errorCode(res.data));
 			return;
 		}
 		setItems((current) => current.filter((row) => row.id !== id));
+		setSelectedId((current) => (current === id ? null : current));
+	}, []);
+
+	const activateItem = useCallback(
+		(item: Shown) => {
+			setSelectedId(item.id);
+			if (item.kind === "image" || item.kind === "file") {
+				if (item.blobId && item.wrappedKey && item.iv && item.metaCiphertext) {
+					void downloadBlobItem({
+						id: item.id,
+						kind: item.kind,
+						blobId: item.blobId,
+						iv: item.iv,
+						metaCiphertext: item.metaCiphertext,
+						wrappedKey: item.wrappedKey,
+					});
+				}
+				return;
+			}
+			void onCopy(item.text);
+		},
+		[onCopy],
+	);
+
+	useEffect(() => {
+		if (!me || !hasLocal) {
+			return;
+		}
+		function onKey(event: KeyboardEvent) {
+			if (event.metaKey || event.ctrlKey || event.altKey) {
+				return;
+			}
+			const target = event.target;
+			if (
+				target instanceof HTMLElement &&
+				target.closest("textarea, input, [contenteditable], .palette-layer")
+			) {
+				return;
+			}
+			const list = itemsRef.current;
+			if (list.length === 0) {
+				return;
+			}
+			const index = list.findIndex((row) => row.id === selectedId);
+			if (event.key === "j" || event.key === "ArrowDown") {
+				event.preventDefault();
+				const next = list[Math.min(list.length - 1, (index < 0 ? -1 : index) + 1)];
+				if (next) {
+					setSelectedId(next.id);
+				}
+				return;
+			}
+			if (event.key === "k" || event.key === "ArrowUp") {
+				event.preventDefault();
+				const next = list[index <= 0 ? 0 : index - 1];
+				if (next) {
+					setSelectedId(next.id);
+				}
+				return;
+			}
+			const selected = list.find((row) => row.id === selectedId) ?? list[0];
+			if (!selected) {
+				return;
+			}
+			if (event.key === "Enter") {
+				event.preventDefault();
+				activateItem(selected);
+				return;
+			}
+			if (event.key === "Backspace" || event.key === "Delete") {
+				event.preventDefault();
+				void onForget(selected.id);
+			}
+		}
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [activateItem, hasLocal, me, onForget, selectedId]);
+
+	async function onSend() {
+		await sendPlain(draft);
 	}
 
 	async function onFile(files: FileList | null) {
@@ -316,137 +405,154 @@ export default function Page() {
 			setStatus(result.error);
 			return;
 		}
-		setItems((current) => [{ ...result }, ...current.filter((row) => row.id !== result.id)]);
+		const createdAt = new Date().toISOString();
+		setItems((current) => [
+			{ ...result, createdAt },
+			...current.filter((row) => row.id !== result.id),
+		]);
+		setSelectedId(result.id);
+	}
+
+	if (!loaded) {
+		return (
+			<main>
+				<h1 className="file-hidden">Clipboard</h1>
+			</main>
+		);
+	}
+
+	if (!me) {
+		return <Landing />;
+	}
+
+	if (!me.hasVault) {
+		return (
+			<main>
+				<Panel>
+					<h1>Vault</h1>
+					<p className="lead">
+						Create the vault on this device. Write the 12 words down. They are shown once.
+					</p>
+					<nav className="stack">
+						<a className="select" href="/setup">
+							Create vault
+						</a>
+					</nav>
+					<Status value={status} />
+				</Panel>
+			</main>
+		);
+	}
+
+	if (!hasLocal) {
+		return (
+			<main>
+				<Panel>
+					<h1>This device</h1>
+					<p className="lead">
+						No key in this browser. Pair it from a device that already works, or recover with the 12
+						words.
+					</p>
+					<nav className="stack">
+						<a className="select" href="/pair">
+							Pair this device
+						</a>
+						<a href="/recover">Recover with phrase</a>
+					</nav>
+					<Status value={status} />
+				</Panel>
+			</main>
+		);
 	}
 
 	return (
 		<main>
-			<h1 className="mono">meownow</h1>
-			{!loaded ? <p>…</p> : null}
-			{loaded && me ? (
-				<>
-					<p>
-						Signed in as <span className="mono">{me.handle}</span>
-						{local ? <span className="mono"> · Local</span> : null}
-					</p>
-					<nav>
-						{me.role === "admin" ? <a href="/admin">Admin</a> : null}
-						{me.role === "admin" ? <a href="/invites">Invites</a> : null}
-						{me.role === "admin" ? <a href="/requests">Requests</a> : null}
-						{!me.canUpload ? <a href="/access">Upload access</a> : null}
-						{hasLocal ? <a href="/pair/scan">Scan device</a> : null}
-						<a href="/pair">Add this device</a>
-						<a href="/recover">Recover</a>
-						{!me.hasVault ? <a href="/setup">Create vault</a> : null}
-						<button type="button" onClick={() => void onLogout()}>
-							Logout
+			<h1 className="file-hidden">Clipboard</h1>
+			<Panel>
+				<div className="log-item is-compose">
+					<span className="gutter mono">{formatGutterTime(new Date(now).toISOString(), now)}</span>
+					<textarea
+						aria-label="Buffer"
+						value={draft}
+						onChange={(e) => setDraft(e.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+								event.preventDefault();
+								void onSend();
+							}
+						}}
+						rows={3}
+					/>
+					<div className="composer-bar">
+						<button className="select" type="button" onClick={() => void onSend()}>
+							Send
 						</button>
-					</nav>
-					{hasLocal ? (
-						<>
-							<label>
-								Clipboard
-								<textarea
-									value={draft}
-									onChange={(e) => setDraft(e.target.value)}
-									onKeyDown={(event) => {
-										if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-											event.preventDefault();
-											void onSend();
-										}
-									}}
-									rows={4}
-								/>
-							</label>
-							<button type="button" onClick={() => void onSend()}>
-								Send
-							</button>
-							<label>
+						<button
+							type="button"
+							className={ephemeral ? "is-on" : undefined}
+							aria-pressed={ephemeral}
+							onClick={() => setEphemeral((on) => !on)}
+						>
+							Ephemeral
+						</button>
+						{me.canUpload ? (
+							<>
 								<input
-									type="checkbox"
-									checked={ephemeral}
-									onChange={(e) => setEphemeral(e.target.checked)}
+									ref={fileRef}
+									className="file-hidden"
+									type="file"
+									onChange={(event) => {
+										void onFile(event.target.files);
+										event.target.value = "";
+									}}
 								/>
-								Ephemeral
-							</label>
-							{local ? (
-								<p className="mono">Local. Same network — payload stays on the LAN.</p>
-							) : null}
-							{me.canUpload ? (
-								<label>
+								<button type="button" onClick={() => fileRef.current?.click()}>
 									File
-									<input
-										type="file"
-										onChange={(event) => {
-											void onFile(event.target.files);
-											event.target.value = "";
-										}}
-									/>
-								</label>
-							) : null}
-							{items.length === 0 ? <p className="empty">Nothing on the clipboard.</p> : null}
-							<ul>
-								{items.map((item) => {
-									const remain = Math.max(
-										0,
-										Math.min(1, (Date.parse(item.expiresAt) - now) / TEXT_TTL_MS),
-									);
-									return (
-										<li key={item.id}>
-											<button
-												type="button"
-												className="mono"
-												onClick={() => {
-													if (item.kind === "image" || item.kind === "file") {
-														if (item.blobId && item.wrappedKey && item.iv && item.metaCiphertext) {
-															void downloadBlobItem({
-																id: item.id,
-																kind: item.kind,
-																blobId: item.blobId,
-																iv: item.iv,
-																metaCiphertext: item.metaCiphertext,
-																wrappedKey: item.wrappedKey,
-															});
-														}
-														return;
-													}
-													void onCopy(item.text);
-												}}
-											>
-												{item.text}
-											</button>
-											<span className="ttl" style={{ ["--remain" as string]: String(remain) }} />
-											<button type="button" onClick={() => void onForget(item.id)}>
-												Forget
-											</button>
-										</li>
-									);
-								})}
-							</ul>
-						</>
-					) : (
-						<p>
-							No vault on this browser. <a href="/pair">Pair</a> or <a href="/recover">recover</a>
-							{!me.hasVault ? (
-								<>
-									{" "}
-									or <a href="/setup">create</a>
-								</>
-							) : null}
-							.
-						</p>
-					)}
-				</>
-			) : null}
-			{loaded && !me ? (
-				<nav>
-					<a href="/login">Login</a>
-					<a href="/join">Join</a>
-					<a href="/enroll">Admin enroll</a>
-					<a href="/recover">Recover</a>
-				</nav>
-			) : null}
-			{status ? <p className="status mono">{status}</p> : null}
+								</button>
+							</>
+						) : null}
+						{local ? <span className="mode mono">Local</span> : null}
+					</div>
+				</div>
+				{items.length === 0 ? <p className="empty">Nothing on the clipboard.</p> : null}
+				{items.length > 0 ? (
+					<ul className="log">
+						<AnimatePresence initial={false}>
+							{items.map((item) => {
+								const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
+								const warn = ttlWarn(item.expiresAt, now);
+								const selected = item.id === selectedId;
+								return (
+									<motion.li
+										key={item.id}
+										layout={!reduceMotion}
+										initial={reduceMotion ? false : { opacity: 0, y: -10 }}
+										animate={{ opacity: 1, y: 0 }}
+										exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+										transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+										className={["log-item", selected ? "is-selected" : ""]
+											.filter(Boolean)
+											.join(" ")}
+									>
+										<span className="gutter mono">{formatGutterTime(item.createdAt, now)}</span>
+										<button type="button" className="body mono" onClick={() => activateItem(item)}>
+											{item.text}
+										</button>
+										<button type="button" className="forget" onClick={() => void onForget(item.id)}>
+											Forget
+										</button>
+										<span
+											className={warn ? "ttl warn" : "ttl"}
+											style={{ ["--remain" as string]: String(remain) }}
+										/>
+									</motion.li>
+								);
+							})}
+						</AnimatePresence>
+					</ul>
+				) : null}
+				<Status value={status} />
+			</Panel>
 		</main>
 	);
 }

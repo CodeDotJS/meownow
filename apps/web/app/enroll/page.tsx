@@ -3,6 +3,8 @@
 import { startRegistration } from "@simplewebauthn/browser";
 import { type FormEvent, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 
 export default function EnrollPage() {
 	const [handle, setHandle] = useState("rishi");
@@ -44,40 +46,43 @@ export default function EnrollPage() {
 
 	return (
 		<main>
-			<h1>Admin enroll</h1>
-			<form onSubmit={onSubmit}>
-				<label>
-					Handle
-					<input
-						className="mono"
-						value={handle}
-						onChange={(e) => setHandle(e.target.value)}
-						required
-						minLength={2}
-						maxLength={32}
-						pattern="[a-z0-9_]+"
-					/>
-				</label>
-				<label>
-					Enroll secret
-					<input
-						type="password"
-						value={secret}
-						onChange={(e) => setSecret(e.target.value)}
-						required
-						minLength={16}
-						autoComplete="off"
-					/>
-				</label>
-				<label>
-					Device
-					<input value={deviceLabel} onChange={(e) => setDeviceLabel(e.target.value)} required />
-				</label>
-				<button type="submit" disabled={busy}>
-					Create passkey
-				</button>
-				{status ? <p className="status mono">{status}</p> : null}
-			</form>
+			<Panel>
+				<h1>First admin</h1>
+				<p className="lead">Creates seat 1 and a passkey. No password.</p>
+				<form onSubmit={onSubmit}>
+					<label>
+						Handle
+						<input
+							className="mono"
+							value={handle}
+							onChange={(e) => setHandle(e.target.value)}
+							required
+							minLength={2}
+							maxLength={32}
+							pattern="[a-z0-9_]+"
+						/>
+					</label>
+					<label>
+						Enroll secret
+						<input
+							type="password"
+							value={secret}
+							onChange={(e) => setSecret(e.target.value)}
+							required
+							minLength={16}
+							autoComplete="off"
+						/>
+					</label>
+					<label>
+						Device
+						<input value={deviceLabel} onChange={(e) => setDeviceLabel(e.target.value)} required />
+					</label>
+					<button className="select" type="submit" disabled={busy}>
+						Create passkey
+					</button>
+					<Status value={status} />
+				</form>
+			</Panel>
 		</main>
 	);
 }

@@ -454,32 +454,21 @@ meownow/
 
 ## 1.8 Design direction
 
-The brief says no AI slop. That means having an actual point of view, so here is one.
+The product is a paste buffer. The visual system is **text selection**, not a marketing kit.
 
-**The subject is a paste buffer, not a feed.** Do not build a social timeline with rounded cards and avatars. Build something that reads like a tool.
+**Theme.** Use only the tokens. Light is the default document: `--paper` is the page, `--ink` is type, `--select` is the one saturated colour and it only appears as a highlight. `--surface` is a 4% lift for inner sheets. `--muted` is meta. `--decay` is TTL only. Dark is `prefers-color-scheme`, not a separate brand.
 
-**Signature: text selection as the entire visual language.** Every OS renders a selection as a hard-edged solid block of colour behind text. That is the single most universal visual idiom of copy-paste, and nobody uses it as a design system. So: hover, focus, and active states paint a solid rectangle, zero border-radius, exactly like dragging a cursor across text. Keyboard navigation feels like moving a caret. It is specific to this product and it is not a look you'll see anywhere else.
+**Signature.** Hover, focus, and active states paint a hard rectangle of `--select` / `--select-ink`, zero radius, like dragging a caret across a word. The signed-out home is a sentence with the word *Copy* already marked. No glow, grid, conic border, glass, or shimmer.
 
-**Second signature: visible decay.** Everything here expires. A hairline rule under each item shortens as its TTL runs down, shifting to a warning colour in the final hours. It encodes something true about the data instead of decorating it, and it makes "why did my thing disappear" a non-question.
+**Type.** Instrument Sans for UI. Martian Mono for paste, timestamps, handles.
 
-**Palette** (selection-blue as the one saturated colour, everything else neutral):
+**Layout.** One column. Timestamp gutter. Newest at top. ⌘K. TTL hairline under each item.
 
-```css
---ink:        #14161A;   --paper:      #F1F2F4;
---select:     #2C46F0;   --select-ink: #FFFFFF;
---rule:       #D2D5DB;   --decay:      #B0212F;
-/* dark: --ink #E6E8EC, --paper #0F1114, --rule #262A31, --select unchanged */
-```
+**Motion.** Almost none. The mark snaps on. New items may ease ~220ms. Respect `prefers-reduced-motion`.
 
-**Type:** UI/display in **Instrument Sans** (characterful, not Inter). Content, timestamps, and all pasted text in a mono with actual personality — **Martian Mono** or **Commit Mono**. Content renders in mono because that is what it *is*: a literal buffer. Not a stylistic flourish.
+**Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state.
 
-**Layout:** single column, left-margin timestamp gutter in mono like a terminal log, newest at top, older items pushed down. Dense. ⌘K command palette. Every action reachable by keyboard, because this is a tool you use in two seconds and close.
-
-**Motion:** almost none. New items snap in at ~90ms, the speed of a caret. Respect `prefers-reduced-motion`.
-
-**Copy:** dry and literal. "Copied." not "Copied to clipboard! 🎉". The cat lives in the app icon and the empty state, and nowhere else. One accessory.
-
-**Explicitly avoid:** purple/blue gradients, glassmorphism, `rounded-3xl` card soup, hero sections, feature grids with icons, Inter + generic sans pairing, emoji in UI chrome.
+**Forbidden:** Inter, purple-to-pink soup, emoji buttons, unread shadcn, implying the server can read paste contents.
 
 ---
 
@@ -547,9 +536,9 @@ You are the technical lead on **meownow**, a private, invite-only, end-to-end en
 
 ## Design constraints for any UI work
 
-Read §1.8 and follow it precisely. Selection-block interaction states with zero border-radius, visible TTL decay hairlines, monospace for all user content, single dense column, keyboard-first, ⌘K palette. Copy is dry and literal.
+Read §1.8. Paper / ink / select as a document. Light-first. Selection rectangles, zero radius, TTL hairlines, Martian Mono for paste, ⌘K. Instrument Sans, never Inter.
 
-Explicitly forbidden: purple or blue gradients, glassmorphism, `rounded-3xl` cards, hero sections, feature grids with icons, Inter as the primary face, emoji in UI chrome, shadcn defaults left unrestyled.
+Do not imply the server can read plaintext. No emoji in chrome. No unread shadcn defaults.
 
 ## Task 1
 

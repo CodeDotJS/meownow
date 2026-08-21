@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { getJson } from "@/lib/client/http";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 import { bootstrapVault } from "@/lib/vault/bootstrap";
 import { loadVault } from "@/lib/vault/idb";
 
@@ -46,22 +48,37 @@ export default function SetupPage() {
 
 	return (
 		<main>
-			<h1>Vault</h1>
-			{mnemonic ? (
-				<>
-					<p>Write these 12 words down. They are shown once.</p>
-					<p className="mono">{mnemonic}</p>
-					<a href="/">Done</a>
-				</>
-			) : (
-				<>
-					<p>Generate a vault key on this device. The server stores only ciphertext.</p>
-					<button type="button" onClick={() => void onCreate()} disabled={busy}>
-						Create vault
-					</button>
-				</>
-			)}
-			{status ? <p className="status mono">{status}</p> : null}
+			<Panel>
+				<h1>Vault</h1>
+				{mnemonic ? (
+					<>
+						<p className="lead">Write these 12 words down. They are shown once.</p>
+						<p className="phrase">{mnemonic}</p>
+						<nav className="stack">
+							<a className="select" href="/">
+								Done
+							</a>
+						</nav>
+					</>
+				) : (
+					<>
+						<p className="lead">
+							Generate a vault key on this device. The server stores ciphertext only.
+						</p>
+						<nav className="stack">
+							<button
+								className="select"
+								type="button"
+								onClick={() => void onCreate()}
+								disabled={busy}
+							>
+								Create vault
+							</button>
+						</nav>
+					</>
+				)}
+				<Status value={status} />
+			</Panel>
 		</main>
 	);
 }

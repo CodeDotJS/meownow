@@ -14,6 +14,8 @@ import { asPublicJwk } from "@meownow/protocol";
 import { startRegistration } from "@simplewebauthn/browser";
 import { type FormEvent, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 import { saveVault } from "@/lib/vault/idb";
 import { b64urlToBytes, bytesToB64url, wrapFromWire } from "@/lib/vault/wire";
 
@@ -97,25 +99,36 @@ export default function RecoverPage() {
 
 	return (
 		<main>
-			<h1>Recover</h1>
-			<form onSubmit={(event) => void onSubmit(event)}>
-				<label>
-					Handle
-					<input
-						value={handle}
-						onChange={(e) => setHandle(e.target.value)}
-						autoComplete="username"
-					/>
-				</label>
-				<label>
-					Recovery phrase
-					<textarea value={phrase} onChange={(e) => setPhrase(e.target.value)} rows={3} />
-				</label>
-				<button type="submit" disabled={busy}>
-					Recover
-				</button>
-			</form>
-			{status ? <p className="status mono">{status}</p> : null}
+			<Panel>
+				<h1>Recover</h1>
+				<p className="lead">
+					The 12 words unlock the vault on this browser. Then create a passkey.
+				</p>
+				<form onSubmit={(event) => void onSubmit(event)}>
+					<label>
+						Handle
+						<input
+							className="mono"
+							value={handle}
+							onChange={(e) => setHandle(e.target.value)}
+							autoComplete="username"
+						/>
+					</label>
+					<label>
+						Recovery phrase
+						<textarea
+							className="mono"
+							value={phrase}
+							onChange={(e) => setPhrase(e.target.value)}
+							rows={3}
+						/>
+					</label>
+					<button className="select" type="submit" disabled={busy}>
+						Recover
+					</button>
+				</form>
+				<Status value={status} />
+			</Panel>
 		</main>
 	);
 }

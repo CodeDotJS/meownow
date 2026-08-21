@@ -2,11 +2,11 @@ export default function manifest() {
 	return {
 		name: "meownow",
 		short_name: "meownow",
-		description: "Private clipboard",
+		description: "Copy on one device. Paste on the next.",
 		start_url: "/",
 		display: "standalone",
 		background_color: "#f1f2f4",
-		theme_color: "#14161a",
+		theme_color: "#f1f2f4",
 		orientation: "any",
 		icons: [
 			{

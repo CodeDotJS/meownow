@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { errorCode, getJson } from "@/lib/client/http";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 
 type Entry = {
 	id: number;
@@ -29,24 +31,26 @@ export default function AuditPage() {
 
 	return (
 		<main>
-			<h1>Audit</h1>
-			<nav>
-				<a href="/admin">Admin</a>
-			</nav>
-			{status ? <p className="status mono">{status}</p> : null}
-			<ul>
-				{entries.map((entry) => (
-					<li key={entry.id}>
-						<span className="mono">{entry.createdAt}</span> {entry.action}
-						{entry.subjectType ? (
-							<span className="mono">
-								{" "}
-								{entry.subjectType}/{entry.subjectId?.slice(0, 8)}
-							</span>
-						) : null}
-					</li>
-				))}
-			</ul>
+			<Panel>
+				<h1>Audit</h1>
+				<nav>
+					<a href="/admin">Admin</a>
+				</nav>
+				<Status value={status} />
+				<ul>
+					{entries.map((entry) => (
+						<li key={entry.id}>
+							<span className="mono">{entry.createdAt}</span> {entry.action}
+							{entry.subjectType ? (
+								<span className="mono">
+									{" "}
+									{entry.subjectType}/{entry.subjectId?.slice(0, 8)}
+								</span>
+							) : null}
+						</li>
+					))}
+				</ul>
+			</Panel>
 		</main>
 	);
 }

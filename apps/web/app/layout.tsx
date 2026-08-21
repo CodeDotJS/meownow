@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Martian_Mono } from "next/font/google";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
+import { AppFrame } from "@/lib/ui/app-frame";
 import "./globals.css";
 
 const instrumentSans = Instrument_Sans({
@@ -19,7 +20,7 @@ const martianMono = Martian_Mono({
 export const metadata: Metadata = {
 	applicationName: "meownow",
 	title: "meownow",
-	description: "Private clipboard",
+	description: "Copy on one device. Paste on the next.",
 	appleWebApp: {
 		capable: true,
 		statusBarStyle: "default",
@@ -30,17 +31,30 @@ export const metadata: Metadata = {
 		icon: "/icons/icon-192.png",
 		apple: "/icons/icon-192.png",
 	},
+	openGraph: {
+		title: "meownow",
+		description: "Copy on one device. Paste on the next.",
+		siteName: "meownow",
+		type: "website",
+	},
+	twitter: {
+		card: "summary_large_image",
+		title: "meownow",
+		description: "Copy on one device. Paste on the next.",
+	},
 };
 
 export const viewport: Viewport = {
-	themeColor: "#14161a",
+	themeColor: "#f1f2f4",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
 	await connection();
 	return (
 		<html lang="en" className={`${instrumentSans.variable} ${martianMono.variable}`}>
-			<body>{children}</body>
+			<body>
+				<AppFrame>{children}</AppFrame>
+			</body>
 		</html>
 	);
 }

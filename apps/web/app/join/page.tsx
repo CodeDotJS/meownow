@@ -1,10 +1,14 @@
+import { Panel } from "@/lib/ui/panel";
 import { JoinForm } from "./join-form";
 
 export default function JoinPage({ searchParams }: { searchParams: Promise<{ t?: string }> }) {
 	return (
 		<main>
-			<h1>Join</h1>
-			<JoinLoader searchParams={searchParams} />
+			<Panel>
+				<h1>Join</h1>
+				<p className="lead">Invite, handle, passkey. Then create a vault.</p>
+				<JoinLoader searchParams={searchParams} />
+			</Panel>
 		</main>
 	);
 }

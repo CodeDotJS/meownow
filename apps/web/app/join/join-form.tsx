@@ -3,6 +3,7 @@
 import { startRegistration } from "@simplewebauthn/browser";
 import { type FormEvent, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
+import { Status } from "@/lib/ui/status";
 
 export function JoinForm({ initialToken }: { initialToken: string }) {
 	const [token, setToken] = useState(initialToken);
@@ -88,10 +89,10 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 					maxLength={64}
 				/>
 			</label>
-			<button type="submit" disabled={busy}>
+			<button className="select" type="submit" disabled={busy}>
 				Create passkey
 			</button>
-			{status ? <p className="status mono">{status}</p> : null}
+			<Status value={status} />
 		</form>
 	);
 }

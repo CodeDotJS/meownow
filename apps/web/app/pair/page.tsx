@@ -14,6 +14,8 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { PairingQrCanvas } from "@/lib/pair/qr-canvas";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 import { saveVault } from "@/lib/vault/idb";
 import { wrapFromWire } from "@/lib/vault/wire";
 
@@ -132,25 +134,34 @@ export default function PairPage() {
 
 	return (
 		<main>
-			<h1>Add this device</h1>
-			<p>
-				Show this QR to an enrolled device. That device opens Scan device and points its camera
-				here.
-			</p>
-			{payload ? <PairingQrCanvas payload={payload} /> : null}
-			{fingerprint ? (
-				<>
-					<p>
-						Fingerprint <span className="mono">{fingerprint}</span>
-					</p>
-					<button type="button" onClick={() => void onConfirm()} disabled={busy}>
-						Numbers match
-					</button>
-				</>
-			) : (
-				<p>Waiting for wrap.</p>
-			)}
-			{status ? <p className="status mono">{status}</p> : null}
+			<Panel>
+				<h1>New device</h1>
+				<p className="lead">This browser is empty. Show this QR to a device that already works.</p>
+				<ol className="steps">
+					<li>Keep this screen open.</li>
+					<li>On the enrolled device, open Scan a new device.</li>
+					<li>Point that camera here.</li>
+					<li>Match the numbers. Create a passkey on this device.</li>
+				</ol>
+				{payload ? <PairingQrCanvas payload={payload} /> : null}
+				{fingerprint ? (
+					<>
+						<p className="lead">Read these numbers on both screens.</p>
+						<p className="fp">{fingerprint}</p>
+						<button
+							className="select"
+							type="button"
+							onClick={() => void onConfirm()}
+							disabled={busy}
+						>
+							Numbers match
+						</button>
+					</>
+				) : (
+					<p className="hint">Waiting for the other device.</p>
+				)}
+				<Status value={status} />
+			</Panel>
 		</main>
 	);
 }

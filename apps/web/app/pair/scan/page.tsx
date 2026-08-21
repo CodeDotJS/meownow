@@ -5,6 +5,8 @@ import { asPublicJwk, type PairingQr } from "@meownow/protocol";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
 import { parsePairingQr } from "@/lib/pair/qr";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 import { loadVault } from "@/lib/vault/idb";
 import { wrapToWire } from "@/lib/vault/wire";
 
@@ -181,41 +183,59 @@ export default function PairScanPage() {
 
 	return (
 		<main>
-			<h1>Scan new device</h1>
-			{fingerprint ? (
-				<>
-					<p>
-						Fingerprint <span className="mono">{fingerprint}</span>
-					</p>
-					<button type="button" onClick={() => void onConfirm()} disabled={busy}>
-						Numbers match
-					</button>
-				</>
-			) : (
-				<>
-					<p>Point this camera at the QR on the new device.</p>
-					{cameraOk ? (
-						<>
-							<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
-							<button type="button" onClick={() => setScanning((on) => !on)} disabled={busy}>
-								{scanning ? "Stop camera" : "Open camera"}
-							</button>
-						</>
-					) : (
-						<p>This browser cannot decode a QR. Paste the payload.</p>
-					)}
-					<form onSubmit={(event) => void onPrepare(event)}>
-						<label>
-							QR payload
-							<textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={8} />
-						</label>
-						<button type="submit" disabled={busy}>
-							Compute fingerprint
+			<Panel>
+				<h1>Scan a new device</h1>
+				{fingerprint ? (
+					<>
+						<p className="lead">Read these numbers on both screens.</p>
+						<p className="fp">{fingerprint}</p>
+						<button
+							className="select"
+							type="button"
+							onClick={() => void onConfirm()}
+							disabled={busy}
+						>
+							Numbers match
 						</button>
-					</form>
-				</>
-			)}
-			{status ? <p className="status mono">{status}</p> : null}
+					</>
+				) : (
+					<>
+						<p className="lead">
+							This device already has the key. Point the camera at the QR on the new one.
+						</p>
+						{cameraOk ? (
+							<>
+								<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
+								<button
+									className="select"
+									type="button"
+									onClick={() => setScanning((on) => !on)}
+									disabled={busy}
+								>
+									{scanning ? "Stop camera" : "Open camera"}
+								</button>
+							</>
+						) : (
+							<p className="hint">This browser cannot decode a QR. Paste the payload instead.</p>
+						)}
+						<form onSubmit={(event) => void onPrepare(event)}>
+							<label>
+								QR payload
+								<textarea
+									className="mono"
+									value={raw}
+									onChange={(e) => setRaw(e.target.value)}
+									rows={6}
+								/>
+							</label>
+							<button type="submit" disabled={busy}>
+								Use payload
+							</button>
+						</form>
+					</>
+				)}
+				<Status value={status} />
+			</Panel>
 		</main>
 	);
 }

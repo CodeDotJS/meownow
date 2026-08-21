@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { Panel } from "@/lib/ui/panel";
+import { Status } from "@/lib/ui/status";
 
 type Device = {
 	id: string;
@@ -73,52 +75,54 @@ export default function AdminPage() {
 
 	return (
 		<main>
-			<h1>Admin</h1>
-			<nav>
-				<a href="/">Home</a>
-				<a href="/invites">Invites</a>
-				<a href="/requests">Requests</a>
-				<a href="/admin/audit">Audit</a>
-				<a href="/admin/usage">Usage</a>
-			</nav>
-			{seats ? (
-				<p className="mono">
-					Seats {seats.claimed} / {seats.total}
-				</p>
-			) : null}
-			{status ? <p className="status mono">{status}</p> : null}
-			<ul>
-				{users.map((user) => (
-					<li key={user.id}>
-						<div>
-							<span className="mono">{user.handle}</span> {user.displayName} {user.role}
-							{user.canUpload ? " upload" : ""}
-							<span className="mono">
-								{" "}
-								{user.storageUsedBytes} / {user.storageQuotaBytes}
-							</span>
-							{user.role === "member" ? (
-								<button type="button" onClick={() => void remove(user.id)}>
-									Remove
-								</button>
-							) : null}
-							<ul>
-								{user.devices.map((device) => (
-									<li key={device.id}>
-										<span className="mono">{device.label}</span>
-										{device.revokedAt ? " revoked" : null}
-										{device.revokedAt ? null : (
-											<button type="button" onClick={() => void revoke(device.id)}>
-												Revoke
-											</button>
-										)}
-									</li>
-								))}
-							</ul>
-						</div>
-					</li>
-				))}
-			</ul>
+			<Panel>
+				<h1>Admin</h1>
+				<p className="lead">Seats, devices, revoke.</p>
+				<nav>
+					<a href="/invites">Invites</a>
+					<a href="/requests">Requests</a>
+					<a href="/admin/audit">Audit</a>
+					<a href="/admin/usage">Usage</a>
+				</nav>
+				{seats ? (
+					<p className="mono">
+						Seats {seats.claimed} / {seats.total}
+					</p>
+				) : null}
+				<Status value={status} />
+				<ul>
+					{users.map((user) => (
+						<li key={user.id}>
+							<div>
+								<span className="mono">{user.handle}</span> {user.displayName} {user.role}
+								{user.canUpload ? " upload" : ""}
+								<span className="mono">
+									{" "}
+									{user.storageUsedBytes} / {user.storageQuotaBytes}
+								</span>
+								{user.role === "member" ? (
+									<button type="button" onClick={() => void remove(user.id)}>
+										Remove
+									</button>
+								) : null}
+								<ul>
+									{user.devices.map((device) => (
+										<li key={device.id}>
+											<span className="mono">{device.label}</span>
+											{device.revokedAt ? " revoked" : null}
+											{device.revokedAt ? null : (
+												<button type="button" onClick={() => void revoke(device.id)}>
+													Revoke
+												</button>
+											)}
+										</li>
+									))}
+								</ul>
+							</div>
+						</li>
+					))}
+				</ul>
+			</Panel>
 		</main>
 	);
 }

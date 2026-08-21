@@ -1,23 +1,15 @@
 ---
-description: UI design constraints. Selection-block, TTL decay, mono content, dry copy.
+description: Selection as the visual language. Theme tokens only.
 globs: "{apps/web/**/*.tsx,apps/web/**/*.css,packages/ui/**}"
 alwaysApply: false
 ---
 
 # UI
 
-Signature: hover, focus, and active states paint a hard-edged selection rectangle, zero border-radius. Visible TTL decay hairline under each item. User content, timestamps, and pasted text in mono. Single dense column. Keyboard-first. ⌘K palette.
+Paper, ink, select. Light is the default document; dark follows `prefers-color-scheme`. `--select` is only used as a highlight — never as glow, grid, or gradient chrome.
 
-Palette: `--ink`, `--paper`, `--select`, `--select-ink`, `--rule`, `--decay`. Instrument Sans for UI. Martian Mono (or Commit Mono) for content.
+Hover/focus/active paint a hard rectangle, zero radius. Instrument Sans for UI. Martian Mono for paste content. TTL hairline. ⌘K.
 
-Copy is dry and literal. "Copied." not "Copied to clipboard!". The cat lives in the app icon and the empty state only.
+The signed-out home is a sentence with *Copy* marked, not a hero + card + shimmer stack.
 
-Forbidden: purple/blue gradients, glassmorphism, `rounded-3xl` cards, hero sections, feature grids with icons, Inter as the primary face, emoji in UI chrome, unrestyled shadcn.
-
-```tsx
-// BAD
-<button className="rounded-3xl bg-gradient-to-r from-violet-500 to-blue-500">Share 🎉</button>
-
-// GOOD
-<button className="rounded-none bg-select text-select-ink">Copy</button>
-```
+Never Inter. No emoji chrome. Do not imply the server reads plaintext.

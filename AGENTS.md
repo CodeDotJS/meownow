@@ -62,7 +62,7 @@ Every external input is Zod-parsed: HTTP bodies, WebSocket frames, DataChannel m
 
 ## Design
 
-See `docs/SPEC.md` §1.8 and `.cursor/rules/50-ui.mdc`. Short version: text selection as the interaction language, visible TTL decay, monospace for user content, single dense column, keyboard-first, dry literal copy. No gradients, no glassmorphism, no hero sections, no unrestyled shadcn.
+See `docs/SPEC.md` §1.8 and `.cursor/rules/50-ui.mdc`. Selection as highlight. Theme tokens only. Light-first. Martian Mono for paste. ⌘K. Never Inter.
 
 ## Working method
 
