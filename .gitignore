@@ -14,5 +14,7 @@ test-results
 *.tsbuildinfo
 .vercel
 coverage
+.agents
+skills-lock.json
 **/public/sw.js
 **/public/swe-worker*

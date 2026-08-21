@@ -5,6 +5,7 @@ alwaysApply: false
 
 # Workflow
 
+- First-run is a single visible path. Do not hide the next setup action in ⌘K. Invites are sent as `/join?t=` URLs.
 - Follow `docs/SPEC.md` §1.9 in order. Do not begin a milestone before the previous one's tests pass.
 - Stop and report at each boundary.
 - Start with `packages/crypto` and `packages/protocol` after the skeleton. Nothing else until crypto tests pass, including AEAD tamper detection and chunk-truncation detection.

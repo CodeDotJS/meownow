@@ -454,21 +454,23 @@ meownow/
 
 ## 1.8 Design direction
 
-The product is a paste buffer. The visual system is **text selection**, not a marketing kit.
+The product is a paste buffer on light paper. It is not a marketing kit and it does not follow the OS dark scheme.
 
-**Theme.** Use only the tokens. Light is the default document: `--paper` is the page, `--ink` is type, `--select` is the one saturated colour and it only appears as a highlight. `--surface` is a 4% lift for inner sheets. `--muted` is meta. `--decay` is TTL only. Dark is `prefers-color-scheme`, not a separate brand.
+**Theme.** Light is locked. `--paper` is cool silver-grey, `--surface` is white sheets, `--ink` is type and the one filled CTA. `--wash` is hover. `--muted` is meta. `--decay` is TTL warning only. Do not add `@media (prefers-color-scheme: dark)`. Set `color-scheme: only light`.
 
-**Signature.** Hover, focus, and active states paint a hard rectangle of `--select` / `--select-ink`, zero radius, like dragging a caret across a word. The signed-out home is a sentence with the word *Copy* already marked. No glow, grid, conic border, glass, or shimmer.
+**Signature.** White sheets with a tinted shadow and a 1rem radius. Primary actions are ink pills of that radius, not inverted selection blocks. Hover uses `--wash`, not a full-row colour flip.
 
-**Type.** Instrument Sans for UI. Martian Mono for paste, timestamps, handles.
+**Type.** Outfit for UI. Martian Mono for paste, timestamps, handles. Never Inter.
 
-**Layout.** One column. Timestamp gutter. Newest at top. ⌘K. TTL hairline under each item.
+**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. The signed-in clipboard stays one column with a timestamp gutter. Newest at top. ⌘K. TTL hairline under each item.
 
-**Motion.** Almost none. The mark snaps on. New items may ease ~220ms. Respect `prefers-reduced-motion`.
+**Motion.** Short ease-out on enter and press (`scale(0.98)`). New items may ease ~220ms. Grain is a fixed overlay. Respect `prefers-reduced-motion`.
 
-**Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state.
+**Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state. First-run copy names the next action in plain language. Do not say “vault” on a screen a guest has to complete.
 
-**Forbidden:** Inter, purple-to-pink soup, emoji buttons, unread shadcn, implying the server can read paste contents.
+**First-run.** One visible next action. A guest without an invite is told they need a link. Join, recover, and first-admin enroll are not equal choices on the signed-out home. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only offered when the account already has keys and this browser does not. Recovery is the lost-every-device path, never a peer of pairing. Adding a second device is a control in the top bar (`Add device`), not a ⌘K-only command. Invites are sent as a `/join?t=` URL, not a bare token.
+
+**Forbidden:** Inter, purple-to-pink soup, dark auto-theme, glow, mesh, conic border, emoji buttons, unread shadcn, implying the server can read paste contents.
 
 ---
 
@@ -536,7 +538,9 @@ You are the technical lead on **meownow**, a private, invite-only, end-to-end en
 
 ## Design constraints for any UI work
 
-Read §1.8. Paper / ink / select as a document. Light-first. Selection rectangles, zero radius, TTL hairlines, Martian Mono for paste, ⌘K. Instrument Sans, never Inter.
+Read §1.8. Light is locked. Outfit for UI, Martian Mono for paste. White sheets, ink CTAs, no OS dark flip.
+
+First-run is a single visible path. Do not hide the next setup action in ⌘K. Invites are full `/join?t=` links.
 
 Do not imply the server can read plaintext. No emoji in chrome. No unread shadcn defaults.
 
