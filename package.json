@@ -13,7 +13,8 @@
 		"test": "turbo test",
 		"db:generate": "pnpm --filter @meownow/db generate",
 		"db:migrate": "pnpm --filter @meownow/db migrate",
-		"db:seed": "pnpm --filter @meownow/db seed"
+		"db:seed": "pnpm --filter @meownow/db seed",
+		"db:check": "pnpm --filter @meownow/db check"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.10",
