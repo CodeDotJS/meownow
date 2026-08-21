@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "wrangler dev",
-		"deploy": "wrangler deploy",
+		"deploy": "wrangler deploy --var APP_URL:https://meownow.vercel.app",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run --passWithNoTests"
 	},
