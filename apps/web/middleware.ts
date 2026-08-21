@@ -16,8 +16,15 @@ export function middleware(request: NextRequest) {
 	response.headers.set("X-Content-Type-Options", "nosniff");
 	response.headers.set("X-Frame-Options", "DENY");
 	response.headers.set("Referrer-Policy", "no-referrer");
-	response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+	response.headers.set(
+		"Permissions-Policy",
+		`${cameraPolicy(request.nextUrl.pathname)}, microphone=(), geolocation=()`,
+	);
 	return response;
+}
+
+function cameraPolicy(pathname: string): string {
+	return pathname === "/pair/scan" ? "camera=(self)" : "camera=()";
 }
 
 export const config = {

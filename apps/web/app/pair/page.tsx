@@ -13,6 +13,7 @@ import { asPublicJwk, type PairingQr } from "@meownow/protocol";
 import { startRegistration } from "@simplewebauthn/browser";
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { PairingQrCanvas } from "@/lib/pair/qr-canvas";
 import { saveVault } from "@/lib/vault/idb";
 import { wrapFromWire } from "@/lib/vault/wire";
 
@@ -132,8 +133,11 @@ export default function PairPage() {
 	return (
 		<main>
 			<h1>Add this device</h1>
-			<p>Scan this payload on an enrolled device.</p>
-			<p className="mono">{payload}</p>
+			<p>
+				Show this QR to an enrolled device. That device opens Scan device and points its camera
+				here.
+			</p>
+			{payload ? <PairingQrCanvas payload={payload} /> : null}
 			{fingerprint ? (
 				<>
 					<p>
