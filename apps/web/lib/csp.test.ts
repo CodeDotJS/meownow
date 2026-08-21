@@ -14,5 +14,12 @@ test("CSP uses a per-request nonce, strict-dynamic, and the required lock-downs"
 	expect(policy).toContain("require-trusted-types-for 'script'");
 	expect(policy).toContain("https://edge.meownow.example");
 	expect(policy).toContain("wss://edge.meownow.example");
-	expect(policy).not.toContain("unsafe-eval");
+	expect(policy).toContain("'wasm-unsafe-eval'");
+	expect(policy).not.toMatch(/(^| )'unsafe-eval'/);
+});
+
+test("dev CSP still allows JS eval for Next HMR", () => {
+	const policy = contentSecurityPolicy({ nonce: "dev", isDev: true });
+	expect(policy).toContain("'unsafe-eval'");
+	expect(policy).toContain("'wasm-unsafe-eval'");
 });

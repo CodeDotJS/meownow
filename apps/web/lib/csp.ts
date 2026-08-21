@@ -8,7 +8,7 @@ export function contentSecurityPolicy(input: {
 	const upgrade = input.isDev ? "" : " upgrade-insecure-requests;";
 	return [
 		`default-src 'self';`,
-		`script-src 'nonce-${input.nonce}' 'strict-dynamic'${evalSrc};`,
+		`script-src 'nonce-${input.nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${evalSrc};`,
 		`style-src 'self' 'unsafe-inline';`,
 		`img-src 'self' blob: data:;`,
 		`font-src 'self';`,
