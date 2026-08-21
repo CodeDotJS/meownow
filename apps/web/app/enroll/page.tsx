@@ -36,7 +36,7 @@ export default function EnrollPage() {
 				setStatus(errorCode(verifyRes.data));
 				return;
 			}
-			window.location.href = "/setup";
+			window.location.href = "/";
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "passkey_failed");
 		} finally {
@@ -48,7 +48,7 @@ export default function EnrollPage() {
 		<main>
 			<Panel>
 				<h1>First admin</h1>
-				<p className="lead">Creates seat 1 and a passkey. No password.</p>
+				<p className="lead">Creates the first seat and a passkey. No password.</p>
 				<form onSubmit={onSubmit}>
 					<label>
 						Handle
@@ -78,7 +78,7 @@ export default function EnrollPage() {
 						<input value={deviceLabel} onChange={(e) => setDeviceLabel(e.target.value)} required />
 					</label>
 					<button className="select" type="submit" disabled={busy}>
-						Create passkey
+						{busy ? "Working…" : "Create a passkey"}
 					</button>
 					<Status value={status} />
 				</form>

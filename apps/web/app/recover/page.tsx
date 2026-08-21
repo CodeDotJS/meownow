@@ -102,7 +102,7 @@ export default function RecoverPage() {
 			<Panel>
 				<h1>Recover</h1>
 				<p className="lead">
-					The 12 words unlock the vault on this browser. Then create a passkey.
+					The 12 words unlock this clipboard on a new browser. Then create a passkey.
 				</p>
 				<form onSubmit={(event) => void onSubmit(event)}>
 					<label>

@@ -9,12 +9,14 @@ import { Mesh } from "@/lib/p2p/mesh";
 import { sendOnMesh, shouldPersist } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
+import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { Landing } from "@/lib/ui/landing";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 import { formatGutterTime, ttlRemain, ttlWarn } from "@/lib/ui/time";
 import { loadVault } from "@/lib/vault/idb";
 import { connectHub } from "@/lib/vault/live";
+import { dropStaleLocalVault } from "@/lib/vault/local";
 import { downloadBlobItem, sendBlobFile } from "@/lib/vault/upload-client";
 import { b64urlToBytes, bytesToB64url } from "@/lib/vault/wire";
 
@@ -74,14 +76,21 @@ export default function Page() {
 
 	useEffect(() => {
 		void (async () => {
-			const local = await loadVault();
-			setHasLocal(local !== null);
 			const res = await getJson("/api/auth/me");
 			if (res.ok) {
-				setMe(res.data as Me);
+				const profile = res.data as Me;
+				await dropStaleLocalVault(profile.hasVault);
+				setMe(profile);
 			}
+			const local = await loadVault();
+			setHasLocal(local !== null);
 			setLoaded(true);
 		})();
+	}, []);
+
+	const finishVault = useCallback(() => {
+		setMe((current) => (current ? { ...current, hasVault: true } : current));
+		setHasLocal(true);
 	}, []);
 
 	useEffect(() => {
@@ -428,18 +437,7 @@ export default function Page() {
 	if (!me.hasVault) {
 		return (
 			<main>
-				<Panel>
-					<h1>Vault</h1>
-					<p className="lead">
-						Create the vault on this device. Write the 12 words down. They are shown once.
-					</p>
-					<nav className="stack">
-						<a className="select" href="/setup">
-							Create vault
-						</a>
-					</nav>
-					<Status value={status} />
-				</Panel>
+				<CreateVaultFlow onComplete={finishVault} />
 			</main>
 		);
 	}
@@ -448,17 +446,19 @@ export default function Page() {
 		return (
 			<main>
 				<Panel>
-					<h1>This device</h1>
+					<h1>This browser is empty</h1>
 					<p className="lead">
-						No key in this browser. Pair it from a device that already works, or recover with the 12
-						words.
+						Your keys are on another device. Open meownow there, tap Add device, and scan the QR
+						that this page will show.
 					</p>
 					<nav className="stack">
 						<a className="select" href="/pair">
-							Pair this device
+							Show a QR
 						</a>
-						<a href="/recover">Recover with phrase</a>
 					</nav>
+					<p className="hint">
+						Lost every device? <a href="/recover">Use the 12 words</a>
+					</p>
 					<Status value={status} />
 				</Panel>
 			</main>

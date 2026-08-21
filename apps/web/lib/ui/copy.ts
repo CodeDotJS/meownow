@@ -16,7 +16,7 @@ const PROTOCOL: Record<ErrorCode, string> = {
 	admin_enrolled: "An admin already exists.",
 	suspended: "This account is suspended.",
 	device_revoked: "This device was revoked.",
-	vault_exists: "A vault already exists. Pair this device instead.",
+	vault_exists: "This account is already set up. Add this browser as a new device.",
 	vault_missing: "No vault on this device.",
 	pairing_expired: "That pairing expired. Start again.",
 	pairing_missing: "That pairing was not found.",
@@ -37,7 +37,8 @@ const PROTOCOL: Record<ErrorCode, string> = {
 const LOCAL: Record<string, string> = {
 	request_failed: "Request failed.",
 	passkey_failed: "Passkey was cancelled or failed.",
-	vault_failed: "Could not create the vault.",
+	vault_failed: "Could not finish setup on this device.",
+	vault_upload_failed: "Could not finish setup. Try again.",
 	pair_failed: "Pairing failed.",
 	wrap_failed: "Could not wrap the vault for that device.",
 	recover_failed: "Recovery failed.",

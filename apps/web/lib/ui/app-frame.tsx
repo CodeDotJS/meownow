@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { getJson, postJson } from "@/lib/client/http";
 import { loadVault } from "@/lib/vault/idb";
+import { dropStaleLocalVault } from "@/lib/vault/local";
 import { CommandPalette, type PaletteAction } from "./palette";
 
 type FrameMe = {
@@ -28,14 +29,16 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		void (async () => {
 			void pathname;
-			const local = await loadVault();
-			setHasLocal(local !== null);
 			const res = await getJson("/api/auth/me");
 			if (res.ok) {
-				setMe(res.data as FrameMe);
+				const profile = res.data as FrameMe;
+				await dropStaleLocalVault(profile.hasVault);
+				setMe(profile);
 			} else {
 				setMe(null);
 			}
+			const local = await loadVault();
+			setHasLocal(local !== null);
 		})();
 	}, [pathname]);
 
@@ -57,23 +60,24 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	const actions = useMemo((): PaletteAction[] => {
 		if (!me) {
 			return [
-				{ id: "login", label: "Use passkey", href: "/login" },
-				{ id: "join", label: "Join with invite", href: "/join" },
+				{ id: "login", label: "Continue with passkey", href: "/login" },
+				{ id: "join", label: "Paste an invite code", href: "/join" },
+				{ id: "pair", label: "This is a new device", href: "/pair" },
 				{ id: "enroll", label: "First admin", href: "/enroll" },
-				{ id: "recover", label: "Recover with phrase", href: "/recover" },
+				{ id: "recover", label: "Use the 12 words", href: "/recover" },
 			];
 		}
 		const rows: PaletteAction[] = [{ id: "home", label: "Clipboard", href: "/" }];
 		if (!me.hasVault) {
-			rows.push({ id: "setup", label: "Create vault", href: "/setup" });
+			rows.push({ id: "setup", label: "Finish setup", href: "/setup" });
 		}
 		if (me.hasVault && !hasLocal) {
-			rows.push({ id: "pair", label: "Pair this device", href: "/pair" });
+			rows.push({ id: "pair", label: "Show a pairing QR", href: "/pair" });
 		}
 		if (hasLocal) {
-			rows.push({ id: "scan", label: "Scan a new device", href: "/pair/scan" });
+			rows.push({ id: "scan", label: "Add a device", href: "/pair/scan" });
 		}
-		rows.push({ id: "recover", label: "Recover with phrase", href: "/recover" });
+		rows.push({ id: "recover", label: "Use the 12 words", href: "/recover" });
 		if (!me.canUpload) {
 			rows.push({ id: "access", label: "Request upload access", href: "/access" });
 		}
@@ -100,11 +104,21 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	return (
 		<div className="frame">
 			<header className="chrome">
-				<a href="/" className="chrome-brand mono">
+				<a href="/" className="chrome-brand">
 					meownow
 				</a>
 				<div className="chrome-right">
 					{me ? <span className="chrome-handle mono">{me.handle}</span> : null}
+					{me?.role === "admin" ? (
+						<a className="chrome-add" href="/invites">
+							Invites
+						</a>
+					) : null}
+					{hasLocal ? (
+						<a className="chrome-add" href="/pair/scan">
+							Add device
+						</a>
+					) : null}
 					<button type="button" className="chrome-k" onClick={() => setOpen(true)}>
 						<kbd>{mod}</kbd>
 					</button>

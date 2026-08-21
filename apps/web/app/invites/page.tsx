@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { inviteJoinUrl } from "@/lib/ui/invite-url";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 
@@ -71,20 +72,41 @@ export default function InvitesPage() {
 		<main>
 			<Panel>
 				<h1>Invites</h1>
-				<p className="lead">One token, one seat. Shown once.</p>
+				<p className="lead">Send the link. One person, 72 hours, shown once.</p>
 				<form onSubmit={onCreate}>
 					<label>
 						Note
-						<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={120} />
+						<input
+							value={note}
+							onChange={(e) => setNote(e.target.value)}
+							maxLength={120}
+							placeholder="who it is for"
+						/>
 					</label>
 					<button className="select" type="submit">
-						Issue invite
+						Make a link
 					</button>
 				</form>
 				{token ? (
-					<p>
-						Token (shown once): <span className="mono">{token}</span>
-					</p>
+					<>
+						<p className="lead">Send this. It will not be shown again.</p>
+						<p className="phrase">{inviteJoinUrl(window.location.origin, token)}</p>
+						<nav className="stack">
+							<button
+								className="select"
+								type="button"
+								onClick={() => {
+									const url = inviteJoinUrl(window.location.origin, token);
+									void navigator.clipboard.writeText(url).then(
+										() => setStatus("Copied the invite link."),
+										() => setStatus(url),
+									);
+								}}
+							>
+								Copy link
+							</button>
+						</nav>
+					</>
 				) : null}
 				<Status value={status} />
 				<ul>

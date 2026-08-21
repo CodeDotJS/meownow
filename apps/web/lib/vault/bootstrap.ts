@@ -8,7 +8,7 @@ import {
 	wrapIdentityKey,
 } from "@meownow/crypto";
 import { asPublicJwk } from "@meownow/protocol";
-import { postJson } from "../client/http";
+import { errorCode, postJson } from "../client/http";
 import { saveVault } from "./idb";
 import { bytesToB64url, wrapToWire } from "./wire";
 
@@ -27,7 +27,7 @@ export async function bootstrapVault(userId: string): Promise<string> {
 		recoveryVerifier: bytesToB64url(verifier),
 	});
 	if (!res.ok) {
-		throw new Error("vault_upload_failed");
+		throw new Error(errorCode(res.data));
 	}
 	await saveVault({
 		userId,

@@ -184,7 +184,7 @@ export default function PairScanPage() {
 	return (
 		<main>
 			<Panel>
-				<h1>Scan a new device</h1>
+				<h1>Add a device</h1>
 				{fingerprint ? (
 					<>
 						<p className="lead">Read these numbers on both screens.</p>
@@ -200,9 +200,7 @@ export default function PairScanPage() {
 					</>
 				) : (
 					<>
-						<p className="lead">
-							This device already has the key. Point the camera at the QR on the new one.
-						</p>
+						<p className="lead">Point the camera at the QR on the new browser.</p>
 						{cameraOk ? (
 							<>
 								<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />

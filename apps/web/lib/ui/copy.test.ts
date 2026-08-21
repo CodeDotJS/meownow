@@ -21,5 +21,6 @@ describe("statusCopy", () => {
 		expect(statusCopy("passkey_failed")).toBe("Passkey was cancelled or failed.");
 		expect(statusCopy("camera_denied")).toBe("Camera permission was denied.");
 		expect(statusCopy("fingerprint mismatch")).toBe("Numbers did not match. Abort.");
+		expect(statusCopy("vault_upload_failed")).toBe("Could not finish setup. Try again.");
 	});
 });

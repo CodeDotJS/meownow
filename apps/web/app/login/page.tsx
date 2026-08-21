@@ -40,13 +40,19 @@ export default function LoginPage() {
 		<main>
 			<Panel>
 				<h1>Login</h1>
-				<p className="lead">Use the passkey for this device.</p>
+				<p className="lead">Face ID, Touch ID, or your device passkey. No password.</p>
 				<nav className="stack">
 					<button className="select" type="button" onClick={onLogin} disabled={busy}>
-						Use passkey
+						{busy ? "Working…" : "Continue with passkey"}
 					</button>
 				</nav>
 				<Status value={status} />
+				<p className="hint">
+					This only unlocks a passkey already saved on this browser. A passkey from meownow.vercel.app
+					will not appear here.
+					<br />
+					New here? You need an invite link.
+				</p>
 			</Panel>
 		</main>
 	);

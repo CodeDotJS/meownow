@@ -136,12 +136,15 @@ export default function PairPage() {
 		<main>
 			<Panel>
 				<h1>New device</h1>
-				<p className="lead">This browser is empty. Show this QR to a device that already works.</p>
+				<p className="lead">
+					Keep this screen open. On a device that already works, tap Add device, then point that
+					camera here.
+				</p>
 				<ol className="steps">
-					<li>Keep this screen open.</li>
-					<li>On the enrolled device, open Scan a new device.</li>
-					<li>Point that camera here.</li>
-					<li>Match the numbers. Create a passkey on this device.</li>
+					<li>Leave this QR on screen.</li>
+					<li>On the other device, tap Add device in the top bar.</li>
+					<li>Point that camera at this QR.</li>
+					<li>Match the numbers. Create a passkey here.</li>
 				</ol>
 				{payload ? <PairingQrCanvas payload={payload} /> : null}
 				{fingerprint ? (
