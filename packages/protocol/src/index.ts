@@ -9,6 +9,7 @@ export {
 	adminOkResponseSchema,
 	adminUsageResponseSchema,
 	adminUsersResponseSchema,
+	pruneResponseSchema,
 	R2_CLASS_A_CEILING,
 	R2_CLASS_B_CEILING,
 	R2_STORAGE_CEILING_BYTES,
@@ -23,6 +24,7 @@ export {
 	MAX_CHUNK_CIPHER_BYTES,
 	mintCapabilityToken,
 	openCapabilityToken,
+	PENDING_BLOB_MAX_AGE_MS,
 	parseCapabilityJwk,
 } from "./capability";
 export type { DcEnvelope } from "./dc";
@@ -101,7 +103,9 @@ export {
 } from "./vault";
 export type { HubTicket, WsEnvelope } from "./ws";
 export {
+	AUTH_LIMIT_USER_ID,
 	HUB_FANOUT_TTL_MS,
+	HUB_LIMIT_TTL_MS,
 	HUB_WS_TTL_MS,
 	mintHubTicket,
 	openHubTicket,

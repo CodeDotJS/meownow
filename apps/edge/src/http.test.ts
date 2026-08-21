@@ -173,3 +173,15 @@ test("upload over the token byte cap is rejected", async () => {
 	expect(response.status).toBe(413);
 	expect(blobs.puts).toEqual([]);
 });
+
+test("limit without a ticket is denied", async () => {
+	const response = await handleRequest(
+		new Request("https://edge.meownow.test/limit", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ bucket: "send" }),
+		}),
+		env([]),
+	);
+	expect(response.status).toBe(401);
+});

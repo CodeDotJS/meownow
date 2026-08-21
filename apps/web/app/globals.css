@@ -147,3 +147,14 @@ li {
 	height: 2px;
 	background: var(--ink);
 }
+
+@media (prefers-reduced-motion: reduce) {
+	.ttl {
+		transform: none;
+	}
+
+	html {
+		animation: none;
+		transition: none;
+	}
+}

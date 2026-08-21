@@ -545,3 +545,71 @@ test("admin usage shows committed R2 bytes against the 10 GiB ceiling; members a
 	expect(denied.status).toBe(403);
 	expect(await denied.json()).toEqual({ error: "forbidden" });
 });
+
+test("createItem is denied when the send bucket is empty", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({
+		env,
+		auth: store,
+		vault: store,
+		webauthn,
+		limits: { take: async () => false },
+	});
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const user = [...store.users.values()][0];
+	if (user) {
+		user.hasVault = true;
+	}
+	await expect(
+		vaultApi.createItem(enrolled.sessionToken, {
+			id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+			kind: "text",
+			ciphertext: "YQ",
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 1,
+			expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+		}),
+	).rejects.toMatchObject({ code: "rate_limited", status: 429 });
+});
+
+test("prune removes expired items and stale pending blobs", async () => {
+	const store = new MemoryAuthStore();
+	const now = new Date("2026-08-22T04:00:00.000Z");
+	const vaultApi = new VaultService({ env, auth: store, vault: store, now: () => now });
+	const ownerId = [...store.users.values()][0]?.id ?? "";
+	store.items.push({
+		id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+		kind: "text",
+		ciphertext: "YQ",
+		metaCiphertext: "YQ",
+		iv: "YQ",
+		byteSize: 1,
+		expiresAt: new Date(now.getTime() - 1).toISOString(),
+		ownerId,
+		createdAt: now,
+	});
+	store.blobs.push({
+		id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+		ownerId,
+		r2Key: "stale-pending",
+		byteSize: 4,
+		chunkSize: 4,
+		chunkCount: 1,
+		sha256: Buffer.alloc(32),
+		state: "pending",
+		createdAt: new Date(now.getTime() - 60 * 60 * 1000),
+		committedAt: null,
+	});
+	const result = await vaultApi.prune();
+	expect(store.items).toEqual([]);
+	expect(result.deleteR2Keys).toContain("stale-pending");
+	expect(store.blobs).toEqual([]);
+});

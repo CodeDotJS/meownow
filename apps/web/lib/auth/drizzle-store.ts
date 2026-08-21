@@ -22,7 +22,8 @@ import type {
 	PublicJwk,
 	WrappedKeyWire,
 } from "@meownow/protocol";
-import { and, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { planPrune } from "../vault/prune";
 import type {
 	BlobRow,
 	PairingRecord,
@@ -903,6 +904,68 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 			}
 			return { committedBytes, pendingBytes, classAEstimate };
 		});
+	}
+
+	async prune(now: Date): Promise<{ keepR2Keys: string[]; deleteR2Keys: string[] }> {
+		return this.withDb((db) =>
+			db.transaction(async (tx) => {
+				const [itemRows, blobRows, pairingRows, sessionRows] = await Promise.all([
+					tx.select().from(items),
+					tx.select().from(blobs),
+					tx.select().from(pairingSessions),
+					tx.select().from(sessions),
+				]);
+				const plan = planPrune({
+					now: now.getTime(),
+					items: itemRows.map((row) => ({
+						id: row.id,
+						pinned: row.pinned,
+						expiresAt: row.expiresAt.getTime(),
+						blobId: row.blobId,
+					})),
+					blobs: blobRows.map((row) => ({
+						id: row.id,
+						r2Key: row.r2Key,
+						state: row.state === "committed" ? "committed" : "pending",
+						createdAt: row.createdAt.getTime(),
+						ownerId: row.ownerId,
+						byteSize: row.byteSize,
+					})),
+					pairings: pairingRows.map((row) => ({
+						id: row.id,
+						expiresAt: row.expiresAt.getTime(),
+					})),
+					sessions: sessionRows.map((row) => ({
+						key: row.tokenHash.toString("hex"),
+						expiresAt: row.expiresAt.getTime(),
+					})),
+				});
+				if (plan.deleteItemIds.length > 0) {
+					await tx.delete(items).where(inArray(items.id, plan.deleteItemIds));
+				}
+				if (plan.deletePairingIds.length > 0) {
+					await tx
+						.delete(pairingSessions)
+						.where(inArray(pairingSessions.id, plan.deletePairingIds));
+				}
+				if (plan.deleteSessionKeys.length > 0) {
+					const hashes = plan.deleteSessionKeys.map((key) => Buffer.from(key, "hex"));
+					await tx.delete(sessions).where(inArray(sessions.tokenHash, hashes));
+				}
+				if (plan.deleteBlobIds.length > 0) {
+					await tx.delete(blobs).where(inArray(blobs.id, plan.deleteBlobIds));
+				}
+				for (const row of plan.decrementUsage) {
+					await tx
+						.update(users)
+						.set({
+							storageUsedBytes: sql`greatest(0, ${users.storageUsedBytes} - ${row.bytes})`,
+						})
+						.where(eq(users.id, row.ownerId));
+				}
+				return { keepR2Keys: plan.keepR2Keys, deleteR2Keys: plan.deleteR2Keys };
+			}),
+		);
 	}
 }
 

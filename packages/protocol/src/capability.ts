@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const FILE_MAX_BYTES = 100 * 1024 * 1024;
 export const BLOB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const PENDING_BLOB_MAX_AGE_MS = 60 * 60 * 1000;
 export const CAPABILITY_TTL_MS = 60 * 1000;
 export const MAX_CHUNK_CIPHER_BYTES = 1_048_576 + 16;
 

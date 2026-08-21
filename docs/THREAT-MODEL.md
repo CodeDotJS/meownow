@@ -51,3 +51,13 @@ WebRTC DataChannels carry ciphertext only; Zod rejects a `plaintext` field on th
 ## Admin (milestone 8)
 
 Directory, audit, and usage are admin-only. A member session is `403 forbidden` even with a hand-crafted `/api/admin/*` request. The dashboard shows metadata: handles, quota, device labels, audit actions. It does not show plaintext, filenames, or MIME types. Device revoke sets `revoked_at` and deletes sessions; `device.revoked` is fanned out as an id only. User remove frees the seat (`ON DELETE SET NULL`). R2 objects for a removed user are not deleted here — that is the milestone 9 sweep. Class B ops are not counted without Worker telemetry.
+
+## Hardening (milestone 9)
+
+HTML responses carry a per-request CSP nonce with `strict-dynamic`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`, and `require-trusted-types-for 'script'`. `style-src` allows `'unsafe-inline'` because React inline styles (TTL hairline, usage meter) cannot be nonced. Trusted Types policies include Next’s `nextjs` / `nextjs#bundler` names.
+
+Send and auth rate limits are token buckets in Durable Object storage. Vercel never trusts the UI for this: a 429 is `rate_limited`. Auth limiter keys are `sha256(ip)`, not the raw address.
+
+Nightly Worker cron tickets `POST /api/internal/prune` (`purpose: cron`). Vercel deletes expired unpinned rows, expired sessions/pairings, and pending blobs older than one hour, then returns keep/delete R2 prefixes. The Worker deletes R2 objects whose prefix is not kept. **Pinned items are not expired.** A bucket-wide R2 lifecycle expiry would delete pinned blobs, so it is not configured.
+
+`docs/RUNBOOK.md` covers device revoke, vault recovery, capability-key rotation, and backup restore.

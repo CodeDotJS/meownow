@@ -31,6 +31,7 @@ export const errorCodeSchema = z.enum([
 	"request_pending",
 	"not_found",
 	"last_admin",
+	"rate_limited",
 ]);
 
 export const errorEnvelopeSchema = z.object({

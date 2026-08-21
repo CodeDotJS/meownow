@@ -66,3 +66,8 @@ export const adminUsageResponseSchema = z.object({
 export const adminOkResponseSchema = z.object({
 	ok: z.literal(true),
 });
+
+export const pruneResponseSchema = z.object({
+	keepR2Keys: z.array(z.string()),
+	deleteR2Keys: z.array(z.string()),
+});

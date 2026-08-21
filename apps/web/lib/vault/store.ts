@@ -134,4 +134,5 @@ export type VaultStore = {
 		pendingBytes: number;
 		classAEstimate: number;
 	}>;
+	prune(now: Date): Promise<{ keepR2Keys: string[]; deleteR2Keys: string[] }>;
 };

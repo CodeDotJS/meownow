@@ -1,8 +1,16 @@
 import { DurableObject } from "cloudflare:workers";
 import { parseEdgeEnv } from "@meownow/config/env";
-import { wsEnvelopeSchema } from "@meownow/protocol";
+import {
+	AUTH_LIMIT_USER_ID,
+	HUB_LIMIT_TTL_MS,
+	mintHubTicket,
+	pruneResponseSchema,
+	wsEnvelopeSchema,
+} from "@meownow/protocol";
 import { handleRequest } from "./http";
 import { HubRoom } from "./hub";
+import { sweepOrphans } from "./prune";
+import { AUTH_LIMIT, SEND_LIMIT, type TokenBucket, takeToken } from "./rate-limit";
 
 export interface Env {
 	HUB: DurableObjectNamespace;
@@ -34,6 +42,15 @@ export class HubDO extends DurableObject<Env> {
 			}
 			this.room().broadcast(parsed.data);
 			return new Response(null, { status: 204 });
+		}
+		if (url.pathname === "/limit" && request.method === "POST") {
+			const raw = (await request.json().catch(() => null)) as { bucket?: string } | null;
+			const name = raw?.bucket === "auth" ? "auth" : "send";
+			const limit = name === "auth" ? AUTH_LIMIT : SEND_LIMIT;
+			const stored = await this.ctx.storage.get<TokenBucket>(`bucket:${name}`);
+			const result = takeToken(stored, Date.now(), limit);
+			await this.ctx.storage.put(`bucket:${name}`, result.bucket);
+			return new Response(null, { status: result.ok ? 204 : 429 });
 		}
 		return new Response("not found", { status: 404 });
 	}
@@ -94,9 +111,33 @@ export default {
 
 	async scheduled(
 		_controller: ScheduledController,
-		_env: Env,
+		env: Env,
 		_ctx: ExecutionContext,
 	): Promise<void> {
-		// M9: prune expired rows, orphaned R2 objects, uncommitted blobs older than 1 hour.
+		await runCron(env);
 	},
 };
+
+export async function runCron(env: Env): Promise<void> {
+	const ticket = await mintHubTicket(env.HUB_SECRET, {
+		v: 1,
+		purpose: "cron",
+		userId: AUTH_LIMIT_USER_ID,
+		exp: Date.now() + HUB_LIMIT_TTL_MS,
+	});
+	const res = await fetch(`${env.APP_URL.replace(/\/$/, "")}/api/internal/prune`, {
+		method: "POST",
+		headers: { authorization: `Bearer ${ticket}` },
+	});
+	if (!res.ok) {
+		return;
+	}
+	const parsed = pruneResponseSchema.safeParse(await res.json().catch(() => null));
+	if (!parsed.success) {
+		return;
+	}
+	await sweepOrphans(
+		env.BLOBS as Parameters<typeof sweepOrphans>[0],
+		new Set(parsed.data.keepR2Keys),
+	);
+}

@@ -5,10 +5,12 @@ export const TEXT_PLAIN_MAX_BYTES = 64 * 1024;
 export const TEXT_CIPHERTEXT_MAX_BYTES = TEXT_PLAIN_MAX_BYTES + 16;
 export const HUB_WS_TTL_MS = 60 * 1000;
 export const HUB_FANOUT_TTL_MS = 30 * 1000;
+export const HUB_LIMIT_TTL_MS = 30 * 1000;
+export const AUTH_LIMIT_USER_ID = "00000000-0000-4000-8000-00000000000a";
 
 export const hubTicketSchema = z.object({
 	v: z.literal(1),
-	purpose: z.enum(["ws", "fanout"]),
+	purpose: z.enum(["ws", "fanout", "limit", "cron"]),
 	userId: z.string().uuid(),
 	deviceId: z.string().uuid().optional(),
 	exp: z.number().int(),

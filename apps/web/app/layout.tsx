@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Martian_Mono } from "next/font/google";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import "./globals.css";
 
@@ -35,7 +36,8 @@ export const viewport: Viewport = {
 	themeColor: "#14161a",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+	await connection();
 	return (
 		<html lang="en" className={`${instrumentSans.variable} ${martianMono.variable}`}>
 			<body>{children}</body>

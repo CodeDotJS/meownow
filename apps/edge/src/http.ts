@@ -18,6 +18,9 @@ export async function handleRequest(request: Request, env: EdgeEnv): Promise<Res
 	if (request.method === "POST" && url.pathname === "/fanout") {
 		return fanout(request, env);
 	}
+	if (request.method === "POST" && url.pathname === "/limit") {
+		return limit(request, env);
+	}
 	if (url.pathname === "/upload") {
 		return upload(request, env);
 	}
@@ -78,6 +81,31 @@ async function fanout(request: Request, env: EdgeEnv): Promise<Response> {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify(parsed.data),
+		}),
+	);
+}
+
+async function limit(request: Request, env: EdgeEnv): Promise<Response> {
+	const header = request.headers.get("authorization") ?? "";
+	const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+	const ticket = await openHubTicket(env.HUB_SECRET, token);
+	if (ticket?.purpose !== "limit") {
+		return new Response("unauthorized", { status: 401 });
+	}
+	let raw: unknown;
+	try {
+		raw = await request.json();
+	} catch {
+		return new Response("invalid_body", { status: 400 });
+	}
+	const stub = (env.HUB as DurableObjectNamespace).get(
+		(env.HUB as DurableObjectNamespace).idFromName(ticket.userId),
+	);
+	return stub.fetch(
+		new Request("https://hub/limit", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify(raw),
 		}),
 	);
 }

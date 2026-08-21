@@ -361,3 +361,21 @@ test("revoking a device kills its session", async () => {
 	expect(store.devices.get(device?.id ?? "")?.revokedAt).toBeInstanceOf(Date);
 	expect(store.audit.some((row) => row.action === "device.revoked")).toBe(true);
 });
+
+test("auth options are rate-limited per IP", async () => {
+	const handlers = createHandlers({
+		env,
+		store: new MemoryAuthStore(),
+		webauthn: mockWebAuthn(),
+		limits: { take: async () => false },
+	});
+	const res = await handlers.postLoginOptions(
+		new Request("https://meownow.example/api/auth/login/options", {
+			method: "POST",
+			headers: { origin: env.APP_URL, "content-type": "application/json" },
+			body: "{}",
+		}),
+	);
+	expect(res.status).toBe(429);
+	expect(await res.json()).toEqual({ error: "rate_limited" });
+});

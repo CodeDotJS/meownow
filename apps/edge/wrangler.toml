@@ -19,6 +19,8 @@ new_sqlite_classes = ["HubDO"]
 [[r2_buckets]]
 binding = "BLOBS"
 bucket_name = "meownow-blobs"
+# Do not set a bucket-wide object expiry. Pinned items must outlive the 7-day default TTL.
+# Abort incomplete multipart uploads in the dashboard if you enable MPU later.
 
 [triggers]
 crons = ["0 3 * * *"]

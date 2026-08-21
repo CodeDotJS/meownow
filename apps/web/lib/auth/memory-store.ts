@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { inviteState, seatNumbers } from "@meownow/db";
 import type { ItemCreateRequest } from "@meownow/protocol";
+import { planPrune } from "../vault/prune";
 import type {
 	BlobRow,
 	PairingRecord,
@@ -602,6 +603,49 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			}
 		}
 		return { committedBytes, pendingBytes, classAEstimate };
+	}
+
+	async prune(now: Date): Promise<{ keepR2Keys: string[]; deleteR2Keys: string[] }> {
+		const plan = planPrune({
+			now: now.getTime(),
+			items: this.items.map((item) => ({
+				id: item.id,
+				pinned: false,
+				expiresAt: Date.parse(item.expiresAt),
+				blobId: item.blobId ?? null,
+			})),
+			blobs: this.blobs.map((blob) => ({
+				id: blob.id,
+				r2Key: blob.r2Key,
+				state: blob.state,
+				createdAt: blob.createdAt.getTime(),
+				ownerId: blob.ownerId,
+				byteSize: blob.byteSize,
+			})),
+			pairings: [...this.pairings.values()].map((row) => ({
+				id: row.id,
+				expiresAt: row.expiresAt.getTime(),
+			})),
+			sessions: [...this.sessions.entries()].map(([key, row]) => ({
+				key,
+				expiresAt: row.expiresAt.getTime(),
+			})),
+		});
+		this.items = this.items.filter((item) => !plan.deleteItemIds.includes(item.id));
+		for (const id of plan.deletePairingIds) {
+			this.pairings.delete(id);
+		}
+		for (const key of plan.deleteSessionKeys) {
+			this.sessions.delete(key);
+		}
+		this.blobs = this.blobs.filter((blob) => !plan.deleteBlobIds.includes(blob.id));
+		for (const row of plan.decrementUsage) {
+			const user = this.users.get(row.ownerId);
+			if (user) {
+				user.storageUsedBytes = Math.max(0, user.storageUsedBytes - row.bytes);
+			}
+		}
+		return { keepR2Keys: plan.keepR2Keys, deleteR2Keys: plan.deleteR2Keys };
 	}
 
 	private addDevice(userId: string, device: RegistrationCommit["device"]): void {

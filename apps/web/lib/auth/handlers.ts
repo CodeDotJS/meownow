@@ -1,4 +1,5 @@
 import type { WebEnv } from "@meownow/config/env";
+import { sha256 } from "@meownow/db";
 import {
 	adminEnrollOptionsRequestSchema,
 	deviceLabelSchema,
@@ -8,6 +9,7 @@ import {
 	inviteCreateRequestSchema,
 	itemCreateRequestSchema,
 	loginVerifyRequestSchema,
+	openHubTicket,
 	pairingStartRequestSchema,
 	pairingWrapRequestSchema,
 	pushSubscribeRequestSchema,
@@ -34,6 +36,7 @@ import {
 import { originAllowed } from "../origin";
 import type { BlobPort } from "../vault/blobs";
 import type { HubPort } from "../vault/hub";
+import { type LimitPort, silentLimits } from "../vault/limits";
 import { type PushPort, silentPush } from "../vault/push";
 import { VaultService } from "../vault/service";
 import type { VaultStore } from "../vault/store";
@@ -47,12 +50,14 @@ export type HandlerDeps = {
 	hub?: HubPort;
 	push?: PushPort;
 	blobs?: BlobPort;
+	limits?: LimitPort;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
 
 export function createHandlers(deps: HandlerDeps) {
 	const auth = new AuthService(deps);
+	const limits = deps.limits ?? silentLimits();
 	const vault = new VaultService({
 		env: deps.env,
 		auth: deps.store,
@@ -60,6 +65,7 @@ export function createHandlers(deps: HandlerDeps) {
 		hub: deps.hub,
 		push: deps.push ?? silentPush(),
 		blobs: deps.blobs,
+		limits,
 		webauthn: deps.webauthn,
 		now: deps.now,
 	});
@@ -83,12 +89,14 @@ export function createHandlers(deps: HandlerDeps) {
 			}),
 		postRegisterOptions: (request: Request) =>
 			mutating(request, deps.env, async () => {
+				await requireAuthLimit(limits, request);
 				const body = await readBody(request, registerOptionsRequestSchema);
 				const result = await auth.registerOptions(body);
 				return json({ options: result.options }, [challengeSet(result.challenge)]);
 			}),
 		postRegisterVerify: (request: Request) =>
 			mutating(request, deps.env, async () => {
+				await requireAuthLimit(limits, request);
 				const body = await readBody(request, registerVerifyRequestSchema);
 				const result = await auth.registerVerify(
 					toRegistrationResponse(body.credential),
@@ -98,12 +106,14 @@ export function createHandlers(deps: HandlerDeps) {
 			}),
 		postAdminEnrollOptions: (request: Request) =>
 			mutating(request, deps.env, async () => {
+				await requireAuthLimit(limits, request);
 				const body = await readBody(request, adminEnrollOptionsRequestSchema);
 				const result = await auth.adminEnrollOptions(body);
 				return json({ options: result.options }, [challengeSet(result.challenge)]);
 			}),
 		postAdminEnrollVerify: (request: Request) =>
 			mutating(request, deps.env, async () => {
+				await requireAuthLimit(limits, request);
 				const body = await readBody(request, registerVerifyRequestSchema);
 				const result = await auth.adminEnrollVerify(
 					toRegistrationResponse(body.credential),
@@ -113,11 +123,13 @@ export function createHandlers(deps: HandlerDeps) {
 			}),
 		postLoginOptions: (request: Request) =>
 			mutating(request, deps.env, async () => {
+				await requireAuthLimit(limits, request);
 				const result = await auth.loginOptions();
 				return json({ options: result.options }, [challengeSet(result.challenge)]);
 			}),
 		postLoginVerify: (request: Request) =>
 			mutating(request, deps.env, async () => {
+				await requireAuthLimit(limits, request);
 				const body = await readBody(request, loginVerifyRequestSchema);
 				const result = await auth.loginVerify(
 					toAuthenticationResponse(body.credential),
@@ -259,6 +271,19 @@ export function createHandlers(deps: HandlerDeps) {
 				await auth.removeUser(sid(request), id);
 				return json({ ok: true });
 			}),
+		postInternalPrune: (request: Request) =>
+			run(async () => {
+				if (!deps.env.HUB_SECRET) {
+					throw new AuthError("hub_unconfigured", 503);
+				}
+				const header = request.headers.get("authorization") ?? "";
+				const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+				const ticket = await openHubTicket(deps.env.HUB_SECRET, token);
+				if (ticket?.purpose !== "cron") {
+					throw new AuthError("unauthorized", 401);
+				}
+				return json(await vault.prune());
+			}),
 	};
 }
 
@@ -331,4 +356,14 @@ function json(data: unknown, cookies: string[] = [], status = 200): Response {
 function errorResponse(error: ErrorCode, status: number): Response {
 	const body = errorEnvelopeSchema.parse({ error });
 	return json(body, [], status);
+}
+
+async function requireAuthLimit(limits: LimitPort, request: Request): Promise<void> {
+	const forwarded = request.headers.get("x-forwarded-for");
+	const ip =
+		forwarded?.split(",")[0]?.trim() || request.headers.get("cf-connecting-ip") || "0.0.0.0";
+	const allowed = await limits.take("auth", sha256(Buffer.from(ip)).toString("hex"));
+	if (!allowed) {
+		throw new AuthError("rate_limited", 429);
+	}
 }

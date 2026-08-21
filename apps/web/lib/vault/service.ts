@@ -33,6 +33,7 @@ import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } 
 import { rpFromAppUrl } from "../env";
 import { type BlobPort, signCapability, silentBlobs } from "./blobs";
 import { type HubPort, silentHub } from "./hub";
+import { type LimitPort, silentLimits } from "./limits";
 import { type PushPort, silentPush } from "./push";
 import type { VaultStore } from "./store";
 
@@ -43,6 +44,7 @@ export type VaultServiceOptions = {
 	hub?: HubPort;
 	push?: PushPort;
 	blobs?: BlobPort;
+	limits?: LimitPort;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
@@ -54,6 +56,7 @@ export class VaultService {
 	private readonly hub: HubPort;
 	private readonly push: PushPort;
 	private readonly blobs: BlobPort;
+	private readonly limits: LimitPort;
 	private readonly webauthn: WebAuthnPort;
 	private readonly now: () => Date;
 	private readonly rp: { origin: string; rpID: string; rpName: string };
@@ -65,6 +68,7 @@ export class VaultService {
 		this.hub = opts.hub ?? silentHub();
 		this.push = opts.push ?? silentPush();
 		this.blobs = opts.blobs ?? silentBlobs();
+		this.limits = opts.limits ?? silentLimits();
 		this.webauthn = opts.webauthn ?? defaultWebAuthn;
 		this.now = opts.now ?? (() => new Date());
 		this.rp = rpFromAppUrl(opts.env.APP_URL);
@@ -140,6 +144,10 @@ export class VaultService {
 		}
 		const now = this.now();
 		this.assertLiveItem(item, now);
+		const allowed = await this.limits.take("send", ctx.user.id);
+		if (!allowed) {
+			throw new AuthError("rate_limited", 429);
+		}
 		await this.vault.createItem(ctx.user.id, item, now);
 		const record = { ...item, createdAt: now.toISOString() };
 		await this.hub.publish(ctx.user.id, { v: 1, type: "item.created", item: record });
@@ -581,6 +589,10 @@ export class VaultService {
 
 	async publishDeviceRevoked(userId: string, deviceId: string): Promise<void> {
 		await this.hub.publish(userId, { v: 1, type: "device.revoked", id: deviceId });
+	}
+
+	async prune(): Promise<{ keepR2Keys: string[]; deleteR2Keys: string[] }> {
+		return this.vault.prune(this.now());
 	}
 
 	private async requireLivePairing(id: string) {
