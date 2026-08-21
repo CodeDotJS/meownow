@@ -26,6 +26,9 @@ export const errorCodeSchema = z.enum([
 	"item_expired",
 	"hub_unconfigured",
 	"push_unconfigured",
+	"capability_unconfigured",
+	"quota_exceeded",
+	"request_pending",
 ]);
 
 export const errorEnvelopeSchema = z.object({
@@ -134,6 +137,8 @@ export const meResponseSchema = z.object({
 	role: z.enum(["admin", "member"]),
 	canUpload: z.boolean(),
 	hasVault: z.boolean(),
+	storageQuotaBytes: z.number().int().nonnegative(),
+	storageUsedBytes: z.number().int().nonnegative(),
 });
 
 export const logoutResponseSchema = z.object({

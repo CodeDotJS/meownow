@@ -30,7 +30,7 @@ export const webEnvSchema = z.object({
 			message: "VAPID_SUBJECT must be a mailto: or https: URL",
 		})
 		.optional(),
-	CAPABILITY_TOKEN_PUBLIC_KEY: z.string().min(1).optional(),
+	CAPABILITY_TOKEN_PRIVATE_KEY: z.string().min(1).optional(),
 });
 
 export const edgeEnvSchema = z.object({
@@ -38,6 +38,7 @@ export const edgeEnvSchema = z.object({
 	BLOBS: z.unknown(),
 	HUB_SECRET: z.string().min(32),
 	APP_URL: z.string().url(),
+	CAPABILITY_TOKEN_PUBLIC_KEY: z.string().min(1).optional(),
 });
 
 export type DbEnv = z.infer<typeof dbEnvSchema>;

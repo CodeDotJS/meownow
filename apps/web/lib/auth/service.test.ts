@@ -295,3 +295,20 @@ test("push subscribe without a session cookie is denied", async () => {
 	expect(res.status).toBe(401);
 	expect(await res.json()).toEqual({ error: "unauthorized" });
 });
+
+test("upload intent without a session is denied", async () => {
+	const handlers = createHandlers({
+		env: { ...env, EDGE_URL: "https://edge.example", CAPABILITY_TOKEN_PRIVATE_KEY: "x" },
+		store: new MemoryAuthStore(),
+		webauthn: mockWebAuthn(),
+	});
+	const res = await handlers.postUploadIntent(
+		new Request("https://meownow.example/api/uploads/intent", {
+			method: "POST",
+			headers: { origin: env.APP_URL, "content-type": "application/json" },
+			body: JSON.stringify({ kind: "file", byteSize: 8, chunkCount: 1 }),
+		}),
+	);
+	expect(res.status).toBe(401);
+	expect(await res.json()).toEqual({ error: "unauthorized" });
+});

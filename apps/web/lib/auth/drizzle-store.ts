@@ -1,6 +1,7 @@
 import {
 	type AppDatabase,
 	auditLog,
+	blobs,
 	claimSeat,
 	createDb,
 	createPool,
@@ -11,6 +12,7 @@ import {
 	pairingSessions,
 	pushSubscriptions,
 	sessions,
+	uploadRequests,
 	users,
 } from "@meownow/db";
 import type {
@@ -19,8 +21,15 @@ import type {
 	PublicJwk,
 	WrappedKeyWire,
 } from "@meownow/protocol";
-import { and, eq, isNull, ne } from "drizzle-orm";
-import type { PairingRecord, StoredItem, VaultRecord, VaultStore } from "../vault/store";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
+import type {
+	BlobRow,
+	PairingRecord,
+	StoredItem,
+	UploadRequestRow,
+	VaultRecord,
+	VaultStore,
+} from "../vault/store";
 import type {
 	AdminEnrollCommit,
 	AdminEnrollCommitResult,
@@ -44,6 +53,8 @@ function mapUser(row: typeof users.$inferSelect): UserRow {
 		role: row.role,
 		canUpload: row.canUpload,
 		hasVault: row.wrappedVaultRecovery !== null,
+		storageQuotaBytes: row.storageQuotaBytes,
+		storageUsedBytes: row.storageUsedBytes,
 		suspendedAt: row.suspendedAt,
 	};
 }
@@ -501,10 +512,14 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 			return rows
 				.map((row) => ({
 					id: row.id,
-					kind: row.kind as ItemCreateRequest["kind"],
-					ciphertext: (row.ciphertext ?? Buffer.alloc(0)).toString("base64url"),
+					kind: row.kind,
+					ciphertext: row.ciphertext ? row.ciphertext.toString("base64url") : undefined,
 					metaCiphertext: row.metaCiphertext.toString("base64url"),
 					iv: row.iv.toString("base64url"),
+					wrappedKey: row.wrappedKey
+						? (JSON.parse(row.wrappedKey.toString("utf8")) as WrappedKeyWire)
+						: undefined,
+					blobId: row.blobId ?? undefined,
 					byteSize: row.byteSize,
 					expiresAt: row.expiresAt.toISOString(),
 					ownerId: row.ownerId,
@@ -569,6 +584,197 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		await this.withDb(async (db) => {
 			await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
 		});
+	}
+
+	async createUploadRequest(input: {
+		id: string;
+		userId: string;
+		reason: string;
+		now: Date;
+	}): Promise<"ok" | "pending"> {
+		return this.withDb(async (db) => {
+			const pending = await db
+				.select({ id: uploadRequests.id })
+				.from(uploadRequests)
+				.where(and(eq(uploadRequests.userId, input.userId), eq(uploadRequests.status, "pending")))
+				.limit(1);
+			if (pending[0]) {
+				return "pending" as const;
+			}
+			await db.insert(uploadRequests).values({
+				id: input.id,
+				userId: input.userId,
+				reason: input.reason,
+				createdAt: input.now,
+			});
+			return "ok" as const;
+		});
+	}
+
+	async listUploadRequests(): Promise<UploadRequestRow[]> {
+		return this.withDb(async (db) => {
+			const rows = await db
+				.select({
+					id: uploadRequests.id,
+					userId: uploadRequests.userId,
+					handle: users.handle,
+					reason: uploadRequests.reason,
+					status: uploadRequests.status,
+					decidedBy: uploadRequests.decidedBy,
+					decidedAt: uploadRequests.decidedAt,
+					decisionNote: uploadRequests.decisionNote,
+					grantedBytes: uploadRequests.grantedBytes,
+					createdAt: uploadRequests.createdAt,
+				})
+				.from(uploadRequests)
+				.innerJoin(users, eq(users.id, uploadRequests.userId));
+			return rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+		});
+	}
+
+	async decideUploadRequest(input: {
+		id: string;
+		decidedBy: string;
+		status: "approved" | "denied";
+		grantedBytes: number | null;
+		decisionNote: string | null;
+		now: Date;
+	}): Promise<"ok" | "missing" | "decided"> {
+		return this.withDb((db) =>
+			db.transaction(async (tx) => {
+				const rows = await tx
+					.select()
+					.from(uploadRequests)
+					.where(eq(uploadRequests.id, input.id))
+					.limit(1);
+				const row = rows[0];
+				if (!row) {
+					return "missing" as const;
+				}
+				if (row.status !== "pending") {
+					return "decided" as const;
+				}
+				await tx
+					.update(uploadRequests)
+					.set({
+						status: input.status,
+						decidedBy: input.decidedBy,
+						decidedAt: input.now,
+						decisionNote: input.decisionNote,
+						grantedBytes: input.grantedBytes,
+					})
+					.where(eq(uploadRequests.id, input.id));
+				if (input.status === "approved" && input.grantedBytes) {
+					await tx
+						.update(users)
+						.set({ canUpload: true, storageQuotaBytes: input.grantedBytes })
+						.where(eq(users.id, row.userId));
+				}
+				return "ok" as const;
+			}),
+		);
+	}
+
+	async createPendingBlob(input: {
+		id: string;
+		ownerId: string;
+		r2Key: string;
+		byteSize: number;
+		chunkSize: number;
+		chunkCount: number;
+		now: Date;
+	}): Promise<void> {
+		await this.withDb(async (db) => {
+			await db.insert(blobs).values({
+				id: input.id,
+				ownerId: input.ownerId,
+				r2Key: input.r2Key,
+				byteSize: input.byteSize,
+				chunkSize: input.chunkSize,
+				chunkCount: input.chunkCount,
+				sha256: Buffer.alloc(32),
+				state: "pending",
+				createdAt: input.now,
+			});
+		});
+	}
+
+	async getBlob(id: string): Promise<BlobRow | null> {
+		return this.withDb(async (db) => {
+			const rows = await db.select().from(blobs).where(eq(blobs.id, id)).limit(1);
+			const row = rows[0];
+			if (!row) {
+				return null;
+			}
+			return {
+				id: row.id,
+				ownerId: row.ownerId,
+				r2Key: row.r2Key,
+				byteSize: row.byteSize,
+				chunkSize: row.chunkSize,
+				chunkCount: row.chunkCount,
+				sha256: row.sha256,
+				state: row.state === "committed" ? "committed" : "pending",
+				createdAt: row.createdAt,
+				committedAt: row.committedAt,
+			};
+		});
+	}
+
+	async commitBlobAndItem(input: {
+		blob: BlobRow;
+		actualBytes: number;
+		sha256: Buffer;
+		item: {
+			id: string;
+			kind: "image" | "file";
+			metaCiphertext: string;
+			iv: string;
+			wrappedKey: WrappedKeyWire;
+			expiresAt: Date;
+		};
+		now: Date;
+	}): Promise<"ok" | "quota"> {
+		return this.withDb((db) =>
+			db.transaction(async (tx) => {
+				const locked = await tx
+					.select()
+					.from(users)
+					.where(eq(users.id, input.blob.ownerId))
+					.for("update")
+					.limit(1);
+				const user = locked[0];
+				if (!user || user.storageUsedBytes + input.actualBytes > user.storageQuotaBytes) {
+					return "quota" as const;
+				}
+				await tx
+					.update(blobs)
+					.set({
+						state: "committed",
+						byteSize: input.actualBytes,
+						sha256: input.sha256,
+						committedAt: input.now,
+					})
+					.where(eq(blobs.id, input.blob.id));
+				await tx.insert(items).values({
+					id: input.item.id,
+					ownerId: input.blob.ownerId,
+					kind: input.item.kind,
+					metaCiphertext: Buffer.from(input.item.metaCiphertext, "base64url"),
+					iv: Buffer.from(input.item.iv, "base64url"),
+					wrappedKey: Buffer.from(JSON.stringify(input.item.wrappedKey), "utf8"),
+					blobId: input.blob.id,
+					byteSize: input.actualBytes,
+					expiresAt: input.item.expiresAt,
+					createdAt: input.now,
+				});
+				await tx
+					.update(users)
+					.set({ storageUsedBytes: sql`${users.storageUsedBytes} + ${input.actualBytes}` })
+					.where(eq(users.id, input.blob.ownerId));
+				return "ok" as const;
+			}),
+		);
 	}
 
 	async addDeviceAndSession(input: {

@@ -1,4 +1,5 @@
 import { getWebEnv } from "../env";
+import { createHttpBlobs } from "../vault/blobs";
 import { createHttpHub } from "../vault/hub";
 import { createWebPush } from "../vault/push";
 import { DrizzleAuthStore } from "./drizzle-store";
@@ -12,5 +13,6 @@ export function authHandlers() {
 		store,
 		hub: createHttpHub({ edgeUrl: env.EDGE_URL, hubSecret: env.HUB_SECRET }),
 		push: createWebPush(env, store),
+		blobs: createHttpBlobs(env.EDGE_URL),
 	});
 }

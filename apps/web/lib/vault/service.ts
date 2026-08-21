@@ -9,6 +9,9 @@ import {
 	uuidToBytes,
 } from "@meownow/db";
 import {
+	BLOB_TTL_MS,
+	CAPABILITY_TTL_MS,
+	FILE_MAX_BYTES,
 	HUB_WS_TTL_MS,
 	type ItemCreateRequest,
 	mintHubTicket,
@@ -24,6 +27,7 @@ import type { RegistrationResponseJSON } from "../auth/webauthn";
 import { defaultWebAuthn, type WebAuthnPort } from "../auth/webauthn";
 import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } from "../challenge";
 import { rpFromAppUrl } from "../env";
+import { type BlobPort, signCapability, silentBlobs } from "./blobs";
 import { type HubPort, silentHub } from "./hub";
 import { type PushPort, silentPush } from "./push";
 import type { VaultStore } from "./store";
@@ -34,6 +38,7 @@ export type VaultServiceOptions = {
 	vault: VaultStore;
 	hub?: HubPort;
 	push?: PushPort;
+	blobs?: BlobPort;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
@@ -44,6 +49,7 @@ export class VaultService {
 	private readonly vault: VaultStore;
 	private readonly hub: HubPort;
 	private readonly push: PushPort;
+	private readonly blobs: BlobPort;
 	private readonly webauthn: WebAuthnPort;
 	private readonly now: () => Date;
 	private readonly rp: { origin: string; rpID: string; rpName: string };
@@ -54,6 +60,7 @@ export class VaultService {
 		this.vault = opts.vault;
 		this.hub = opts.hub ?? silentHub();
 		this.push = opts.push ?? silentPush();
+		this.blobs = opts.blobs ?? silentBlobs();
 		this.webauthn = opts.webauthn ?? defaultWebAuthn;
 		this.now = opts.now ?? (() => new Date());
 		this.rp = rpFromAppUrl(opts.env.APP_URL);
@@ -176,6 +183,210 @@ export class VaultService {
 			exp: this.now().getTime() + HUB_WS_TTL_MS,
 		});
 		return { ticket, url: `${this.env.EDGE_URL.replace(/\/$/, "")}/ws` };
+	}
+
+	async requestUpload(sessionToken: string | undefined, reason: string) {
+		const user = await this.requireUser(sessionToken);
+		const now = this.now();
+		const result = await this.vault.createUploadRequest({
+			id: randomUUID(),
+			userId: user.id,
+			reason,
+			now,
+		});
+		if (result === "pending") {
+			throw new AuthError("request_pending", 409);
+		}
+		await this.auth.insertAudit({
+			actorId: user.id,
+			action: "upload.requested",
+			subjectType: "user",
+			subjectId: user.id,
+			now,
+		});
+		return { ok: true as const };
+	}
+
+	async listUploadRequests(sessionToken: string | undefined) {
+		await this.requireAdmin(sessionToken);
+		return { requests: await this.vault.listUploadRequests() };
+	}
+
+	async decideUpload(
+		sessionToken: string | undefined,
+		id: string,
+		body: { status: "approved" | "denied"; grantedBytes?: number; decisionNote?: string },
+	) {
+		const admin = await this.requireAdmin(sessionToken);
+		if (body.status === "approved" && !body.grantedBytes) {
+			throw new AuthError("invalid_body", 400);
+		}
+		const now = this.now();
+		const result = await this.vault.decideUploadRequest({
+			id,
+			decidedBy: admin.id,
+			status: body.status,
+			grantedBytes: body.grantedBytes ?? null,
+			decisionNote: body.decisionNote ?? null,
+			now,
+		});
+		if (result === "missing") {
+			throw new AuthError("item_invalid", 404);
+		}
+		if (result === "decided") {
+			throw new AuthError("invalid_body", 409);
+		}
+		await this.auth.insertAudit({
+			actorId: admin.id,
+			action: body.status === "approved" ? "upload.approved" : "upload.denied",
+			subjectType: "upload_request",
+			subjectId: id,
+			now,
+		});
+		return { ok: true as const };
+	}
+
+	async uploadIntent(
+		sessionToken: string | undefined,
+		body: { kind: "image" | "file"; byteSize: number; chunkCount: number },
+	) {
+		const user = await this.requireUser(sessionToken);
+		if (!user.canUpload) {
+			throw new AuthError("forbidden", 403);
+		}
+		if (body.byteSize > FILE_MAX_BYTES + 2_097_152) {
+			throw new AuthError("item_invalid", 400);
+		}
+		if (user.storageUsedBytes + body.byteSize > user.storageQuotaBytes) {
+			throw new AuthError("quota_exceeded", 403);
+		}
+		if (!this.env.CAPABILITY_TOKEN_PRIVATE_KEY || !this.env.EDGE_URL) {
+			throw new AuthError("capability_unconfigured", 503);
+		}
+		const blobId = randomUUID();
+		const r2Key = randomUUID();
+		await this.vault.createPendingBlob({
+			id: blobId,
+			ownerId: user.id,
+			r2Key,
+			byteSize: body.byteSize,
+			chunkSize: 1_048_576,
+			chunkCount: body.chunkCount,
+			now: this.now(),
+		});
+		return {
+			blobId,
+			r2Key,
+			maxBytes: body.byteSize,
+			uploadUrl: `${this.env.EDGE_URL.replace(/\/$/, "")}/upload`,
+		};
+	}
+
+	async uploadTicket(
+		sessionToken: string | undefined,
+		body: { blobId: string; purpose: "upload" | "stat" | "download" },
+	) {
+		if (!this.env.CAPABILITY_TOKEN_PRIVATE_KEY || !this.env.EDGE_URL) {
+			throw new AuthError("capability_unconfigured", 503);
+		}
+		const user = await this.requireUser(sessionToken);
+		if (!user.canUpload) {
+			throw new AuthError("forbidden", 403);
+		}
+		const blob = await this.vault.getBlob(body.blobId);
+		if (!blob || blob.ownerId !== user.id) {
+			throw new AuthError("item_invalid", 404);
+		}
+		if (body.purpose !== "download" && blob.state !== "pending") {
+			throw new AuthError("item_invalid", 409);
+		}
+		if (body.purpose === "download" && blob.state !== "committed") {
+			throw new AuthError("item_invalid", 409);
+		}
+		const token = await signCapability(this.env.CAPABILITY_TOKEN_PRIVATE_KEY, {
+			v: 1,
+			purpose: body.purpose,
+			userId: user.id,
+			key: blob.r2Key,
+			maxBytes: blob.byteSize,
+			blobId: blob.id,
+			exp: Math.floor(this.now().getTime() / 1000) + Math.floor(CAPABILITY_TTL_MS / 1000),
+		});
+		const path = body.purpose === "upload" ? "/upload" : body.purpose === "stat" ? "/stat" : "/dl";
+		return { token, url: `${this.env.EDGE_URL.replace(/\/$/, "")}${path}` };
+	}
+
+	async commitUpload(
+		sessionToken: string | undefined,
+		body: {
+			blobId: string;
+			itemId: string;
+			kind: "image" | "file";
+			metaCiphertext: string;
+			iv: string;
+			wrappedKey: { iv: string; bytes: string };
+			chunkSize: number;
+			chunkCount: number;
+			sha256: string;
+			expiresAt: string;
+		},
+	) {
+		const ctx = await this.requireCtx(sessionToken);
+		if (!ctx.user.canUpload) {
+			throw new AuthError("forbidden", 403);
+		}
+		const blob = await this.vault.getBlob(body.blobId);
+		if (!blob || blob.ownerId !== ctx.user.id || blob.state !== "pending") {
+			throw new AuthError("item_invalid", 404);
+		}
+		const expiresAt = Date.parse(body.expiresAt);
+		const now = this.now();
+		if (Number.isNaN(expiresAt) || expiresAt <= now.getTime()) {
+			throw new AuthError("item_expired", 400);
+		}
+		if (expiresAt > now.getTime() + BLOB_TTL_MS + 60_000) {
+			throw new AuthError("item_invalid", 400);
+		}
+		const ticket = await this.uploadTicket(sessionToken, { blobId: blob.id, purpose: "stat" });
+		const sized = await this.blobs.stat(ticket.token);
+		if (!sized || sized.bytes <= 0 || sized.bytes > blob.byteSize) {
+			throw new AuthError("item_invalid", 400);
+		}
+		const result = await this.vault.commitBlobAndItem({
+			blob,
+			actualBytes: sized.bytes,
+			sha256: fromBase64Url(body.sha256),
+			item: {
+				id: body.itemId,
+				kind: body.kind,
+				metaCiphertext: body.metaCiphertext,
+				iv: body.iv,
+				wrappedKey: body.wrappedKey,
+				expiresAt: new Date(expiresAt),
+			},
+			now,
+		});
+		if (result === "quota") {
+			throw new AuthError("quota_exceeded", 403);
+		}
+		const record = {
+			id: body.itemId,
+			kind: body.kind,
+			metaCiphertext: body.metaCiphertext,
+			iv: body.iv,
+			wrappedKey: body.wrappedKey,
+			blobId: blob.id,
+			byteSize: sized.bytes,
+			expiresAt: body.expiresAt,
+			createdAt: now.toISOString(),
+		};
+		await this.hub.publish(ctx.user.id, { v: 1, type: "item.created", item: record });
+		await this.push.notify({
+			userId: ctx.user.id,
+			exceptDeviceId: ctx.device.id,
+			title: `New item from ${ctx.user.displayName}`,
+		});
+		return record;
 	}
 
 	async vapidPublic(sessionToken: string | undefined) {
@@ -351,6 +562,14 @@ export class VaultService {
 			throw new AuthError("pairing_expired", 400);
 		}
 		return row;
+	}
+
+	private async requireAdmin(sessionToken: string | undefined) {
+		const user = await this.requireUser(sessionToken);
+		if (user.role !== "admin") {
+			throw new AuthError("forbidden", 403);
+		}
+		return user;
 	}
 
 	private async requireUser(sessionToken: string | undefined) {

@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { inviteState, seatNumbers } from "@meownow/db";
 import type { ItemCreateRequest } from "@meownow/protocol";
-import type { PairingRecord, StoredItem, VaultRecord, VaultStore } from "../vault/store";
+import type {
+	BlobRow,
+	PairingRecord,
+	StoredItem,
+	UploadRequestRow,
+	VaultRecord,
+	VaultStore,
+} from "../vault/store";
 import type {
 	AdminEnrollCommit,
 	AdminEnrollCommitResult,
@@ -36,6 +43,8 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 	pairings = new Map<string, PairingRecord>();
 	items: StoredItem[] = [];
 	pushes: Array<{ deviceId: string; endpoint: string; p256dh: string; auth: string }> = [];
+	uploadRequests: UploadRequestRow[] = [];
+	blobs: BlobRow[] = [];
 
 	constructor() {
 		this.users.set(ADMIN_ID, {
@@ -45,6 +54,8 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			role: "admin",
 			canUpload: true,
 			hasVault: false,
+			storageQuotaBytes: 524_288_000,
+			storageUsedBytes: 0,
 			suspendedAt: null,
 		});
 		const seat = this.seats[0];
@@ -179,6 +190,8 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			role: "member",
 			canUpload: false,
 			hasVault: false,
+			storageQuotaBytes: 0,
+			storageUsedBytes: 0,
 			suspendedAt: null,
 		});
 		seat.userId = input.userId;
@@ -335,6 +348,134 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 
 	async deletePushSubscription(endpoint: string): Promise<void> {
 		this.pushes = this.pushes.filter((row) => row.endpoint !== endpoint);
+	}
+
+	async createUploadRequest(input: {
+		id: string;
+		userId: string;
+		reason: string;
+		now: Date;
+	}): Promise<"ok" | "pending"> {
+		if (
+			this.uploadRequests.some((row) => row.userId === input.userId && row.status === "pending")
+		) {
+			return "pending";
+		}
+		const user = this.users.get(input.userId);
+		this.uploadRequests.push({
+			id: input.id,
+			userId: input.userId,
+			handle: user?.handle ?? "",
+			reason: input.reason,
+			status: "pending",
+			decidedBy: null,
+			decidedAt: null,
+			decisionNote: null,
+			grantedBytes: null,
+			createdAt: input.now,
+		});
+		return "ok";
+	}
+
+	async listUploadRequests(): Promise<UploadRequestRow[]> {
+		return [...this.uploadRequests].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+	}
+
+	async decideUploadRequest(input: {
+		id: string;
+		decidedBy: string;
+		status: "approved" | "denied";
+		grantedBytes: number | null;
+		decisionNote: string | null;
+		now: Date;
+	}): Promise<"ok" | "missing" | "decided"> {
+		const row = this.uploadRequests.find((item) => item.id === input.id);
+		if (!row) {
+			return "missing";
+		}
+		if (row.status !== "pending") {
+			return "decided";
+		}
+		row.status = input.status;
+		row.decidedBy = input.decidedBy;
+		row.decidedAt = input.now;
+		row.decisionNote = input.decisionNote;
+		row.grantedBytes = input.grantedBytes;
+		if (input.status === "approved" && input.grantedBytes) {
+			const user = this.users.get(row.userId);
+			if (user) {
+				user.canUpload = true;
+				user.storageQuotaBytes = input.grantedBytes;
+			}
+		}
+		return "ok";
+	}
+
+	async createPendingBlob(input: {
+		id: string;
+		ownerId: string;
+		r2Key: string;
+		byteSize: number;
+		chunkSize: number;
+		chunkCount: number;
+		now: Date;
+	}): Promise<void> {
+		this.blobs.push({
+			...input,
+			sha256: Buffer.alloc(32),
+			state: "pending",
+			createdAt: input.now,
+			committedAt: null,
+		});
+	}
+
+	async getBlob(id: string): Promise<BlobRow | null> {
+		return this.blobs.find((row) => row.id === id) ?? null;
+	}
+
+	async commitBlobAndItem(input: {
+		blob: BlobRow;
+		actualBytes: number;
+		sha256: Buffer;
+		item: {
+			id: string;
+			kind: "image" | "file";
+			metaCiphertext: string;
+			iv: string;
+			wrappedKey: { iv: string; bytes: string };
+			expiresAt: Date;
+		};
+		now: Date;
+	}): Promise<"ok" | "quota"> {
+		const user = this.users.get(input.blob.ownerId);
+		if (!user) {
+			return "quota";
+		}
+		if (user.storageUsedBytes + input.actualBytes > user.storageQuotaBytes) {
+			return "quota";
+		}
+		const blob = this.blobs.find((row) => row.id === input.blob.id);
+		if (blob?.state !== "pending") {
+			return "quota";
+		}
+		blob.state = "committed";
+		blob.byteSize = input.actualBytes;
+		blob.sha256 = input.sha256;
+		blob.committedAt = input.now;
+		user.storageUsedBytes += input.actualBytes;
+		this.items.push({
+			id: input.item.id,
+			kind: input.item.kind,
+			metaCiphertext: input.item.metaCiphertext,
+			iv: input.item.iv,
+			wrappedKey: input.item.wrappedKey,
+			blobId: blob.id,
+			byteSize: input.actualBytes,
+			expiresAt: input.item.expiresAt.toISOString(),
+			ownerId: blob.ownerId,
+			createdAt: input.now,
+		});
+		return "ok";
 	}
 
 	async addDeviceAndSession(input: {

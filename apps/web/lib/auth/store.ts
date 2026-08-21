@@ -19,6 +19,8 @@ export type UserRow = {
 	role: UserRole;
 	canUpload: boolean;
 	hasVault: boolean;
+	storageQuotaBytes: number;
+	storageUsedBytes: number;
 	suspendedAt: Date | null;
 };
 

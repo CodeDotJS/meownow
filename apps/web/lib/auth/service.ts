@@ -380,6 +380,8 @@ export class AuthService {
 				role: ctx.user.role,
 				canUpload: ctx.user.canUpload,
 				hasVault: ctx.user.hasVault,
+				storageQuotaBytes: ctx.user.storageQuotaBytes,
+				storageUsedBytes: ctx.user.storageUsedBytes,
 			},
 			sessionToken: sessionToken ?? "",
 		};

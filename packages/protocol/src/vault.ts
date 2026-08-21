@@ -63,11 +63,11 @@ export const pairingGetResponseSchema = z.object({
 	wrap: pairingWrapRequestSchema.nullable(),
 });
 
-export const itemKindSchema = z.enum(["text", "link"]);
+export const itemKindSchema = z.enum(["text", "link", "image", "file"]);
 
 export const itemCreateRequestSchema = z.object({
 	id: z.string().uuid(),
-	kind: itemKindSchema,
+	kind: z.enum(["text", "link"]),
 	ciphertext: z.string().min(1),
 	metaCiphertext: z.string().min(1),
 	iv: z.string().min(1),
@@ -75,7 +75,16 @@ export const itemCreateRequestSchema = z.object({
 	expiresAt: z.string(),
 });
 
-export const itemRecordSchema = itemCreateRequestSchema.extend({
+export const itemRecordSchema = z.object({
+	id: z.string().uuid(),
+	kind: itemKindSchema,
+	ciphertext: z.string().min(1).optional(),
+	metaCiphertext: z.string().min(1),
+	iv: z.string().min(1),
+	wrappedKey: wrappedKeyWireSchema.optional(),
+	blobId: z.string().uuid().optional(),
+	byteSize: z.number().int().nonnegative(),
+	expiresAt: z.string(),
 	createdAt: z.string(),
 });
 
@@ -103,6 +112,7 @@ export type VaultPutRequest = z.infer<typeof vaultPutRequestSchema>;
 export type PairingStartRequest = z.infer<typeof pairingStartRequestSchema>;
 export type PairingWrapRequest = z.infer<typeof pairingWrapRequestSchema>;
 export type ItemCreateRequest = z.infer<typeof itemCreateRequestSchema>;
+export type ItemRecord = z.infer<typeof itemRecordSchema>;
 export type PairingQr = z.infer<typeof pairingQrSchema>;
 export type PushSubscribeRequest = z.infer<typeof pushSubscribeRequestSchema>;
 

@@ -52,6 +52,17 @@ test("webEnv treats VAPID keys as optional", () => {
 	expect(result.VAPID_PUBLIC_KEY).toBe("pub");
 });
 
+test("webEnv treats capability private key as optional", () => {
+	const result = webEnvSchema.parse({
+		DATABASE_URL: "postgresql://user:pass@localhost:5432/meownow",
+		APP_URL: "https://meownow.example",
+		SESSION_SECRET: "0".repeat(32),
+		ADMIN_ENROLL_SECRET: "0".repeat(16),
+		CAPABILITY_TOKEN_PRIVATE_KEY: '{"kty":"OKP"}',
+	});
+	expect(result.CAPABILITY_TOKEN_PRIVATE_KEY).toContain("OKP");
+});
+
 test("edgeEnv requires a hub secret and app origin", () => {
 	expect(edgeEnvSchema.safeParse({ HUB: {}, BLOBS: {} }).success).toBe(false);
 	const result = edgeEnvSchema.parse({

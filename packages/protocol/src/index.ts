@@ -4,6 +4,17 @@ export const protocolVersionSchema = z.literal(1);
 
 export type ProtocolVersion = z.infer<typeof protocolVersionSchema>;
 
+export type { CapabilityToken } from "./capability";
+export {
+	BLOB_TTL_MS,
+	CAPABILITY_TTL_MS,
+	FILE_MAX_BYTES,
+	generateCapabilityKeyPair,
+	MAX_CHUNK_CIPHER_BYTES,
+	mintCapabilityToken,
+	openCapabilityToken,
+	parseCapabilityJwk,
+} from "./capability";
 export type {
 	AdminEnrollOptionsRequest,
 	ErrorCode,
@@ -39,8 +50,16 @@ export {
 	webAuthnAuthenticationResponseSchema,
 	webAuthnRegistrationResponseSchema,
 } from "./http";
+export {
+	uploadCommitRequestSchema,
+	uploadIntentRequestSchema,
+	uploadRequestCreateSchema,
+	uploadRequestDecideSchema,
+	uploadTicketRequestSchema,
+} from "./upload";
 export type {
 	ItemCreateRequest,
+	ItemRecord,
 	PairingQr,
 	PairingStartRequest,
 	PairingWrapRequest,
@@ -52,6 +71,7 @@ export type {
 export {
 	asPublicJwk,
 	itemCreateRequestSchema,
+	itemKindSchema,
 	itemListResponseSchema,
 	itemRecordSchema,
 	PAIRING_TTL_MS,

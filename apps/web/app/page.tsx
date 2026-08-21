@@ -8,6 +8,7 @@ import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
 import { loadVault } from "@/lib/vault/idb";
 import { connectHub } from "@/lib/vault/live";
+import { downloadBlobItem, sendBlobFile } from "@/lib/vault/upload-client";
 import { b64urlToBytes, bytesToB64url } from "@/lib/vault/wire";
 
 type Me = {
@@ -21,14 +22,26 @@ type Me = {
 
 type ItemRow = {
 	id: string;
-	kind: "text" | "link";
-	ciphertext: string;
+	kind: "text" | "link" | "image" | "file";
+	ciphertext?: string;
+	metaCiphertext: string;
 	iv: string;
+	wrappedKey?: { iv: string; bytes: string };
+	blobId?: string;
 	createdAt: string;
 	expiresAt: string;
 };
 
-type Shown = { id: string; text: string; expiresAt: string };
+type Shown = {
+	id: string;
+	text: string;
+	expiresAt: string;
+	kind: ItemRow["kind"];
+	blobId?: string;
+	metaCiphertext?: string;
+	iv?: string;
+	wrappedKey?: { iv: string; bytes: string };
+};
 
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
@@ -58,18 +71,39 @@ export default function Page() {
 
 	const openItem = useCallback(async (item: ItemRow): Promise<Shown> => {
 		const stored = await loadVault();
+		const base = {
+			id: item.id,
+			expiresAt: item.expiresAt,
+			kind: item.kind,
+			blobId: item.blobId,
+			metaCiphertext: item.metaCiphertext,
+			iv: item.iv,
+			wrappedKey: item.wrappedKey,
+		};
 		if (!stored) {
-			return { id: item.id, text: "(locked)", expiresAt: item.expiresAt };
+			return { ...base, text: "(locked)" };
 		}
 		try {
+			if ((item.kind === "image" || item.kind === "file") && item.metaCiphertext) {
+				const plain = await decrypt(
+					stored.vaultKey,
+					{ iv: b64urlToBytes(item.iv), bytes: b64urlToBytes(item.metaCiphertext) },
+					{ itemId: item.id, kind: item.kind },
+				);
+				const meta = JSON.parse(new TextDecoder().decode(plain)) as { filename?: string };
+				return { ...base, text: meta.filename || item.kind };
+			}
+			if (!item.ciphertext) {
+				return { ...base, text: "(undecryptable)" };
+			}
 			const plain = await decrypt(
 				stored.vaultKey,
 				{ iv: b64urlToBytes(item.iv), bytes: b64urlToBytes(item.ciphertext) },
 				{ itemId: item.id, kind: item.kind },
 			);
-			return { id: item.id, text: new TextDecoder().decode(plain), expiresAt: item.expiresAt };
+			return { ...base, text: new TextDecoder().decode(plain) };
 		} catch {
-			return { id: item.id, text: "(undecryptable)", expiresAt: item.expiresAt };
+			return { ...base, text: "(undecryptable)" };
 		}
 	}, []);
 
@@ -146,7 +180,7 @@ export default function Page() {
 		}
 		setDraft("");
 		setItems((current) => [
-			{ id, text: trimmed, expiresAt },
+			{ id, text: trimmed, expiresAt, kind },
 			...current.filter((row) => row.id !== id),
 		]);
 	}, []);
@@ -212,6 +246,19 @@ export default function Page() {
 		setItems((current) => current.filter((row) => row.id !== id));
 	}
 
+	async function onFile(files: FileList | null) {
+		const file = files?.[0];
+		if (!file) {
+			return;
+		}
+		const result = await sendBlobFile(file);
+		if ("error" in result) {
+			setStatus(result.error);
+			return;
+		}
+		setItems((current) => [{ ...result }, ...current.filter((row) => row.id !== result.id)]);
+	}
+
 	return (
 		<main>
 			<h1 className="mono">meownow</h1>
@@ -223,6 +270,8 @@ export default function Page() {
 					</p>
 					<nav>
 						{me.role === "admin" ? <a href="/invites">Invites</a> : null}
+						{me.role === "admin" ? <a href="/requests">Requests</a> : null}
+						{!me.canUpload ? <a href="/access">Upload access</a> : null}
 						{hasLocal ? <a href="/pair/scan">Scan device</a> : null}
 						<a href="/pair">Add this device</a>
 						<a href="/recover">Recover</a>
@@ -250,6 +299,18 @@ export default function Page() {
 							<button type="button" onClick={() => void onSend()}>
 								Send
 							</button>
+							{me.canUpload ? (
+								<label>
+									File
+									<input
+										type="file"
+										onChange={(event) => {
+											void onFile(event.target.files);
+											event.target.value = "";
+										}}
+									/>
+								</label>
+							) : null}
 							{items.length === 0 ? <p className="empty">Nothing on the clipboard.</p> : null}
 							<ul>
 								{items.map((item) => {
@@ -259,7 +320,26 @@ export default function Page() {
 									);
 									return (
 										<li key={item.id}>
-											<button type="button" className="mono" onClick={() => void onCopy(item.text)}>
+											<button
+												type="button"
+												className="mono"
+												onClick={() => {
+													if (item.kind === "image" || item.kind === "file") {
+														if (item.blobId && item.wrappedKey && item.iv && item.metaCiphertext) {
+															void downloadBlobItem({
+																id: item.id,
+																kind: item.kind,
+																blobId: item.blobId,
+																iv: item.iv,
+																metaCiphertext: item.metaCiphertext,
+																wrappedKey: item.wrappedKey,
+															});
+														}
+														return;
+													}
+													void onCopy(item.text);
+												}}
+											>
 												{item.text}
 											</button>
 											<span className="ttl" style={{ ["--remain" as string]: String(remain) }} />

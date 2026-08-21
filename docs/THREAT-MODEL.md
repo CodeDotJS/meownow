@@ -39,3 +39,7 @@ Text and link items persist as ciphertext with a 30-day TTL and a 64 KB cap. Aft
 ## PWA (milestone 5)
 
 The service worker (Serwist) intercepts Android Share Target POSTs, writes the shared text to a local IndexedDB inbox, and redirects home. The signed-in client encrypts and POSTs ciphertext like any other item. The origin never sees the share body. Web Push payloads are only `New item from {displayName}`; the client fetches and decrypts on open. `VAPID_PRIVATE_KEY` is required to send; it is not in the original env list. iOS has no Share Target; do not add a plaintext clipboard ingest route.
+
+## Uploads (milestone 6)
+
+Vercel never writes to R2. It checks `can_upload` and remaining quota, inserts a pending blob with a server-generated key, and mints a 60s EdDSA JWT (`CAPABILITY_TOKEN_PRIVATE_KEY`). The Worker verifies that JWT (`CAPABILITY_TOKEN_PUBLIC_KEY`), rejects missing/oversize `Content-Length`, and only then PUTs ciphertext. Spec said Vercel `HeadObject`s R2; Vercel has no R2 credentials, so commit calls Worker `GET /stat` with a capability token. Admin approval grants quota bytes, not a boolean. Filenames and MIME types stay in the encrypted metadata envelope.

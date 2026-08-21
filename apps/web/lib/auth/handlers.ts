@@ -13,6 +13,11 @@ import {
 	pushSubscribeRequestSchema,
 	registerOptionsRequestSchema,
 	registerVerifyRequestSchema,
+	uploadCommitRequestSchema,
+	uploadIntentRequestSchema,
+	uploadRequestCreateSchema,
+	uploadRequestDecideSchema,
+	uploadTicketRequestSchema,
 	vaultPutRequestSchema,
 	vaultRecoveryRequestSchema,
 } from "@meownow/protocol";
@@ -27,6 +32,7 @@ import {
 	sessionCookieOptions,
 } from "../cookies";
 import { originAllowed } from "../origin";
+import type { BlobPort } from "../vault/blobs";
 import type { HubPort } from "../vault/hub";
 import { type PushPort, silentPush } from "../vault/push";
 import { VaultService } from "../vault/service";
@@ -40,6 +46,7 @@ export type HandlerDeps = {
 	store: AuthStore & VaultStore;
 	hub?: HubPort;
 	push?: PushPort;
+	blobs?: BlobPort;
 	webauthn?: WebAuthnPort;
 	now?: () => Date;
 };
@@ -52,6 +59,7 @@ export function createHandlers(deps: HandlerDeps) {
 		vault: deps.store,
 		hub: deps.hub,
 		push: deps.push ?? silentPush(),
+		blobs: deps.blobs,
 		webauthn: deps.webauthn,
 		now: deps.now,
 	});
@@ -208,6 +216,33 @@ export function createHandlers(deps: HandlerDeps) {
 			mutating(request, deps.env, async () => {
 				const body = await readBody(request, pushSubscribeRequestSchema);
 				return json(await vault.subscribePush(sid(request), body));
+			}),
+		postUploadRequest: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, uploadRequestCreateSchema);
+				return json(await vault.requestUpload(sid(request), body.reason));
+			}),
+		getUploadRequests: (request: Request) =>
+			run(async () => json(await vault.listUploadRequests(sid(request)))),
+		postUploadDecide: (request: Request, id: string) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, uploadRequestDecideSchema);
+				return json(await vault.decideUpload(sid(request), id, body));
+			}),
+		postUploadIntent: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, uploadIntentRequestSchema);
+				return json(await vault.uploadIntent(sid(request), body));
+			}),
+		postUploadTicket: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, uploadTicketRequestSchema);
+				return json(await vault.uploadTicket(sid(request), body));
+			}),
+		postUploadCommit: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, uploadCommitRequestSchema);
+				return json(await vault.commitUpload(sid(request), body));
 			}),
 	};
 }

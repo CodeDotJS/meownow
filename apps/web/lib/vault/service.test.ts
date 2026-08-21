@@ -17,7 +17,7 @@ import {
 	wrapIdentityKey,
 	wrapVaultForPairing,
 } from "@meownow/crypto";
-import { asPublicJwk } from "@meownow/protocol";
+import { asPublicJwk, generateCapabilityKeyPair } from "@meownow/protocol";
 import { expect, test } from "vitest";
 import { MemoryAuthStore } from "../auth/memory-store";
 import { AuthService } from "../auth/service";
@@ -163,6 +163,9 @@ test("second device decrypts an item created on the first after fingerprint-conf
 	const remote = listed.items[0];
 	if (!remote) {
 		throw new Error("missing item");
+	}
+	if (!remote.ciphertext) {
+		throw new Error("missing ciphertext");
 	}
 	const opened = await decrypt(
 		imported,
@@ -408,4 +411,65 @@ test("deleteItem without a session is denied", async () => {
 	).rejects.toMatchObject({
 		code: "unauthorized",
 	});
+});
+
+test("upload intent is denied when can_upload is false", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({
+		env: { ...env, EDGE_URL: "https://edge.example", CAPABILITY_TOKEN_PRIVATE_KEY: "x" },
+		auth: store,
+		vault: store,
+		webauthn,
+	});
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const user = [...store.users.values()][0];
+	if (user) {
+		user.canUpload = false;
+	}
+	await expect(
+		vaultApi.uploadIntent(enrolled.sessionToken, { kind: "file", byteSize: 32, chunkCount: 1 }),
+	).rejects.toMatchObject({ code: "forbidden" });
+});
+
+test("approved user gets a server-generated R2 key and cannot pick one", async () => {
+	const keys = await generateCapabilityKeyPair();
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({
+		env: {
+			...env,
+			EDGE_URL: "https://edge.example",
+			CAPABILITY_TOKEN_PRIVATE_KEY: JSON.stringify(keys.privateJwk),
+		},
+		auth: store,
+		vault: store,
+		webauthn,
+	});
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const intent = await vaultApi.uploadIntent(enrolled.sessionToken, {
+		kind: "file",
+		byteSize: 32,
+		chunkCount: 1,
+	});
+	expect(intent.r2Key).toMatch(
+		/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+	);
+	const ticket = await vaultApi.uploadTicket(enrolled.sessionToken, {
+		blobId: intent.blobId,
+		purpose: "upload",
+	});
+	expect(ticket.token.split(".")).toHaveLength(3);
 });

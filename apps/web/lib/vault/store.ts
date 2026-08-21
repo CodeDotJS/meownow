@@ -1,5 +1,6 @@
 import type {
 	ItemCreateRequest,
+	ItemRecord,
 	PairingWrapRequest,
 	PublicJwk,
 	WrappedKeyWire,
@@ -23,7 +24,33 @@ export type PairingRecord = {
 	createdAt: Date;
 };
 
-export type StoredItem = ItemCreateRequest & { ownerId: string; createdAt: Date };
+export type StoredItem = Omit<ItemRecord, "createdAt"> & { ownerId: string; createdAt: Date };
+
+export type UploadRequestRow = {
+	id: string;
+	userId: string;
+	handle: string;
+	reason: string;
+	status: "pending" | "approved" | "denied" | "withdrawn";
+	decidedBy: string | null;
+	decidedAt: Date | null;
+	decisionNote: string | null;
+	grantedBytes: number | null;
+	createdAt: Date;
+};
+
+export type BlobRow = {
+	id: string;
+	ownerId: string;
+	r2Key: string;
+	byteSize: number;
+	chunkSize: number;
+	chunkCount: number;
+	sha256: Buffer;
+	state: "pending" | "committed";
+	createdAt: Date;
+	committedAt: Date | null;
+};
 
 export type VaultStore = {
 	getVault(userId: string): Promise<VaultRecord | null>;
@@ -57,6 +84,45 @@ export type VaultStore = {
 		exceptDeviceId: string,
 	): Promise<Array<{ endpoint: string; p256dh: string; auth: string }>>;
 	deletePushSubscription(endpoint: string): Promise<void>;
+	createUploadRequest(input: {
+		id: string;
+		userId: string;
+		reason: string;
+		now: Date;
+	}): Promise<"ok" | "pending">;
+	listUploadRequests(): Promise<UploadRequestRow[]>;
+	decideUploadRequest(input: {
+		id: string;
+		decidedBy: string;
+		status: "approved" | "denied";
+		grantedBytes: number | null;
+		decisionNote: string | null;
+		now: Date;
+	}): Promise<"ok" | "missing" | "decided">;
+	createPendingBlob(input: {
+		id: string;
+		ownerId: string;
+		r2Key: string;
+		byteSize: number;
+		chunkSize: number;
+		chunkCount: number;
+		now: Date;
+	}): Promise<void>;
+	getBlob(id: string): Promise<BlobRow | null>;
+	commitBlobAndItem(input: {
+		blob: BlobRow;
+		actualBytes: number;
+		sha256: Buffer;
+		item: {
+			id: string;
+			kind: "image" | "file";
+			metaCiphertext: string;
+			iv: string;
+			wrappedKey: WrappedKeyWire;
+			expiresAt: Date;
+		};
+		now: Date;
+	}): Promise<"ok" | "quota">;
 	addDeviceAndSession(input: {
 		userId: string;
 		now: Date;

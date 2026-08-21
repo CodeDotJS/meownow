@@ -8,6 +8,7 @@ export interface Env {
 	BLOBS: R2Bucket;
 	HUB_SECRET: string;
 	APP_URL: string;
+	CAPABILITY_TOKEN_PUBLIC_KEY?: string;
 }
 
 export class HubDO extends DurableObject<Env> {

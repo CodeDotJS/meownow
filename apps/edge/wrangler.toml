@@ -6,6 +6,8 @@ compatibility_date = "2026-08-21"
 APP_URL = "http://localhost:3000"
 # Local default. Production: `wrangler secret put HUB_SECRET`.
 HUB_SECRET = "dev-hub-secret-must-be-32-char!!"
+# Local default. Production: `wrangler secret put CAPABILITY_TOKEN_PUBLIC_KEY`.
+CAPABILITY_TOKEN_PUBLIC_KEY = "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"x\":\"hhT-BvZi_645PEVLTTtWJvQ-OFOU5XEo2_GbnRRd6WY\"}"
 
 [durable_objects]
 bindings = [{ name = "HUB", class_name = "HubDO" }]
