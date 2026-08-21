@@ -13,3 +13,11 @@ VaultKey is AES-256-GCM. After `createVault()`, the working key is **non-extract
 Recovery is Argon2id over a 12-word BIP39 phrase (`hash-wasm`). Pairing and directed sends use ECDH P-256 → HKDF-SHA256. Both pairing devices show a 6-digit fingerprint of the shared secret so the server cannot MITM silently.
 
 The server sees: owner, size, timestamps, kind, opaque ciphertext, wrapped keys, ephemeral public JWKs. It never sees plaintext, filenames, MIME types, or previews.
+
+## Authentication (milestone 2)
+
+Passkeys are origin-bound discoverable credentials. There is no password. Invite tokens are 32 random bytes shown once; only `sha256(token)` is stored. Sessions are opaque 256-bit cookies (`httpOnly; Secure; SameSite=Lax; Path=/`), hashed at rest, sliding 30 days, hard-capped at 90. Mutating routes require both SameSite and a matching `Origin`.
+
+The 10-seat cap is a `FOR UPDATE SKIP LOCKED` claim, not a `COUNT(*)`. Zero rows means full.
+
+The seeded admin has no passkey. First enroll is invite-less and gated by `ADMIN_ENROLL_SECRET`. Anyone who knows that secret can bind the first admin device; after a device exists the route is closed. Vault generation and recovery phrase remain milestone 3.

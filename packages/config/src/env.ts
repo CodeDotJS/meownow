@@ -16,6 +16,8 @@ export const dbEnvSchema = z.object({
 export const webEnvSchema = z.object({
 	DATABASE_URL: postgresUrl,
 	APP_URL: z.string().url(),
+	SESSION_SECRET: z.string().min(32),
+	ADMIN_ENROLL_SECRET: z.string().min(16),
 	SENTRY_DSN: z.string().url().optional(),
 	VAPID_PUBLIC_KEY: z.string().min(1).optional(),
 	CAPABILITY_TOKEN_PUBLIC_KEY: z.string().min(1).optional(),

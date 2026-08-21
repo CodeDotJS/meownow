@@ -11,10 +11,17 @@
 		"test": "vitest run --passWithNoTests"
 	},
 	"dependencies": {
+		"@meownow/config": "workspace:*",
+		"@meownow/db": "workspace:*",
+		"@meownow/protocol": "workspace:*",
 		"@meownow/ui": "workspace:*",
+		"@simplewebauthn/browser": "13.3.0",
+		"@simplewebauthn/server": "13.3.2",
+		"drizzle-orm": "0.45.2",
 		"next": "15.5.23",
 		"react": "19.2.8",
-		"react-dom": "19.2.8"
+		"react-dom": "19.2.8",
+		"zod": "4.4.3"
 	},
 	"devDependencies": {
 		"@tailwindcss/postcss": "4.3.3",

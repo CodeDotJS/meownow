@@ -20,12 +20,23 @@ test("webEnv requires APP_URL", () => {
 	expect(result.success).toBe(false);
 });
 
-test("webEnv accepts DATABASE_URL and APP_URL", () => {
-	const result = webEnvSchema.parse({
+test("webEnv requires session and admin-enroll secrets", () => {
+	const result = webEnvSchema.safeParse({
 		DATABASE_URL: "postgresql://user:pass@localhost:5432/meownow",
 		APP_URL: "https://meownow.example",
 	});
+	expect(result.success).toBe(false);
+});
+
+test("webEnv accepts DATABASE_URL, APP_URL, and auth secrets", () => {
+	const result = webEnvSchema.parse({
+		DATABASE_URL: "postgresql://user:pass@localhost:5432/meownow",
+		APP_URL: "https://meownow.example",
+		SESSION_SECRET: "0".repeat(32),
+		ADMIN_ENROLL_SECRET: "0".repeat(16),
+	});
 	expect(result.APP_URL).toBe("https://meownow.example");
+	expect(result.SESSION_SECRET).toHaveLength(32);
 });
 
 test("edgeEnv accepts Worker binding names without process.env", () => {
