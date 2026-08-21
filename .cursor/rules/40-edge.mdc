@@ -1,0 +1,23 @@
+---
+description: Cloudflare Worker rules. Verify tokens, stream to R2, never decide policy.
+globs: apps/edge/**
+alwaysApply: false
+---
+
+# Edge (Cloudflare)
+
+- The Worker enforces capability tokens. It never decides who may upload.
+- Stream request bodies to R2. Do not buffer a whole file in memory.
+- Durable Object: one per user vault, Hibernation API, SQLite backend (`new_sqlite_classes`).
+- R2 keys are server-generated UUIDs. Bucket is private. No public access. No custom domain.
+- Downloads: `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`. Never render a user blob inline at this origin.
+- Cron prunes expired rows, orphaned R2 objects, and uncommitted blobs older than 1 hour.
+
+```ts
+// BAD
+const buf = await request.arrayBuffer();
+await env.BLOBS.put(key, buf);
+
+// GOOD
+await env.BLOBS.put(key, request.body, { httpMetadata: { contentType: "application/octet-stream" } });
+```

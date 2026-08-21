@@ -1,0 +1,22 @@
+---
+description: Non-negotiable constraints for meownow. Always apply.
+alwaysApply: true
+---
+
+# Invariants
+
+- The server is untrusted. It must never see plaintext content, filenames, MIME types, or previews. If an approach requires plaintext server-side, stop and flag it.
+- All authorization is server-side. UI gating is convenience, never enforcement. A user without `can_upload` must be unable to write a byte to R2 even with a hand-crafted request.
+- The 10-user cap is enforced by the `seats` table via `FOR UPDATE SKIP LOCKED`. Never by `COUNT(*)`.
+- No passwords. Passkeys plus a recovery phrase. Never add a fallback.
+- Zero recurring cost. Stay inside free tiers. Flag anything that would exceed one before building it.
+
+# Corrections
+
+- Vercel Postgres is gone. Use Neon via `@neondatabase/serverless`. Never `@vercel/postgres`.
+- Vercel Functions cannot hold WebSockets and cap bodies at 4.5 MB. Realtime lives in a Durable Object; blobs go straight to R2 via the Worker.
+- Web Bluetooth cannot connect two browsers. "Local" means WebRTC resolving to LAN host candidates.
+- Browsers cannot monitor the clipboard in the background. Never write code or copy implying automatic capture.
+- `next-pwa` is unmaintained. Use Serwist.
+
+Follow milestones in `docs/SPEC.md` §1.9 in order. Stop at each boundary. If the spec is wrong, say so; do not silently reinterpret it.

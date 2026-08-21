@@ -1,0 +1,23 @@
+---
+description: Next.js API rules. Vercel never sees file bytes. Zod on every body.
+globs: apps/web/**
+alwaysApply: false
+---
+
+# API (Vercel)
+
+- Vercel owns identity, authorization, and metadata. It never touches file bytes.
+- Every HTTP body is Zod-parsed from `@meownow/protocol`.
+- CSRF: `SameSite=Lax` plus an explicit `Origin` check on every mutating route. Both, not either.
+- Sessions: opaque 256-bit token in `httpOnly; Secure; SameSite=Lax; Path=/`. Not a JWT. Instant revocation.
+- Uploads: mint a 60s EdDSA capability token scoped to one server-generated R2 key and a byte cap. Client never chooses the R2 key.
+- UI gating is not enforcement. Test the denial path for every permission.
+
+```ts
+// BAD
+if (session.user.canUpload) await putToR2(req.body);
+
+// GOOD
+// POST /api/uploads/intent checks can_upload and quota, then mints a token.
+// The Worker is the only process that writes to R2, after verifying that token.
+```

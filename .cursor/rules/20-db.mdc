@@ -1,0 +1,24 @@
+---
+description: Drizzle schema and seat-cap rules for packages/db.
+globs: packages/db/**
+alwaysApply: false
+---
+
+# Database
+
+- Schema must match `docs/SPEC.md` §1.4. Do not drop columns, enums, or partial indexes.
+- `seats` is pre-seeded with exactly 10 rows. Cap is structural, never `COUNT(*)`.
+- Claim a seat with `FOR UPDATE SKIP LOCKED`. Zero rows returned means full.
+- Use `@neondatabase/serverless`. HTTP for single queries, WebSocket/`Pool` for transactions.
+- Metadata and small ciphertext only. No plaintext filenames, MIME types, or previews in columns the server can read as such — those live in `meta_ciphertext`.
+
+```sql
+-- BAD
+select count(*) from users having count(*) < 10;
+
+-- GOOD
+update seats set user_id = $1, claimed_at = now()
+where seat_no = (select seat_no from seats where user_id is null
+                 order by seat_no limit 1 for update skip locked)
+returning seat_no;
+```

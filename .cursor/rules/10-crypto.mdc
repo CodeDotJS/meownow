@@ -1,0 +1,22 @@
+---
+description: Crypto package rules. WebCrypto only, AAD, chunk IVs, never log secrets.
+globs: packages/crypto/**
+alwaysApply: false
+---
+
+# Crypto
+
+- WebCrypto plus `hash-wasm` for Argon2id. No other crypto libraries.
+- `VaultKey` is a non-extractable `CryptoKey` in IndexedDB.
+- AES-256-GCM AAD binds `item.id || kind || schemaVersion`. Ciphertext must not replay into another slot.
+- Blob chunks: 1 MiB, `IV = base_iv || chunk_index` (counter, never reused), final tag over `chunk_count` so truncation is detectable.
+- Recovery: Argon2id over a 12-word BIP39 phrase. Device pairing: ECDH P-256 → HKDF-SHA256, 6-digit fingerprint confirmation.
+- Never log keys, IVs paired with plaintext, recovery phrases, or decrypted content.
+
+```ts
+// BAD
+console.log("vault", vaultKey);
+
+// GOOD
+// log item.id and outcome only
+```

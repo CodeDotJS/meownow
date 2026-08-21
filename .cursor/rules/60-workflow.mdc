@@ -1,0 +1,17 @@
+---
+description: Milestone order, stop at boundaries, flag spec bugs. Use when asking what to build next.
+alwaysApply: false
+---
+
+# Workflow
+
+- Follow `docs/SPEC.md` §1.9 in order. Do not begin a milestone before the previous one's tests pass.
+- Stop and report at each boundary.
+- Start with `packages/crypto` and `packages/protocol` after the skeleton. Nothing else until crypto tests pass, including AEAD tamper detection and chunk-truncation detection.
+- Conventional commits, one logical change each.
+- If the spec is ambiguous or wrong, say so and propose a fix. Do not silently pick an interpretation.
+- `docs/THREAT-MODEL.md` updates in the same commit as any security-model change.
+- New permission logic needs a test proving the denial path, not only the allow path.
+- No secret, key, or plaintext content in a log line.
+
+Milestone 2 must include an invite-less first-passkey enroll for the seeded admin, or signup is stuck.

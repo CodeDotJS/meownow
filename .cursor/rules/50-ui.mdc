@@ -1,0 +1,23 @@
+---
+description: UI design constraints. Selection-block, TTL decay, mono content, dry copy.
+globs: "{apps/web/**/*.tsx,apps/web/**/*.css,packages/ui/**}"
+alwaysApply: false
+---
+
+# UI
+
+Signature: hover, focus, and active states paint a hard-edged selection rectangle, zero border-radius. Visible TTL decay hairline under each item. User content, timestamps, and pasted text in mono. Single dense column. Keyboard-first. ⌘K palette.
+
+Palette: `--ink`, `--paper`, `--select`, `--select-ink`, `--rule`, `--decay`. Instrument Sans for UI. Martian Mono (or Commit Mono) for content.
+
+Copy is dry and literal. "Copied." not "Copied to clipboard!". The cat lives in the app icon and the empty state only.
+
+Forbidden: purple/blue gradients, glassmorphism, `rounded-3xl` cards, hero sections, feature grids with icons, Inter as the primary face, emoji in UI chrome, unrestyled shadcn.
+
+```tsx
+// BAD
+<button className="rounded-3xl bg-gradient-to-r from-violet-500 to-blue-500">Share 🎉</button>
+
+// GOOD
+<button className="rounded-none bg-select text-select-ink">Copy</button>
+```

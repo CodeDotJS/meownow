@@ -1,0 +1,15 @@
+node_modules
+.env
+.env.*
+!.env.example
+.turbo
+.wrangler
+.next
+dist
+playwright-report
+test-results
+.DS_Store
+.worktrees
+*.tsbuildinfo
+.vercel
+coverage
