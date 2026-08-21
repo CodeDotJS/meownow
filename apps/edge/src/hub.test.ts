@@ -28,3 +28,23 @@ test("two subscribers receive the same item.created envelope", () => {
 		item: { id: envelope.item.id },
 	});
 });
+
+test("rtc signalling is unicast to the target device", () => {
+	const room = new HubRoom();
+	const a: string[] = [];
+	const b: string[] = [];
+	room.add({ deviceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", send: (data) => a.push(data) });
+	room.add({ deviceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", send: (data) => b.push(data) });
+	room.route({
+		v: 1,
+		type: "rtc.offer",
+		from: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+		to: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+		sdp: "v=0",
+	});
+	expect(a).toEqual([]);
+	expect(JSON.parse(b[0] ?? "{}")).toMatchObject({
+		type: "rtc.offer",
+		to: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+	});
+});

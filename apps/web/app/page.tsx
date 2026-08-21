@@ -2,8 +2,10 @@
 
 import { decrypt, encrypt } from "@meownow/crypto";
 import { TEXT_PLAIN_MAX_BYTES, TEXT_TTL_MS } from "@meownow/protocol";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteJson, errorCode, getJson, postJson } from "@/lib/client/http";
+import { Mesh } from "@/lib/p2p/mesh";
+import { sendOnMesh, shouldPersist } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
 import { loadVault } from "@/lib/vault/idb";
@@ -51,6 +53,9 @@ export default function Page() {
 	const [items, setItems] = useState<Shown[]>([]);
 	const [status, setStatus] = useState<string | null>(null);
 	const [now, setNow] = useState(() => Date.now());
+	const [local, setLocal] = useState(false);
+	const [ephemeral, setEphemeral] = useState(false);
+	const meshRef = useRef<Mesh | null>(null);
 
 	useEffect(() => {
 		void (async () => {
@@ -132,7 +137,41 @@ export default function Page() {
 		if (!me || !hasLocal) {
 			return;
 		}
-		return connectHub((envelope) => {
+		const session = connectHub((envelope) => {
+			if (envelope.type === "hello") {
+				meshRef.current?.close();
+				meshRef.current = new Mesh(
+					envelope.deviceId,
+					(msg) => session.send(msg),
+					(dc) => {
+						void openItem({
+							id: dc.item.id,
+							kind: dc.item.kind,
+							ciphertext: dc.item.ciphertext,
+							metaCiphertext: dc.item.metaCiphertext,
+							iv: dc.item.iv,
+							wrappedKey: dc.item.wrappedKey,
+							createdAt: new Date().toISOString(),
+							expiresAt: dc.item.expiresAt,
+						}).then((shown) => {
+							setItems((current) =>
+								current.some((row) => row.id === shown.id) ? current : [shown, ...current],
+							);
+						});
+					},
+					setLocal,
+				);
+			}
+			if (envelope.type === "presence.changed") {
+				meshRef.current?.handlePresence(envelope.devices);
+			}
+			if (
+				envelope.type === "rtc.offer" ||
+				envelope.type === "rtc.answer" ||
+				envelope.type === "rtc.ice"
+			) {
+				void meshRef.current?.handleSignal(envelope);
+			}
 			if (envelope.type === "item.created") {
 				void openItem(envelope.item).then((shown) => {
 					setItems((current) =>
@@ -144,46 +183,67 @@ export default function Page() {
 				setItems((current) => current.filter((row) => row.id !== envelope.id));
 			}
 		});
+		return () => {
+			session.close();
+			meshRef.current?.close();
+			meshRef.current = null;
+			setLocal(false);
+		};
 	}, [me, hasLocal, openItem]);
 
-	const sendPlain = useCallback(async (plain: string) => {
-		const stored = await loadVault();
-		const trimmed = plain.trim();
-		if (!stored || !trimmed) {
-			return;
-		}
-		const bytes = new TextEncoder().encode(trimmed);
-		if (bytes.byteLength > TEXT_PLAIN_MAX_BYTES) {
-			setStatus("item_invalid");
-			return;
-		}
-		const id = crypto.randomUUID();
-		const kind = /^https?:\/\//i.test(trimmed) ? ("link" as const) : ("text" as const);
-		const sealed = await encrypt(stored.vaultKey, bytes, { itemId: id, kind });
-		const meta = await encrypt(stored.vaultKey, new TextEncoder().encode("{}"), {
-			itemId: id,
-			kind,
-		});
-		const expiresAt = new Date(Date.now() + TEXT_TTL_MS).toISOString();
-		const res = await postJson("/api/items", {
-			id,
-			kind,
-			ciphertext: bytesToB64url(sealed.bytes),
-			metaCiphertext: bytesToB64url(meta.bytes),
-			iv: bytesToB64url(sealed.iv),
-			byteSize: sealed.bytes.byteLength,
-			expiresAt,
-		});
-		if (!res.ok) {
-			setStatus(errorCode(res.data));
-			return;
-		}
-		setDraft("");
-		setItems((current) => [
-			{ id, text: trimmed, expiresAt, kind },
-			...current.filter((row) => row.id !== id),
-		]);
-	}, []);
+	const sendPlain = useCallback(
+		async (plain: string) => {
+			const stored = await loadVault();
+			const trimmed = plain.trim();
+			if (!stored || !trimmed) {
+				return;
+			}
+			const bytes = new TextEncoder().encode(trimmed);
+			if (bytes.byteLength > TEXT_PLAIN_MAX_BYTES) {
+				setStatus("item_invalid");
+				return;
+			}
+			const id = crypto.randomUUID();
+			const kind = /^https?:\/\//i.test(trimmed) ? ("link" as const) : ("text" as const);
+			const sealed = await encrypt(stored.vaultKey, bytes, { itemId: id, kind });
+			const meta = await encrypt(stored.vaultKey, new TextEncoder().encode("{}"), {
+				itemId: id,
+				kind,
+			});
+			const expiresAt = new Date(Date.now() + TEXT_TTL_MS).toISOString();
+			const payload = {
+				id,
+				kind,
+				ciphertext: bytesToB64url(sealed.bytes),
+				metaCiphertext: bytesToB64url(meta.bytes),
+				iv: bytesToB64url(sealed.iv),
+				byteSize: sealed.bytes.byteLength,
+				expiresAt,
+			};
+			const meshSend = await sendOnMesh(meshRef.current?.links() ?? [], {
+				v: 1,
+				type: "item",
+				ephemeral,
+				item: payload,
+			});
+			if (shouldPersist(ephemeral)) {
+				const res = await postJson("/api/items", payload);
+				if (!res.ok) {
+					setStatus(errorCode(res.data));
+					return;
+				}
+			} else if (meshSend.delivered === 0) {
+				setStatus("No Local peer.");
+				return;
+			}
+			setDraft("");
+			setItems((current) => [
+				{ id, text: trimmed, expiresAt, kind },
+				...current.filter((row) => row.id !== id),
+			]);
+		},
+		[ephemeral],
+	);
 
 	useEffect(() => {
 		if (!me || !hasLocal) {
@@ -267,6 +327,7 @@ export default function Page() {
 				<>
 					<p>
 						Signed in as <span className="mono">{me.handle}</span>
+						{local ? <span className="mono"> · Local</span> : null}
 					</p>
 					<nav>
 						{me.role === "admin" ? <a href="/invites">Invites</a> : null}
@@ -299,6 +360,17 @@ export default function Page() {
 							<button type="button" onClick={() => void onSend()}>
 								Send
 							</button>
+							<label>
+								<input
+									type="checkbox"
+									checked={ephemeral}
+									onChange={(e) => setEphemeral(e.target.checked)}
+								/>
+								Ephemeral
+							</label>
+							{local ? (
+								<p className="mono">Local. Same network — payload stays on the LAN.</p>
+							) : null}
 							{me.canUpload ? (
 								<label>
 									File

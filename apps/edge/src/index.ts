@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { parseEdgeEnv } from "@meownow/config/env";
 import { wsEnvelopeSchema } from "@meownow/protocol";
 import { handleRequest } from "./http";
+import { HubRoom } from "./hub";
 
 export interface Env {
 	HUB: DurableObjectNamespace;
@@ -23,6 +24,7 @@ export class HubDO extends DurableObject<Env> {
 			this.ctx.acceptWebSocket(pair[1]);
 			pair[1].serializeAttachment({ deviceId });
 			pair[1].send(JSON.stringify({ v: 1, type: "hello", deviceId }));
+			this.broadcastPresence();
 			return new Response(null, { status: 101, webSocket: pair[0] });
 		}
 		if (url.pathname === "/fanout" && request.method === "POST") {
@@ -30,16 +32,59 @@ export class HubDO extends DurableObject<Env> {
 			if (!parsed.success) {
 				return new Response("invalid_body", { status: 400 });
 			}
-			const payload = JSON.stringify(parsed.data);
-			for (const socket of this.ctx.getWebSockets()) {
-				socket.send(payload);
-			}
+			this.room().broadcast(parsed.data);
 			return new Response(null, { status: 204 });
 		}
 		return new Response("not found", { status: 404 });
 	}
 
-	override async webSocketMessage(_ws: WebSocket, _message: string | ArrayBuffer): Promise<void> {}
+	override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		const text = typeof message === "string" ? message : new TextDecoder().decode(message);
+		let raw: unknown;
+		try {
+			raw = JSON.parse(text);
+		} catch {
+			return;
+		}
+		const parsed = wsEnvelopeSchema.safeParse(raw);
+		if (!parsed.success) {
+			return;
+		}
+		const attachment = ws.deserializeAttachment() as { deviceId?: string } | null;
+		if (
+			(parsed.data.type === "rtc.offer" ||
+				parsed.data.type === "rtc.answer" ||
+				parsed.data.type === "rtc.ice") &&
+			parsed.data.from !== attachment?.deviceId
+		) {
+			return;
+		}
+		this.room().route(parsed.data);
+	}
+
+	override async webSocketClose(ws: WebSocket): Promise<void> {
+		this.broadcastPresence(ws);
+	}
+
+	private room(except?: WebSocket): HubRoom {
+		const room = new HubRoom();
+		for (const socket of this.ctx.getWebSockets()) {
+			if (except && socket === except) {
+				continue;
+			}
+			const attachment = socket.deserializeAttachment() as { deviceId?: string } | null;
+			room.add({
+				deviceId: attachment?.deviceId ?? "",
+				send: (data) => socket.send(data),
+			});
+		}
+		return room;
+	}
+
+	private broadcastPresence(except?: WebSocket): void {
+		const room = this.room(except);
+		room.broadcast({ v: 1, type: "presence.changed", devices: room.presence() });
+	}
 }
 
 export default {

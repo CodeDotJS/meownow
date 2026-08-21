@@ -1,7 +1,12 @@
 import { type WsEnvelope, wsEnvelopeSchema } from "@meownow/protocol";
 import { getJson } from "../client/http";
 
-export function connectHub(onEnvelope: (envelope: WsEnvelope) => void): () => void {
+export type HubSession = {
+	send: (envelope: WsEnvelope) => void;
+	close: () => void;
+};
+
+export function connectHub(onEnvelope: (envelope: WsEnvelope) => void): HubSession {
 	let closed = false;
 	let socket: WebSocket | null = null;
 
@@ -36,8 +41,15 @@ export function connectHub(onEnvelope: (envelope: WsEnvelope) => void): () => vo
 	}
 
 	void open();
-	return () => {
-		closed = true;
-		socket?.close();
+	return {
+		send(envelope) {
+			if (socket?.readyState === WebSocket.OPEN) {
+				socket.send(JSON.stringify(envelope));
+			}
+		},
+		close() {
+			closed = true;
+			socket?.close();
+		},
 	};
 }

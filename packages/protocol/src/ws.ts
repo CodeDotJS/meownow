@@ -30,6 +30,34 @@ export const wsEnvelopeSchema = z.discriminatedUnion("type", [
 		type: z.literal("hello"),
 		deviceId: z.string().uuid(),
 	}),
+	z.object({
+		v: z.literal(1),
+		type: z.literal("presence.changed"),
+		devices: z.array(z.string().uuid()),
+	}),
+	z.object({
+		v: z.literal(1),
+		type: z.literal("rtc.offer"),
+		from: z.string().uuid(),
+		to: z.string().uuid(),
+		sdp: z.string().min(1),
+	}),
+	z.object({
+		v: z.literal(1),
+		type: z.literal("rtc.answer"),
+		from: z.string().uuid(),
+		to: z.string().uuid(),
+		sdp: z.string().min(1),
+	}),
+	z.object({
+		v: z.literal(1),
+		type: z.literal("rtc.ice"),
+		from: z.string().uuid(),
+		to: z.string().uuid(),
+		candidate: z.string(),
+		sdpMid: z.string().nullable(),
+		sdpMLineIndex: z.number().int().nullable(),
+	}),
 ]);
 
 export type HubTicket = z.infer<typeof hubTicketSchema>;

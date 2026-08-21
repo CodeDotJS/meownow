@@ -15,6 +15,8 @@ export {
 	openCapabilityToken,
 	parseCapabilityJwk,
 } from "./capability";
+export type { DcEnvelope } from "./dc";
+export { dcEnvelopeSchema } from "./dc";
 export type {
 	AdminEnrollOptionsRequest,
 	ErrorCode,

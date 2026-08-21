@@ -43,3 +43,7 @@ The service worker (Serwist) intercepts Android Share Target POSTs, writes the s
 ## Uploads (milestone 6)
 
 Vercel never writes to R2. It checks `can_upload` and remaining quota, inserts a pending blob with a server-generated key, and mints a 60s EdDSA JWT (`CAPABILITY_TOKEN_PRIVATE_KEY`). The Worker verifies that JWT (`CAPABILITY_TOKEN_PUBLIC_KEY`), rejects missing/oversize `Content-Length`, and only then PUTs ciphertext. Spec said Vercel `HeadObject`s R2; Vercel has no R2 credentials, so commit calls Worker `GET /stat` with a capability token. Admin approval grants quota bytes, not a boolean. Filenames and MIME types stay in the encrypted metadata envelope.
+
+## P2P (milestone 7)
+
+WebRTC DataChannels carry ciphertext only; Zod rejects a `plaintext` field on the DC envelope. Signalling (`rtc.offer` / `rtc.answer` / `rtc.ice`) is unicast through the Durable Object and must present the sender's `deviceId` from the socket attachment. ICE is STUN-only — no TURN, so some networks fall back to the server path without an error. **Local** means the nominated ICE pair is host/host. Ephemeral items skip Postgres and R2; if no peer is connected they fail closed.
