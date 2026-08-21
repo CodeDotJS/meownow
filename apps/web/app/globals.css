@@ -4,6 +4,7 @@
 html {
 	color-scheme: only light;
 	background: var(--paper);
+	-webkit-text-size-adjust: 100%;
 }
 
 html,
@@ -18,6 +19,7 @@ body {
 	font-size: 1.0625rem;
 	line-height: 1.5;
 	font-optical-sizing: auto;
+	-webkit-tap-highlight-color: transparent;
 }
 
 body::before {
@@ -38,6 +40,8 @@ body::before {
 	min-height: 100dvh;
 	max-width: 72rem;
 	margin: 0 auto;
+	padding-left: env(safe-area-inset-left);
+	padding-right: env(safe-area-inset-right);
 }
 
 .chrome {
@@ -54,6 +58,7 @@ body::before {
 }
 
 .chrome-brand {
+	flex-shrink: 0;
 	font-size: 1rem;
 	font-weight: 560;
 	letter-spacing: -0.04em;
@@ -76,8 +81,12 @@ body::before {
 	padding: 0.35rem 0.55rem;
 }
 
-.chrome-k {
+.chrome-menu {
 	padding: 0.2rem;
+}
+
+.chrome-menu-word {
+	display: none;
 }
 
 kbd {
@@ -326,6 +335,7 @@ a {
 	text-decoration: none;
 	cursor: pointer;
 	width: fit-content;
+	touch-action: manipulation;
 	transition:
 		background-color 200ms var(--ease),
 		color 200ms var(--ease),
@@ -657,6 +667,10 @@ li {
 	max-width: none;
 }
 
+.palette-label {
+	display: block;
+}
+
 .palette input {
 	font-size: 1.15rem;
 	background: var(--paper);
@@ -737,14 +751,195 @@ li {
 
 @media (max-width: 767px) {
 	.chrome {
-		margin: 0.65rem 0.75rem 0;
+		gap: 0.4rem;
+		margin: calc(0.45rem + env(safe-area-inset-top)) 0.7rem 0;
+		padding: 0.35rem 0.4rem 0.35rem 0.8rem;
+	}
+
+	.chrome-handle,
+	.chrome-desk {
+		display: none;
+	}
+
+	.chrome-add,
+	.chrome-menu {
+		min-height: 2.75rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.45rem 0.7rem;
+		font-size: 0.9rem;
+	}
+
+	.chrome-kbd {
+		display: none;
+	}
+
+	.chrome-menu-word {
+		display: inline;
+	}
+
+	main {
+		padding: 1rem 0.85rem calc(4.5rem + env(safe-area-inset-bottom));
 	}
 
 	.landing {
-		padding-top: 1.5rem;
+		padding-top: 1.25rem;
 	}
 
 	.lede {
-		max-width: 12ch;
+		max-width: 10ch;
+		font-size: clamp(2.35rem, 13vw, 3.4rem);
+	}
+
+	.panel {
+		padding: 1.05rem 1rem 1.2rem;
+	}
+
+	.lead {
+		max-width: none;
+	}
+
+	.stack {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.stack a,
+	.stack button {
+		width: 100%;
+		min-height: 2.75rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	form {
+		max-width: none;
+	}
+
+	form .select,
+	form button[type="submit"] {
+		width: 100%;
+		min-height: 2.75rem;
+	}
+
+	input,
+	textarea,
+	.palette input,
+	.log-item.is-compose textarea {
+		font-size: 16px;
+	}
+
+	.select {
+		min-height: 2.75rem;
+		padding: 0.7rem 1rem;
+	}
+
+	.pair-roles {
+		width: 100%;
+	}
+
+	.pair-role {
+		flex: 1;
+		min-height: 2.75rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.qr {
+		width: min(22rem, 100%);
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	.qr-scan {
+		width: 100%;
+		aspect-ratio: 3 / 4;
+	}
+
+	.fp {
+		font-size: 1.85rem;
+		letter-spacing: 0.16em;
+	}
+
+	.log-item {
+		grid-template-columns: minmax(0, 1fr) auto;
+		padding: 0.7rem 0.2rem 0.55rem;
+		margin: 0;
+	}
+
+	.log-item .gutter {
+		grid-column: 1;
+		grid-row: 1;
+	}
+
+	.log-item .forget {
+		grid-column: 2;
+		grid-row: 1;
+		opacity: 1;
+		min-height: 2.5rem;
+		padding: 0.35rem 0.55rem;
+	}
+
+	.log-item .body {
+		grid-column: 1 / -1;
+		padding: 0.35rem 0.1rem 0.15rem;
+		font-size: 1.0625rem;
+	}
+
+	.log-item .ttl {
+		grid-column: 1 / -1;
+	}
+
+	.log-item.is-compose {
+		grid-template-columns: 1fr;
+		padding: 0.75rem 0.7rem 0.8rem;
+	}
+
+	.log-item.is-compose textarea {
+		min-height: 5.75rem;
+	}
+
+	.log-item.is-compose .composer-bar {
+		grid-column: 1;
+		width: 100%;
+	}
+
+	.composer-bar .select {
+		flex: 1 1 6rem;
+	}
+
+	.composer-bar button {
+		min-height: 2.75rem;
+	}
+
+	.palette-layer {
+		display: flex;
+		align-items: flex-end;
+	}
+
+	.palette {
+		width: 100%;
+		max-width: none;
+		margin: 0;
+		border-radius: 1.15rem 1.15rem 0 0;
+		padding-bottom: calc(1.15rem + env(safe-area-inset-bottom));
+	}
+
+	.palette-item {
+		min-height: 2.75rem;
+		align-items: center;
+		font-size: 1.05rem;
+	}
+
+	.palette-dismiss {
+		background: rgb(23 24 28 / 0.18);
+	}
+
+	.palette-dismiss:hover,
+	.palette-dismiss:focus-visible {
+		background: rgb(23 24 28 / 0.18);
 	}
 }

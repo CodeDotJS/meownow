@@ -462,7 +462,7 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Type.** Outfit for UI. Martian Mono for paste, timestamps, handles. Never Inter.
 
-**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. The signed-in clipboard stays one column with a timestamp gutter. Newest at top. ⌘K. TTL hairline under each item.
+**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. The signed-in clipboard stays one column with a timestamp gutter. Newest at top. ⌘K on a keyboard, Menu on a phone. TTL hairline under each item. Phone chrome keeps Pair and Scan; Forget is visible without hover. Inputs stay at 16px so iOS does not zoom.
 
 **Motion.** Short ease-out on enter and press (`scale(0.98)`). New items may ease ~220ms. Grain is a fixed overlay. Respect `prefers-reduced-motion`.
 

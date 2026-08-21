@@ -12,6 +12,6 @@ Outfit for UI. Martian Mono for paste. Sheets use `--radius` and `--shadow`. Hov
 
 The signed-out home is an asymmetric split: headline left, demo sheet right. No hero glow, mesh, or beam.
 
-First-run is one visible next action. A guest without an invite is told they need a link. After a passkey, the 12 words are generated on that screen with a working label. Pairing is not a peer of invite redeem. Pair and Scan live in the top bar. Invites are `/join?t=` URLs. Do not say “vault” on a screen a guest has to complete. ⌘K is not required to finish setup.
+First-run is one visible next action. A guest without an invite is told they need a link. After a passkey, the 12 words are generated on that screen with a working label. Pairing is not a peer of invite redeem. Pair and Scan live in the top bar. On a phone, Menu opens the sheet and Forget stays visible. Invites are `/join?t=` URLs. Do not say “vault” on a screen a guest has to complete. ⌘K is not required to finish setup.
 
 Never Inter. No emoji chrome. Do not imply the server reads plaintext.

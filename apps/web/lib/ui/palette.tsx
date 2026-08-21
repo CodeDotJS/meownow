@@ -73,10 +73,11 @@ export function CommandPalette({
 	return (
 		<div className="palette-layer">
 			<button type="button" className="palette-dismiss" aria-label="Close" onClick={onClose} />
-			<div className="palette" role="dialog" aria-modal="true" aria-label="Command">
+			<div className="palette" role="dialog" aria-modal="true" aria-label="Menu">
 				<label>
-					Command
+					<span className="palette-label">Menu</span>
 					<input
+						placeholder="Go somewhere"
 						ref={inputRef}
 						value={query}
 						onChange={(event) => {

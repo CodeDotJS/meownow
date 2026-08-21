@@ -106,7 +106,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 				<div className="chrome-right">
 					{me ? <span className="chrome-handle mono">{me.handle}</span> : null}
 					{me?.role === "admin" ? (
-						<a className="chrome-add" href="/invites">
+						<a className="chrome-add chrome-desk" href="/invites">
 							Invites
 						</a>
 					) : null}
@@ -120,8 +120,9 @@ export function AppFrame({ children }: { children: ReactNode }) {
 							</a>
 						</>
 					) : null}
-					<button type="button" className="chrome-k" onClick={() => setOpen(true)}>
-						<kbd>{mod}</kbd>
+					<button type="button" className="chrome-menu" onClick={() => setOpen(true)}>
+						<kbd className="chrome-kbd">{mod}</kbd>
+						<span className="chrome-menu-word">Menu</span>
 					</button>
 				</div>
 			</header>
