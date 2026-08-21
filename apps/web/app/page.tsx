@@ -330,6 +330,7 @@ export default function Page() {
 						{local ? <span className="mono"> · Local</span> : null}
 					</p>
 					<nav>
+						{me.role === "admin" ? <a href="/admin">Admin</a> : null}
 						{me.role === "admin" ? <a href="/invites">Invites</a> : null}
 						{me.role === "admin" ? <a href="/requests">Requests</a> : null}
 						{!me.canUpload ? <a href="/access">Upload access</a> : null}

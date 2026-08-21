@@ -17,6 +17,7 @@ import type {
 	MeResponse,
 	RegisterOptionsRequest,
 } from "@meownow/protocol";
+import { SEAT_CEILING } from "@meownow/protocol";
 import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } from "../challenge";
 import { rpFromAppUrl } from "../env";
 import { AuthError, type AuthStore, type SessionContext, type UserRow } from "./store";
@@ -102,6 +103,89 @@ export class AuthService {
 				createdAt: row.createdAt.toISOString(),
 			})),
 		};
+	}
+
+	async listUsers(sessionToken: string | undefined) {
+		await this.requireAdmin(sessionToken);
+		const directory = await this.store.listDirectory();
+		return {
+			users: directory.users.map((user) => ({
+				id: user.id,
+				handle: user.handle,
+				displayName: user.displayName,
+				role: user.role,
+				canUpload: user.canUpload,
+				storageQuotaBytes: user.storageQuotaBytes,
+				storageUsedBytes: user.storageUsedBytes,
+				suspendedAt: user.suspendedAt?.toISOString() ?? null,
+				devices: user.devices.map((device) => ({
+					id: device.id,
+					label: device.label,
+					revokedAt: device.revokedAt?.toISOString() ?? null,
+					lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
+					createdAt: device.createdAt.toISOString(),
+				})),
+			})),
+			seatsClaimed: directory.seatsClaimed,
+			seatsTotal: SEAT_CEILING,
+		};
+	}
+
+	async listAudit(sessionToken: string | undefined) {
+		await this.requireAdmin(sessionToken);
+		const entries = await this.store.listAudit();
+		return {
+			entries: entries.map((row) => ({
+				id: row.id,
+				actorId: row.actorId,
+				action: row.action,
+				subjectType: row.subjectType,
+				subjectId: row.subjectId,
+				createdAt: row.createdAt.toISOString(),
+			})),
+		};
+	}
+
+	async revokeDevice(
+		sessionToken: string | undefined,
+		deviceId: string,
+	): Promise<{ userId: string; deviceId: string }> {
+		const admin = await this.requireAdmin(sessionToken);
+		const now = this.now();
+		const result = await this.store.revokeDevice(deviceId, now);
+		if (result === "missing") {
+			throw new AuthError("not_found", 404);
+		}
+		if (result === "already") {
+			throw new AuthError("device_revoked", 409);
+		}
+		await this.store.insertAudit({
+			actorId: admin.id,
+			action: "device.revoked",
+			subjectType: "device",
+			subjectId: deviceId,
+			now,
+		});
+		return { userId: result.userId, deviceId };
+	}
+
+	async removeUser(sessionToken: string | undefined, userId: string): Promise<void> {
+		const admin = await this.requireAdmin(sessionToken);
+		const now = this.now();
+		const result = await this.store.removeUser(userId);
+		if (result === "missing") {
+			throw new AuthError("not_found", 404);
+		}
+		if (result === "last_admin") {
+			throw new AuthError("last_admin", 409);
+		}
+		await this.store.insertAudit({
+			actorId: admin.id,
+			action: "user.removed",
+			subjectType: "user",
+			subjectId: userId,
+			now,
+		});
 	}
 
 	async registerOptions(

@@ -312,3 +312,52 @@ test("upload intent without a session is denied", async () => {
 	expect(res.status).toBe(401);
 	expect(await res.json()).toEqual({ error: "unauthorized" });
 });
+
+test("member cannot list users, audit, or remove anyone", async () => {
+	const store = new MemoryAuthStore();
+	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
+	const admin = await enrollAdmin(auth);
+	const member = await signupMember(auth, admin.sessionToken, "ada");
+	const token = member.result.sessionToken;
+	await expect(auth.listUsers(token)).rejects.toMatchObject({ code: "forbidden", status: 403 });
+	await expect(auth.listAudit(token)).rejects.toMatchObject({ code: "forbidden", status: 403 });
+	const ada = [...store.users.values()].find((row) => row.handle === "ada");
+	await expect(auth.removeUser(token, ada?.id ?? "")).rejects.toMatchObject({
+		code: "forbidden",
+		status: 403,
+	});
+});
+
+test("removing a member frees the seat; the last admin cannot be removed", async () => {
+	const store = new MemoryAuthStore();
+	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
+	const admin = await enrollAdmin(auth);
+	await signupMember(auth, admin.sessionToken, "ada");
+	expect(store.seats.filter((seat) => seat.userId !== null)).toHaveLength(2);
+	const ada = [...store.users.values()].find((row) => row.handle === "ada");
+	expect(ada).toBeDefined();
+	await auth.removeUser(admin.sessionToken, ada?.id ?? "");
+	expect(store.users.has(ada?.id ?? "")).toBe(false);
+	expect(store.seats.filter((seat) => seat.userId !== null)).toHaveLength(1);
+	const adminUser = [...store.users.values()].find((row) => row.role === "admin");
+	await expect(auth.removeUser(admin.sessionToken, adminUser?.id ?? "")).rejects.toMatchObject({
+		code: "last_admin",
+		status: 409,
+	});
+});
+
+test("revoking a device kills its session", async () => {
+	const store = new MemoryAuthStore();
+	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
+	const admin = await enrollAdmin(auth);
+	const member = await signupMember(auth, admin.sessionToken, "ada");
+	const ada = [...store.users.values()].find((row) => row.handle === "ada");
+	const device = [...store.devices.values()].find((row) => row.userId === ada?.id);
+	expect(device).toBeDefined();
+	await auth.revokeDevice(admin.sessionToken, device?.id ?? "");
+	await expect(auth.me(member.result.sessionToken)).rejects.toMatchObject({
+		code: "unauthorized",
+	});
+	expect(store.devices.get(device?.id ?? "")?.revokedAt).toBeInstanceOf(Date);
+	expect(store.audit.some((row) => row.action === "device.revoked")).toBe(true);
+});

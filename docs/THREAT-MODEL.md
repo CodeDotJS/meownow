@@ -47,3 +47,7 @@ Vercel never writes to R2. It checks `can_upload` and remaining quota, inserts a
 ## P2P (milestone 7)
 
 WebRTC DataChannels carry ciphertext only; Zod rejects a `plaintext` field on the DC envelope. Signalling (`rtc.offer` / `rtc.answer` / `rtc.ice`) is unicast through the Durable Object and must present the sender's `deviceId` from the socket attachment. ICE is STUN-only — no TURN, so some networks fall back to the server path without an error. **Local** means the nominated ICE pair is host/host. Ephemeral items skip Postgres and R2; if no peer is connected they fail closed.
+
+## Admin (milestone 8)
+
+Directory, audit, and usage are admin-only. A member session is `403 forbidden` even with a hand-crafted `/api/admin/*` request. The dashboard shows metadata: handles, quota, device labels, audit actions. It does not show plaintext, filenames, or MIME types. Device revoke sets `revoked_at` and deletes sessions; `device.revoked` is fanned out as an id only. User remove frees the seat (`ON DELETE SET NULL`). R2 objects for a removed user are not deleted here — that is the milestone 9 sweep. Class B ops are not counted without Worker telemetry.

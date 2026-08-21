@@ -129,4 +129,9 @@ export type VaultStore = {
 		device: RegistrationCommit["device"];
 		session: RegistrationCommit["session"];
 	}): Promise<void>;
+	usageSnapshot(): Promise<{
+		committedBytes: number;
+		pendingBytes: number;
+		classAEstimate: number;
+	}>;
 };

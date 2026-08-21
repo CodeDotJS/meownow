@@ -244,6 +244,21 @@ export function createHandlers(deps: HandlerDeps) {
 				const body = await readBody(request, uploadCommitRequestSchema);
 				return json(await vault.commitUpload(sid(request), body));
 			}),
+		getAdminUsers: (request: Request) => run(async () => json(await auth.listUsers(sid(request)))),
+		getAdminAudit: (request: Request) => run(async () => json(await auth.listAudit(sid(request)))),
+		getAdminUsage: (request: Request) =>
+			run(async () => json(await vault.adminUsage(sid(request)))),
+		postAdminRevokeDevice: (request: Request, id: string) =>
+			mutating(request, deps.env, async () => {
+				const revoked = await auth.revokeDevice(sid(request), id);
+				await vault.publishDeviceRevoked(revoked.userId, revoked.deviceId);
+				return json({ ok: true });
+			}),
+		postAdminRemoveUser: (request: Request, id: string) =>
+			mutating(request, deps.env, async () => {
+				await auth.removeUser(sid(request), id);
+				return json({ ok: true });
+			}),
 	};
 }
 

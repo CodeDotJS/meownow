@@ -102,6 +102,26 @@ export type LoginCommit = {
 export type RegistrationCommitResult = "ok" | "seats_full" | "handle_taken" | "invite_invalid";
 export type AdminEnrollCommitResult = "ok" | "admin_enrolled";
 
+export type DirectoryDevice = {
+	id: string;
+	userId: string;
+	label: string;
+	revokedAt: Date | null;
+	lastSeenAt: Date | null;
+	createdAt: Date;
+};
+
+export type DirectoryUser = UserRow & { devices: DirectoryDevice[] };
+
+export type AuditEntry = {
+	id: number;
+	actorId: string | null;
+	action: string;
+	subjectType: string | null;
+	subjectId: string | null;
+	createdAt: Date;
+};
+
 export type AuthStore = {
 	getInviteByTokenHash(hash: Buffer): Promise<InviteRow | null>;
 	getInviteById(id: string): Promise<InviteRow | null>;
@@ -132,4 +152,8 @@ export type AuthStore = {
 		subjectId: string | null;
 		now: Date;
 	}): Promise<void>;
+	listDirectory(): Promise<{ users: DirectoryUser[]; seatsClaimed: number }>;
+	listAudit(): Promise<AuditEntry[]>;
+	revokeDevice(id: string, now: Date): Promise<{ userId: string } | "missing" | "already">;
+	removeUser(id: string): Promise<"ok" | "missing" | "last_admin">;
 };

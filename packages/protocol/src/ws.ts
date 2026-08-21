@@ -27,6 +27,11 @@ export const wsEnvelopeSchema = z.discriminatedUnion("type", [
 	}),
 	z.object({
 		v: z.literal(1),
+		type: z.literal("device.revoked"),
+		id: z.string().uuid(),
+	}),
+	z.object({
+		v: z.literal(1),
 		type: z.literal("hello"),
 		deviceId: z.string().uuid(),
 	}),

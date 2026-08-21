@@ -4,6 +4,16 @@ export const protocolVersionSchema = z.literal(1);
 
 export type ProtocolVersion = z.infer<typeof protocolVersionSchema>;
 
+export {
+	adminAuditResponseSchema,
+	adminOkResponseSchema,
+	adminUsageResponseSchema,
+	adminUsersResponseSchema,
+	R2_CLASS_A_CEILING,
+	R2_CLASS_B_CEILING,
+	R2_STORAGE_CEILING_BYTES,
+	SEAT_CEILING,
+} from "./admin";
 export type { CapabilityToken } from "./capability";
 export {
 	BLOB_TTL_MS,

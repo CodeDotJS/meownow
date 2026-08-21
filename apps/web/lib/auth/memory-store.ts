@@ -12,6 +12,7 @@ import type {
 import type {
 	AdminEnrollCommit,
 	AdminEnrollCommitResult,
+	AuditEntry,
 	AuthStore,
 	DeviceRow,
 	DeviceWithUser,
@@ -36,15 +37,16 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		claimedAt: null,
 	}));
 	invites = new Map<string, InviteRow>();
-	devices = new Map<string, DeviceRow>();
+	devices = new Map<string, DeviceRow & { lastSeenAt: Date | null; createdAt: Date }>();
 	sessions = new Map<string, SessionRow>();
-	audit: Array<{ actorId: string | null; action: string }> = [];
+	audit: AuditEntry[] = [];
 	vaults = new Map<string, VaultRecord>();
 	pairings = new Map<string, PairingRecord>();
 	items: StoredItem[] = [];
 	pushes: Array<{ deviceId: string; endpoint: string; p256dh: string; auth: string }> = [];
 	uploadRequests: UploadRequestRow[] = [];
 	blobs: BlobRow[] = [];
+	private auditSeq = 0;
 
 	constructor() {
 		this.users.set(ADMIN_ID, {
@@ -218,6 +220,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			return;
 		}
 		device.signCount = input.signCount;
+		device.lastSeenAt = input.now;
 		this.addSession(input.deviceId, input.session, input.now);
 	}
 
@@ -234,8 +237,102 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		session.lastUsed = now;
 	}
 
-	async insertAudit(input: { actorId: string | null; action: string }): Promise<void> {
-		this.audit.push({ actorId: input.actorId, action: input.action });
+	async insertAudit(input: {
+		actorId: string | null;
+		action: string;
+		subjectType: string | null;
+		subjectId: string | null;
+		now: Date;
+	}): Promise<void> {
+		this.auditSeq += 1;
+		this.audit.push({
+			id: this.auditSeq,
+			actorId: input.actorId,
+			action: input.action,
+			subjectType: input.subjectType,
+			subjectId: input.subjectId,
+			createdAt: input.now,
+		});
+	}
+
+	async listDirectory() {
+		const users = [...this.users.values()]
+			.sort((a, b) => a.handle.localeCompare(b.handle))
+			.map((user) => ({
+				...user,
+				devices: [...this.devices.values()]
+					.filter((device) => device.userId === user.id)
+					.map((device) => ({
+						id: device.id,
+						userId: device.userId,
+						label: device.label,
+						revokedAt: device.revokedAt,
+						lastSeenAt: device.lastSeenAt,
+						createdAt: device.createdAt,
+					})),
+			}));
+		return {
+			users,
+			seatsClaimed: this.seats.filter((seat) => seat.userId !== null).length,
+		};
+	}
+
+	async listAudit(): Promise<AuditEntry[]> {
+		return [...this.audit].sort((a, b) => b.id - a.id);
+	}
+
+	async revokeDevice(id: string, now: Date): Promise<{ userId: string } | "missing" | "already"> {
+		const device = this.devices.get(id);
+		if (!device) {
+			return "missing";
+		}
+		if (device.revokedAt) {
+			return "already";
+		}
+		device.revokedAt = now;
+		for (const [key, session] of this.sessions) {
+			if (session.deviceId === id) {
+				this.sessions.delete(key);
+			}
+		}
+		return { userId: device.userId };
+	}
+
+	async removeUser(id: string): Promise<"ok" | "missing" | "last_admin"> {
+		const user = this.users.get(id);
+		if (!user) {
+			return "missing";
+		}
+		if (user.role === "admin") {
+			const others = [...this.users.values()].filter(
+				(row) => row.role === "admin" && row.id !== id,
+			);
+			if (others.length === 0) {
+				return "last_admin";
+			}
+		}
+		this.users.delete(id);
+		this.vaults.delete(id);
+		for (const [deviceId, device] of this.devices) {
+			if (device.userId === id) {
+				this.devices.delete(deviceId);
+				for (const [key, session] of this.sessions) {
+					if (session.deviceId === deviceId) {
+						this.sessions.delete(key);
+					}
+				}
+			}
+		}
+		this.items = this.items.filter((item) => item.ownerId !== id);
+		this.blobs = this.blobs.filter((blob) => blob.ownerId !== id);
+		this.uploadRequests = this.uploadRequests.filter((row) => row.userId !== id);
+		for (const seat of this.seats) {
+			if (seat.userId === id) {
+				seat.userId = null;
+				seat.claimedAt = null;
+			}
+		}
+		return "ok";
 	}
 
 	async getVault(userId: string): Promise<VaultRecord | null> {
@@ -488,6 +585,25 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		this.addSession(input.device.id, input.session, input.now);
 	}
 
+	async usageSnapshot(): Promise<{
+		committedBytes: number;
+		pendingBytes: number;
+		classAEstimate: number;
+	}> {
+		let committedBytes = 0;
+		let pendingBytes = 0;
+		let classAEstimate = 0;
+		for (const blob of this.blobs) {
+			classAEstimate += blob.chunkCount;
+			if (blob.state === "committed") {
+				committedBytes += blob.byteSize;
+			} else {
+				pendingBytes += blob.byteSize;
+			}
+		}
+		return { committedBytes, pendingBytes, classAEstimate };
+	}
+
 	private addDevice(userId: string, device: RegistrationCommit["device"]): void {
 		this.devices.set(device.id, {
 			id: device.id,
@@ -498,6 +614,8 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			signCount: device.signCount,
 			transports: device.transports,
 			revokedAt: null,
+			lastSeenAt: null,
+			createdAt: new Date(),
 		});
 	}
 

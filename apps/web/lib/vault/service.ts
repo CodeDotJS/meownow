@@ -18,6 +18,10 @@ import {
 	PAIRING_TTL_MS,
 	type PairingWrapRequest,
 	type PublicJwk,
+	R2_CLASS_A_CEILING,
+	R2_CLASS_B_CEILING,
+	R2_STORAGE_CEILING_BYTES,
+	SEAT_CEILING,
 	TEXT_CIPHERTEXT_MAX_BYTES,
 	TEXT_TTL_MS,
 	type VaultPutRequest,
@@ -551,6 +555,32 @@ export class VaultService {
 			await this.vault.deletePairing(payload.pairingId);
 		}
 		return { handle: payload.handle, sessionToken };
+	}
+
+	async adminUsage(sessionToken: string | undefined) {
+		await this.requireAdmin(sessionToken);
+		const snapshot = await this.vault.usageSnapshot();
+		const directory = await this.auth.listDirectory();
+		return {
+			r2CommittedBytes: snapshot.committedBytes,
+			r2PendingBytes: snapshot.pendingBytes,
+			r2CeilingBytes: R2_STORAGE_CEILING_BYTES,
+			classAEstimate: snapshot.classAEstimate,
+			classACeiling: R2_CLASS_A_CEILING,
+			classBCounted: false as const,
+			classBCeiling: R2_CLASS_B_CEILING,
+			seatsClaimed: directory.seatsClaimed,
+			seatsTotal: SEAT_CEILING,
+			users: directory.users.map((user) => ({
+				handle: user.handle,
+				storageUsedBytes: user.storageUsedBytes,
+				storageQuotaBytes: user.storageQuotaBytes,
+			})),
+		};
+	}
+
+	async publishDeviceRevoked(userId: string, deviceId: string): Promise<void> {
+		await this.hub.publish(userId, { v: 1, type: "device.revoked", id: deviceId });
 	}
 
 	private async requireLivePairing(id: string) {

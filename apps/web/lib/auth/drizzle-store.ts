@@ -11,6 +11,7 @@ import {
 	items,
 	pairingSessions,
 	pushSubscriptions,
+	seats,
 	sessions,
 	uploadRequests,
 	users,
@@ -21,7 +22,7 @@ import type {
 	PublicJwk,
 	WrappedKeyWire,
 } from "@meownow/protocol";
-import { and, eq, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import type {
 	BlobRow,
 	PairingRecord,
@@ -33,6 +34,7 @@ import type {
 import type {
 	AdminEnrollCommit,
 	AdminEnrollCommitResult,
+	AuditEntry,
 	AuthStore,
 	DeviceWithUser,
 	InviteRow,
@@ -366,6 +368,90 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 				createdAt: input.now,
 			});
 		});
+	}
+
+	async listDirectory() {
+		return this.withDb(async (db) => {
+			const userRows = await db.select().from(users);
+			const deviceRows = await db.select().from(devices);
+			const claimed = await db
+				.select({ seatNo: seats.seatNo })
+				.from(seats)
+				.where(isNotNull(seats.userId));
+			return {
+				users: userRows
+					.map((row) => ({
+						...mapUser(row),
+						devices: deviceRows
+							.filter((device) => device.userId === row.id)
+							.map((device) => ({
+								id: device.id,
+								userId: device.userId,
+								label: device.label,
+								revokedAt: device.revokedAt,
+								lastSeenAt: device.lastSeenAt,
+								createdAt: device.createdAt,
+							})),
+					}))
+					.sort((a, b) => a.handle.localeCompare(b.handle)),
+				seatsClaimed: claimed.length,
+			};
+		});
+	}
+
+	async listAudit(): Promise<AuditEntry[]> {
+		return this.withDb(async (db) => {
+			const rows = await db.select().from(auditLog).orderBy(desc(auditLog.id)).limit(100);
+			return rows.map((row) => ({
+				id: row.id,
+				actorId: row.actorId,
+				action: row.action,
+				subjectType: row.subjectType,
+				subjectId: row.subjectId,
+				createdAt: row.createdAt,
+			}));
+		});
+	}
+
+	async revokeDevice(id: string, now: Date): Promise<{ userId: string } | "missing" | "already"> {
+		return this.withDb((db) =>
+			db.transaction(async (tx) => {
+				const rows = await tx.select().from(devices).where(eq(devices.id, id)).limit(1);
+				const device = rows[0];
+				if (!device) {
+					return "missing" as const;
+				}
+				if (device.revokedAt) {
+					return "already" as const;
+				}
+				await tx.update(devices).set({ revokedAt: now }).where(eq(devices.id, id));
+				await tx.delete(sessions).where(eq(sessions.deviceId, id));
+				return { userId: device.userId };
+			}),
+		);
+	}
+
+	async removeUser(id: string): Promise<"ok" | "missing" | "last_admin"> {
+		return this.withDb((db) =>
+			db.transaction(async (tx) => {
+				const rows = await tx.select().from(users).where(eq(users.id, id)).limit(1);
+				const user = rows[0];
+				if (!user) {
+					return "missing" as const;
+				}
+				if (user.role === "admin") {
+					const others = await tx
+						.select({ id: users.id })
+						.from(users)
+						.where(and(eq(users.role, "admin"), ne(users.id, id)));
+					if (others.length === 0) {
+						return "last_admin" as const;
+					}
+				}
+				await tx.delete(users).where(eq(users.id, id));
+				return "ok" as const;
+			}),
+		);
 	}
 
 	async getVault(userId: string): Promise<VaultRecord | null> {
@@ -795,6 +881,28 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 				});
 			}),
 		);
+	}
+
+	async usageSnapshot(): Promise<{
+		committedBytes: number;
+		pendingBytes: number;
+		classAEstimate: number;
+	}> {
+		return this.withDb(async (db) => {
+			const rows = await db.select().from(blobs);
+			let committedBytes = 0;
+			let pendingBytes = 0;
+			let classAEstimate = 0;
+			for (const row of rows) {
+				classAEstimate += row.chunkCount;
+				if (row.state === "committed") {
+					committedBytes += row.byteSize;
+				} else {
+					pendingBytes += row.byteSize;
+				}
+			}
+			return { committedBytes, pendingBytes, classAEstimate };
+		});
 	}
 }
 

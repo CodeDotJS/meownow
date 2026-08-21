@@ -17,8 +17,13 @@ import {
 	wrapIdentityKey,
 	wrapVaultForPairing,
 } from "@meownow/crypto";
-import { asPublicJwk, generateCapabilityKeyPair } from "@meownow/protocol";
+import {
+	asPublicJwk,
+	generateCapabilityKeyPair,
+	R2_STORAGE_CEILING_BYTES,
+} from "@meownow/protocol";
 import { expect, test } from "vitest";
+import { createHandlers } from "../auth/handlers";
 import { MemoryAuthStore } from "../auth/memory-store";
 import { AuthService } from "../auth/service";
 import type { WebAuthnPort } from "../auth/webauthn";
@@ -472,4 +477,71 @@ test("approved user gets a server-generated R2 key and cannot pick one", async (
 		purpose: "upload",
 	});
 	expect(ticket.token.split(".")).toHaveLength(3);
+});
+
+test("admin usage shows committed R2 bytes against the 10 GiB ceiling; members are forbidden", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn });
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const ownerId = [...store.users.values()][0]?.id ?? "";
+	store.blobs.push({
+		id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+		ownerId,
+		r2Key: "r2-a",
+		byteSize: 2048,
+		chunkSize: 1024,
+		chunkCount: 2,
+		sha256: Buffer.alloc(32),
+		state: "committed",
+		createdAt: new Date(),
+		committedAt: new Date(),
+	});
+	store.blobs.push({
+		id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+		ownerId,
+		r2Key: "r2-b",
+		byteSize: 512,
+		chunkSize: 512,
+		chunkCount: 1,
+		sha256: Buffer.alloc(32),
+		state: "pending",
+		createdAt: new Date(),
+		committedAt: null,
+	});
+	const usage = await vaultApi.adminUsage(enrolled.sessionToken);
+	expect(usage.r2CommittedBytes).toBe(2048);
+	expect(usage.r2PendingBytes).toBe(512);
+	expect(usage.r2CeilingBytes).toBe(R2_STORAGE_CEILING_BYTES);
+	expect(usage.classAEstimate).toBe(3);
+	expect(usage.classBCounted).toBe(false);
+	expect(usage.r2CommittedBytes).toBeLessThan(usage.r2CeilingBytes);
+
+	const invite = await auth.createInvite(enrolled.sessionToken, undefined);
+	const { challenge: join } = await auth.registerOptions({
+		token: invite.token,
+		handle: "ada",
+		displayName: "Ada",
+		deviceLabel: "phone",
+	});
+	const member = await auth.registerVerify(dummyAttestation, join);
+	await expect(vaultApi.adminUsage(member.sessionToken)).rejects.toMatchObject({
+		code: "forbidden",
+		status: 403,
+	});
+
+	const handlers = createHandlers({ env, store, webauthn });
+	const denied = await handlers.getAdminUsage(
+		new Request("https://meownow.example/api/admin/usage", {
+			headers: { cookie: `sid=${member.sessionToken}` },
+		}),
+	);
+	expect(denied.status).toBe(403);
+	expect(await denied.json()).toEqual({ error: "forbidden" });
 });

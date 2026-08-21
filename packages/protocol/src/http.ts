@@ -29,6 +29,8 @@ export const errorCodeSchema = z.enum([
 	"capability_unconfigured",
 	"quota_exceeded",
 	"request_pending",
+	"not_found",
+	"last_admin",
 ]);
 
 export const errorEnvelopeSchema = z.object({
