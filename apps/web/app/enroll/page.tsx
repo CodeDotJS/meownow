@@ -4,14 +4,31 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { type FormEvent, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
 import { Panel } from "@/lib/ui/panel";
+import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
 import { Status } from "@/lib/ui/status";
 
 export default function EnrollPage() {
+	const { ready, me } = useBrowserSession();
 	const [handle, setHandle] = useState("");
 	const [secret, setSecret] = useState("");
 	const [deviceLabel, setDeviceLabel] = useState("this device");
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+
+	if (!ready) {
+		return (
+			<main>
+				<SessionLoading title="First admin" />
+			</main>
+		);
+	}
+	if (me) {
+		return (
+			<main>
+				<AlreadyHere title="You're already in" lead={`Signed in as ${me.handle}.`} />
+			</main>
+		);
+	}
 
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
