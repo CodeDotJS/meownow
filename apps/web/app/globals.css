@@ -37,8 +37,6 @@ body::before {
 }
 
 .frame {
-	display: flex;
-	flex-direction: column;
 	min-height: 100dvh;
 	max-width: 72rem;
 	margin: 0 auto;
@@ -528,7 +526,6 @@ button:disabled {
 .clipboard {
 	display: flex;
 	flex-direction: column;
-	flex: 1 1 auto;
 	max-width: 40rem;
 	min-height: calc(100dvh - 6.75rem);
 	max-height: calc(100dvh - 5.5rem);
@@ -941,7 +938,6 @@ li {
 .empty {
 	display: flex;
 	align-items: center;
-	flex: 1 1 auto;
 	gap: 0.7rem;
 	margin: 0;
 	padding: 1.75rem 1.25rem 2rem;
@@ -1112,6 +1108,11 @@ li {
 		--gutter: 1rem;
 	}
 
+	.frame {
+		display: flex;
+		flex-direction: column;
+	}
+
 	.chrome {
 		position: sticky;
 		top: 0;
@@ -1164,6 +1165,7 @@ li {
 	}
 
 	.clipboard {
+		flex: 1 1 auto;
 		max-height: none;
 		min-height: 0;
 		padding-bottom: 0;
@@ -1182,6 +1184,7 @@ li {
 	}
 
 	.stage .empty {
+		flex: 1 1 auto;
 		border-bottom: 1px solid var(--rule);
 	}
 
