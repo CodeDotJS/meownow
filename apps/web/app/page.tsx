@@ -646,7 +646,7 @@ export default function Page() {
 	}
 
 	if (!me) {
-		return <Landing />;
+		return <Landing hasLocal={hasLocal} />;
 	}
 
 	if (!me.hasVault) {
