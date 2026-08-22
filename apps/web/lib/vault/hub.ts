@@ -13,6 +13,10 @@ export function silentHub(): HubPort {
 	return { publish: async () => undefined };
 }
 
+export function hubOrigin(env: { HUB_URL?: string; EDGE_URL?: string }): string | undefined {
+	return env.HUB_URL ?? env.EDGE_URL;
+}
+
 export function createHttpHub(input: { edgeUrl?: string; hubSecret?: string }): HubPort {
 	return {
 		async publish(userId, envelope) {

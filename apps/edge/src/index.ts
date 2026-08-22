@@ -11,6 +11,7 @@ export interface Env {
 	BLOBS: R2Bucket;
 	HUB_SECRET: string;
 	APP_URL: string;
+	APP_ORIGINS?: string;
 	CAPABILITY_TOKEN_PUBLIC_KEY?: string;
 }
 

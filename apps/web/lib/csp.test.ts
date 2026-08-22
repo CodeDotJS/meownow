@@ -20,6 +20,19 @@ test("CSP uses a per-request nonce, strict-dynamic, and the required lock-downs"
 	expect(policy).not.toMatch(/(^| )'unsafe-eval'/);
 });
 
+test("CSP lists a separate hub origin when fan-out is not on EDGE_URL", () => {
+	const policy = contentSecurityPolicy({
+		nonce: "n",
+		isDev: false,
+		edgeOrigin: "http://localhost:8787",
+		hubOrigin: "https://meownow-edge.example",
+	});
+	expect(policy).toContain("http://localhost:8787");
+	expect(policy).toContain("ws://localhost:8787");
+	expect(policy).toContain("https://meownow-edge.example");
+	expect(policy).toContain("wss://meownow-edge.example");
+});
+
 test("dev CSP still allows JS eval for Next HMR", () => {
 	const policy = contentSecurityPolicy({ nonce: "dev", isDev: true });
 	expect(policy).toContain("'unsafe-eval'");

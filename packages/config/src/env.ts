@@ -20,6 +20,8 @@ export const webEnvSchema = z.object({
 	ADMIN_ENROLL_SECRET: z.string().min(16),
 	HUB_SECRET: z.string().min(32).optional(),
 	EDGE_URL: z.string().url().optional(),
+	/** When set, WS tickets and fan-out go here instead of EDGE_URL. Uploads stay on EDGE_URL. */
+	HUB_URL: z.string().url().optional(),
 	SENTRY_DSN: z.string().url().optional(),
 	VAPID_PUBLIC_KEY: z.string().min(1).optional(),
 	VAPID_PRIVATE_KEY: z.string().min(1).optional(),
@@ -38,6 +40,8 @@ export const edgeEnvSchema = z.object({
 	BLOBS: z.unknown(),
 	HUB_SECRET: z.string().min(32),
 	APP_URL: z.string().url(),
+	/** Extra browser origins allowed to open /ws, comma-separated. APP_URL is always allowed. */
+	APP_ORIGINS: z.string().min(1).optional(),
 	CAPABILITY_TOKEN_PUBLIC_KEY: z.string().min(1).optional(),
 });
 

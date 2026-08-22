@@ -5,6 +5,8 @@ compatibility_date = "2026-08-21"
 [vars]
 # Local wrangler dev. Production deploy overrides via `pnpm deploy` (--var APP_URL).
 APP_URL = "http://localhost:3000"
+# Extra /ws origins. Production APP_URL is still required; this lets localhost join that hub.
+APP_ORIGINS = "http://localhost:3000"
 # HUB_SECRET and CAPABILITY_TOKEN_PUBLIC_KEY: local `.dev.vars`, production `wrangler secret put`.
 
 [durable_objects]

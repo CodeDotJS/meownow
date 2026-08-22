@@ -111,6 +111,57 @@ test("websocket connect without origin is denied", async () => {
 	expect(response.status).toBe(403);
 });
 
+test("websocket connect from APP_URL is allowed", async () => {
+	const token = await mintHubTicket(secret, {
+		v: 1,
+		purpose: "ws",
+		userId,
+		deviceId,
+		exp: Date.now() + 60_000,
+	});
+	const response = await handleRequest(
+		new Request(`https://edge.meownow.test/ws?ticket=${token}`, {
+			headers: { origin: app },
+		}),
+		env([]),
+	);
+	expect(response.status).not.toBe(403);
+});
+
+test("websocket connect from APP_ORIGINS is allowed", async () => {
+	const token = await mintHubTicket(secret, {
+		v: 1,
+		purpose: "ws",
+		userId,
+		deviceId,
+		exp: Date.now() + 60_000,
+	});
+	const response = await handleRequest(
+		new Request(`https://edge.meownow.test/ws?ticket=${token}`, {
+			headers: { origin: "http://localhost:3000" },
+		}),
+		{ ...env([]), APP_ORIGINS: "http://localhost:3000" },
+	);
+	expect(response.status).not.toBe(403);
+});
+
+test("websocket connect from an unknown origin is denied", async () => {
+	const token = await mintHubTicket(secret, {
+		v: 1,
+		purpose: "ws",
+		userId,
+		deviceId,
+		exp: Date.now() + 60_000,
+	});
+	const response = await handleRequest(
+		new Request(`https://edge.meownow.test/ws?ticket=${token}`, {
+			headers: { origin: "https://evil.example" },
+		}),
+		{ ...env([]), APP_ORIGINS: "http://localhost:3000" },
+	);
+	expect(response.status).toBe(403);
+});
+
 test("upload without a capability token never writes to R2", async () => {
 	const blobs = memoryR2();
 	const response = await handleRequest(

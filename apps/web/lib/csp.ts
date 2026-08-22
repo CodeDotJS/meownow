@@ -2,8 +2,9 @@ export function contentSecurityPolicy(input: {
 	nonce: string;
 	isDev: boolean;
 	edgeOrigin?: string;
+	hubOrigin?: string;
 }): string {
-	const edge = connectSrc(input.edgeOrigin);
+	const edge = connectSrc(input.edgeOrigin, input.hubOrigin);
 	const evalSrc = input.isDev ? " 'unsafe-eval'" : "";
 	const upgrade = input.isDev ? "" : " upgrade-insecure-requests;";
 	return [
@@ -28,16 +29,26 @@ export function contentSecurityPolicy(input: {
 		.trim();
 }
 
-function connectSrc(edgeOrigin?: string): string {
-	if (!edgeOrigin) {
-		return "";
+function connectSrc(...origins: Array<string | undefined>): string {
+	const parts: string[] = [];
+	const seen = new Set<string>();
+	for (const origin of origins) {
+		if (!origin) {
+			continue;
+		}
+		let url: URL;
+		try {
+			url = new URL(origin);
+		} catch {
+			continue;
+		}
+		const ws = url.protocol === "https:" ? "wss:" : "ws:";
+		const token = `${url.origin} ${ws}//${url.host}`;
+		if (seen.has(token)) {
+			continue;
+		}
+		seen.add(token);
+		parts.push(token);
 	}
-	let url: URL;
-	try {
-		url = new URL(edgeOrigin);
-	} catch {
-		return "";
-	}
-	const ws = url.protocol === "https:" ? "wss:" : "ws:";
-	return ` ${url.origin} ${ws}//${url.host}`;
+	return parts.length === 0 ? "" : ` ${parts.join(" ")}`;
 }

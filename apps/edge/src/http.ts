@@ -35,7 +35,7 @@ export async function handleRequest(request: Request, env: EdgeEnv): Promise<Res
 
 async function connectWs(request: Request, env: EdgeEnv): Promise<Response> {
 	const origin = request.headers.get("origin");
-	if (!origin || origin !== new URL(env.APP_URL).origin) {
+	if (!originAllowed(origin, env)) {
 		return new Response("invalid_origin", { status: 403 });
 	}
 	const url = new URL(request.url);
@@ -211,4 +211,30 @@ function isChunkName(value: string): boolean {
 	}
 	const n = Number(value);
 	return n >= 0 && n < 1024;
+}
+
+export function hubOrigins(appUrl: string, extra?: string): string[] {
+	const origins = new Set<string>();
+	try {
+		origins.add(new URL(appUrl).origin);
+	} catch {
+		// ignore a bad APP_URL; originAllowed then fails closed
+	}
+	if (!extra) {
+		return [...origins];
+	}
+	for (const part of extra.split(",")) {
+		const trimmed = part.trim();
+		if (!trimmed) {
+			continue;
+		}
+		try {
+			origins.add(new URL(trimmed).origin);
+		} catch {}
+	}
+	return [...origins];
+}
+
+function originAllowed(origin: string | null, env: EdgeEnv): boolean {
+	return Boolean(origin && hubOrigins(env.APP_URL, env.APP_ORIGINS).includes(origin));
 }

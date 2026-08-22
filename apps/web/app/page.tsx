@@ -75,6 +75,8 @@ function itemTtl(kind: Shown["kind"]): number {
 const UNREADABLE = "This browser cannot read that line";
 const CLIP_HINT_KEY = "meownow.clip-hint";
 const FORGET_TOMBSTONE_MS = 15000;
+/** Re-read even while the socket is up. A live socket can be on a different hub than the writer. */
+const RECONCILE_MS = 4000;
 
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
@@ -282,18 +284,17 @@ export default function Page() {
 		};
 	}, [me, hasLocal, openItem, refreshItems]);
 
-	// Only while the socket is down, so a healthy session costs no extra requests.
 	useEffect(() => {
-		if (!me || !hasLocal || live) {
+		if (!me || !hasLocal) {
 			return;
 		}
 		const id = window.setInterval(() => {
 			if (document.visibilityState === "visible") {
 				void refreshItems();
 			}
-		}, 15000);
+		}, RECONCILE_MS);
 		return () => window.clearInterval(id);
-	}, [me, hasLocal, live, refreshItems]);
+	}, [me, hasLocal, refreshItems]);
 
 	const sendPlain = useCallback(
 		async (plain: string) => {

@@ -9,6 +9,7 @@ export function getWebEnv(env: NodeJS.ProcessEnv = process.env): WebEnv {
 		ADMIN_ENROLL_SECRET: env.ADMIN_ENROLL_SECRET,
 		HUB_SECRET: env.HUB_SECRET,
 		EDGE_URL: env.EDGE_URL,
+		HUB_URL: env.HUB_URL,
 		SENTRY_DSN: env.SENTRY_DSN,
 		VAPID_PUBLIC_KEY: env.VAPID_PUBLIC_KEY,
 		VAPID_PRIVATE_KEY: env.VAPID_PRIVATE_KEY,

@@ -7,6 +7,7 @@ export function middleware(request: NextRequest) {
 		nonce,
 		isDev: process.env.NODE_ENV !== "production",
 		edgeOrigin: process.env.EDGE_URL,
+		hubOrigin: process.env.HUB_URL,
 	});
 	const requestHeaders = new Headers(request.headers);
 	requestHeaders.set("x-nonce", nonce);

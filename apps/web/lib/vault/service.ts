@@ -33,7 +33,7 @@ import { defaultWebAuthn, type WebAuthnPort } from "../auth/webauthn";
 import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } from "../challenge";
 import { rpFromAppUrl } from "../env";
 import { type BlobPort, signCapability, silentBlobs } from "./blobs";
-import { type HubPort, silentHub } from "./hub";
+import { type HubPort, hubOrigin, silentHub } from "./hub";
 import { type LimitPort, silentLimits } from "./limits";
 import { type PushPort, silentPush } from "./push";
 import type { VaultStore } from "./store";
@@ -191,7 +191,8 @@ export class VaultService {
 	}
 
 	async hubTicket(sessionToken: string | undefined) {
-		if (!this.env.HUB_SECRET || !this.env.EDGE_URL) {
+		const hub = hubOrigin(this.env);
+		if (!this.env.HUB_SECRET || !hub) {
 			throw new AuthError("hub_unconfigured", 503);
 		}
 		const ctx = await this.requireCtx(sessionToken);
@@ -202,7 +203,7 @@ export class VaultService {
 			deviceId: ctx.device.id,
 			exp: this.now().getTime() + HUB_WS_TTL_MS,
 		});
-		return { ticket, url: `${this.env.EDGE_URL.replace(/\/$/, "")}/ws` };
+		return { ticket, url: `${hub.replace(/\/$/, "")}/ws` };
 	}
 
 	async requestUpload(sessionToken: string | undefined, reason: string) {
