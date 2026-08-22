@@ -30,13 +30,17 @@ export function Landing() {
 							Continue with passkey
 						</a>
 					</nav>
-					<p className="hint">
-						Have an invite? <a href="/join">Join</a>
-						<br />
-						This browser is new. <a href="/pair/show">Show a code</a>
-						<br />
-						Lost every device. <a href="/recover">Use the 12 words</a>
-					</p>
+					<ul className="hint-list">
+						<li>
+							Have an invite? <a href="/join">Join</a>
+						</li>
+						<li>
+							This browser is new. <a href="/pair/show">Show a code</a>
+						</li>
+						<li>
+							Lost every device. <a href="/recover">Use the 12 words</a>
+						</li>
+					</ul>
 				</motion.div>
 				<motion.div
 					className="hero-sheet"
