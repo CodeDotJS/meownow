@@ -513,6 +513,22 @@ button:disabled {
 	padding-bottom: 1.25rem;
 }
 
+.clip-meta {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	margin: 0 0 0.75rem;
+	padding: 0 0.15rem;
+	font-size: 0.8125rem;
+	color: var(--muted);
+	flex-shrink: 0;
+}
+
+.clip-live.is-on {
+	color: var(--ink);
+}
+
 .clip-hint,
 .clipboard > .hint,
 .clipboard > .status {
@@ -574,6 +590,11 @@ button:disabled {
 	background: transparent;
 	color: inherit;
 	box-shadow: none;
+}
+
+.composer textarea::placeholder {
+	color: var(--muted);
+	opacity: 0.72;
 }
 
 .composer-quiet {
@@ -698,6 +719,27 @@ li {
 	box-shadow: none;
 }
 
+.log-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.75rem 0.9rem 0.25rem;
+	margin: 0;
+	border-bottom: 0;
+}
+
+.log-head .sheet-label {
+	margin: 0;
+}
+
+.clip-count {
+	margin: 0;
+	font-size: 0.8125rem;
+	font-variant-numeric: tabular-nums;
+	color: var(--muted);
+}
+
 .log-item {
 	display: grid;
 	grid-template-columns: 3.75rem minmax(0, 1fr) auto;
@@ -740,6 +782,19 @@ li {
 .log-item .forget:hover,
 .log-item .forget:focus-visible {
 	background: transparent;
+}
+
+.log-item .log-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.15rem;
+	justify-self: end;
+}
+
+.log-item .copied {
+	padding: 0.25rem 0.35rem;
+	font-size: 0.8125rem;
+	color: var(--ink);
 }
 
 .log-item .forget {
@@ -1191,9 +1246,12 @@ li {
 		grid-row: 1;
 	}
 
-	.log-item .forget {
+	.log-item .log-actions {
 		grid-column: 2;
 		grid-row: 1;
+	}
+
+	.log-item .forget {
 		opacity: 1;
 		min-height: 2.5rem;
 		padding: 0.35rem 0.55rem;

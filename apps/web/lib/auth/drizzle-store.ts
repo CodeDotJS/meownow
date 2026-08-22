@@ -598,21 +598,28 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		return this.withDb(async (db) => {
 			const rows = await db.select().from(items).where(eq(items.ownerId, ownerId));
 			return rows
-				.map((row) => ({
-					id: row.id,
-					kind: row.kind,
-					ciphertext: row.ciphertext ? row.ciphertext.toString("base64url") : undefined,
-					metaCiphertext: row.metaCiphertext.toString("base64url"),
-					iv: row.iv.toString("base64url"),
-					wrappedKey: row.wrappedKey
-						? (JSON.parse(row.wrappedKey.toString("utf8")) as WrappedKeyWire)
-						: undefined,
-					blobId: row.blobId ?? undefined,
-					byteSize: row.byteSize,
-					expiresAt: row.expiresAt.toISOString(),
-					ownerId: row.ownerId,
-					createdAt: row.createdAt,
-				}))
+				.flatMap((row) => {
+					try {
+						const createdAt = asDate(row.createdAt);
+						return [
+							{
+								id: row.id,
+								kind: row.kind,
+								ciphertext: row.ciphertext ? b64urlFromBytea(row.ciphertext) : undefined,
+								metaCiphertext: b64urlFromBytea(row.metaCiphertext),
+								iv: b64urlFromBytea(row.iv),
+								wrappedKey: row.wrappedKey ? bytesToWire(row.wrappedKey) : undefined,
+								blobId: row.blobId ?? undefined,
+								byteSize: row.byteSize,
+								expiresAt: asDate(row.expiresAt).toISOString(),
+								ownerId: row.ownerId,
+								createdAt,
+							},
+						];
+					} catch {
+						return [];
+					}
+				})
 				.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 		});
 	}
@@ -989,11 +996,19 @@ function wireToBytes(wire: WrappedKeyWire): Buffer {
 	return Buffer.from(JSON.stringify(wire), "utf8");
 }
 
+function asDate(value: Date | string): Date {
+	return value instanceof Date ? value : new Date(value);
+}
+
 function utf8FromBytea(value: Buffer | Uint8Array): string {
 	return Buffer.from(value).toString("utf8");
 }
 
-function bytesToWire(value: Buffer): WrappedKeyWire {
+function b64urlFromBytea(value: Buffer | Uint8Array): string {
+	return Buffer.from(value).toString("base64url");
+}
+
+function bytesToWire(value: Buffer | Uint8Array): WrappedKeyWire {
 	return JSON.parse(utf8FromBytea(value)) as WrappedKeyWire;
 }
 

@@ -15,7 +15,11 @@ export function connectHub(onEnvelope: (envelope: WsEnvelope) => void): HubSessi
 			return;
 		}
 		const res = await getJson("/api/hub/ticket");
-		if (!res.ok || closed) {
+		if (closed) {
+			return;
+		}
+		if (!res.ok) {
+			window.setTimeout(() => void open(), 2000);
 			return;
 		}
 		const payload = res.data as { ticket: string; url: string };

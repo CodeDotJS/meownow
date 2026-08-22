@@ -13,7 +13,7 @@ import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { Landing } from "@/lib/ui/landing";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
-import { formatGutterTime, ttlRemain, ttlWarn } from "@/lib/ui/time";
+import { formatGutterTime, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
 import { loadVault } from "@/lib/vault/idb";
 import { connectHub } from "@/lib/vault/live";
 import { dropStaleLocalVault } from "@/lib/vault/local";
@@ -73,6 +73,8 @@ export default function Page() {
 	const [ephemeral, setEphemeral] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [hint, setHint] = useState(false);
+	const [live, setLive] = useState(false);
+	const [copiedId, setCopiedId] = useState<string | null>(null);
 	const [undo, setUndo] = useState<Shown | null>(null);
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
@@ -153,7 +155,9 @@ export default function Page() {
 		const list = (res.data as { items: ItemRow[] }).items;
 		const opened: Shown[] = [];
 		for (const item of list) {
-			opened.push(await openItem(item));
+			if (isLiveItem(item.expiresAt)) {
+				opened.push(await openItem(item));
+			}
 		}
 		setItems(opened);
 	}, [openItem]);
@@ -171,6 +175,8 @@ export default function Page() {
 		}
 		const session = connectHub((envelope) => {
 			if (envelope.type === "hello") {
+				setLive(true);
+				void refreshItems();
 				meshRef.current?.close();
 				meshRef.current = new Mesh(
 					envelope.deviceId,
@@ -215,13 +221,23 @@ export default function Page() {
 				setItems((current) => current.filter((row) => row.id !== envelope.id));
 			}
 		});
+		function onWake() {
+			if (document.visibilityState === "visible") {
+				void refreshItems();
+			}
+		}
+		document.addEventListener("visibilitychange", onWake);
+		window.addEventListener("online", onWake);
 		return () => {
 			session.close();
 			meshRef.current?.close();
 			meshRef.current = null;
+			setLive(false);
 			setLocal(false);
+			document.removeEventListener("visibilitychange", onWake);
+			window.removeEventListener("online", onWake);
 		};
-	}, [me, hasLocal, openItem]);
+	}, [me, hasLocal, openItem, refreshItems]);
 
 	const sendPlain = useCallback(
 		async (plain: string) => {
@@ -338,12 +354,14 @@ export default function Page() {
 	}, []);
 
 	const onCopy = useCallback(
-		async (text: string) => {
+		async (text: string, id?: string) => {
 			dismissHint();
 			try {
 				await navigator.clipboard.writeText(text);
+				setCopiedId(id ?? null);
 				setStatus("Copied.");
 			} catch {
+				setCopiedId(null);
 				setStatus("copy_failed");
 			}
 		},
@@ -423,7 +441,7 @@ export default function Page() {
 				setStatus("download_failed");
 				return;
 			}
-			void onCopy(item.text);
+			void onCopy(item.text, item.id);
 		},
 		[dismissHint, onCopy],
 	);
@@ -507,6 +525,7 @@ export default function Page() {
 	}
 
 	const draftLines = draft.split("\n").length;
+	const visible = items.filter((item) => isLiveItem(item.expiresAt, now));
 
 	if (!loaded) {
 		return (
@@ -564,15 +583,25 @@ export default function Page() {
 	return (
 		<main className="clipboard">
 			<h1 className="file-hidden">Clipboard</h1>
+			<p className="clip-meta">
+				<span>
+					{visible.length === 1 ? "1 note" : `${visible.length} notes`}
+					{ephemeral ? " · this Wi‑Fi only" : ""}
+				</span>
+				<span className={live ? "clip-live is-on" : "clip-live"}>
+					{live ? "Live on your devices" : "Syncing…"}
+				</span>
+			</p>
 			{hint ? (
 				<p className="hint clip-hint">Tap a line to copy. Paste on this page to send.</p>
 			) : null}
 			<div className="stage">
 				<div className="composer">
-					<p className="sheet-label">New paste</p>
+					<p className="sheet-label">{ephemeral ? "This Wi‑Fi only" : "New paste"}</p>
 					<textarea
-						aria-label="New paste"
+						aria-label={ephemeral ? "This Wi‑Fi only" : "New paste"}
 						value={draft}
+						placeholder="Type or paste"
 						onChange={(e) => setDraft(e.target.value)}
 						onKeyDown={(event) => {
 							if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -623,18 +652,24 @@ export default function Page() {
 						<p className="field-hint">Skip the server. Needs another device on this Wi‑Fi.</p>
 					) : null}
 				</div>
-				{items.length === 0 ? (
+				{visible.length === 0 ? (
 					<p className="empty">
 						<span>
 							Nothing on the clipboard.
-							<span className="empty-how">Type above, then Send.</span>
+							<span className="empty-how">
+								Type above, then Send. It will show on your other devices.
+							</span>
 						</span>
 					</p>
 				) : null}
-				{items.length > 0 ? (
+				{visible.length > 0 ? (
 					<ul className="log log-sheet">
+						<li className="log-head">
+							<p className="sheet-label">On the clipboard</p>
+							<p className="clip-count">{visible.length}</p>
+						</li>
 						<AnimatePresence initial={false}>
-							{items.map((item) => {
+							{visible.map((item) => {
 								const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
 								const warn = ttlWarn(item.expiresAt, now);
 								const selected = item.id === selectedId;
@@ -662,9 +697,16 @@ export default function Page() {
 												{item.text}
 											</button>
 										)}
-										<button type="button" className="forget" onClick={() => void onForget(item.id)}>
-											Forget
-										</button>
+										<span className="log-actions">
+											{copiedId === item.id ? <span className="copied">Copied</span> : null}
+											<button
+												type="button"
+												className="forget"
+												onClick={() => void onForget(item.id)}
+											>
+												Forget
+											</button>
+										</span>
 										<span
 											className={warn ? "ttl warn" : "ttl"}
 											style={{ ["--remain" as string]: String(remain) }}

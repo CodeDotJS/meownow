@@ -17,6 +17,11 @@ export function formatGutterTime(iso: string, now = Date.now()): string {
 	return `${month}-${day}`;
 }
 
+export function isLiveItem(expiresAt: string, now = Date.now()): boolean {
+	const expires = Date.parse(expiresAt);
+	return !Number.isNaN(expires) && expires > now;
+}
+
 export function ttlWarn(expiresAt: string, now = Date.now()): boolean {
 	const left = Date.parse(expiresAt) - now;
 	return left > 0 && left <= WARN_MS;
