@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { parseEdgeEnv } from "@meownow/config/env";
-import { wsEnvelopeSchema } from "@meownow/protocol";
+import { HUB_PING, HUB_PONG, wsEnvelopeSchema } from "@meownow/protocol";
 import { runCron } from "./cron";
 import { handleRequest } from "./http";
 import { HubRoom } from "./hub";
@@ -15,6 +15,12 @@ export interface Env {
 }
 
 export class HubDO extends DurableObject<Env> {
+	constructor(ctx: DurableObjectState, env: Env) {
+		super(ctx, env);
+		// Answered at the edge, so a keepalive never wakes a hibernating object.
+		ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(HUB_PING, HUB_PONG));
+	}
+
 	override async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === "/connect") {
@@ -63,6 +69,10 @@ export class HubDO extends DurableObject<Env> {
 		}
 		const parsed = wsEnvelopeSchema.safeParse(raw);
 		if (!parsed.success) {
+			return;
+		}
+		if (parsed.data.type === "ping" || parsed.data.type === "pong") {
+			// Normally answered by the auto-response; never fan a keepalive out.
 			return;
 		}
 		const attachment = ws.deserializeAttachment() as { deviceId?: string } | null;

@@ -1,4 +1,10 @@
-import { type WsEnvelope, wsEnvelopeSchema } from "@meownow/protocol";
+import {
+	HUB_PING,
+	HUB_PING_INTERVAL_MS,
+	HUB_SILENCE_LIMIT_MS,
+	type WsEnvelope,
+	wsEnvelopeSchema,
+} from "@meownow/protocol";
 import { getJson } from "../client/http";
 
 export type HubSession = {
@@ -6,9 +12,32 @@ export type HubSession = {
 	close: () => void;
 };
 
-export function connectHub(onEnvelope: (envelope: WsEnvelope) => void): HubSession {
+const RETRY_MS = 2000;
+
+export function connectHub(
+	onEnvelope: (envelope: WsEnvelope) => void,
+	onLive?: (live: boolean) => void,
+): HubSession {
 	let closed = false;
 	let socket: WebSocket | null = null;
+	let timers: number[] = [];
+	let lastSeen = Date.now();
+
+	function stopTimers(): void {
+		for (const id of timers) {
+			window.clearInterval(id);
+		}
+		timers = [];
+	}
+
+	function retry(): void {
+		stopTimers();
+		onLive?.(false);
+		if (closed) {
+			return;
+		}
+		window.setTimeout(() => void open(), RETRY_MS);
+	}
 
 	async function open(): Promise<void> {
 		if (closed) {
@@ -19,27 +48,52 @@ export function connectHub(onEnvelope: (envelope: WsEnvelope) => void): HubSessi
 			return;
 		}
 		if (!res.ok) {
-			window.setTimeout(() => void open(), 2000);
+			retry();
 			return;
 		}
 		const payload = res.data as { ticket: string; url: string };
-		socket = new WebSocket(`${payload.url}?ticket=${encodeURIComponent(payload.ticket)}`);
-		socket.onmessage = (event) => {
+		const ws = new WebSocket(`${payload.url}?ticket=${encodeURIComponent(payload.ticket)}`);
+		socket = ws;
+		lastSeen = Date.now();
+		ws.onopen = () => {
+			lastSeen = Date.now();
+			onLive?.(true);
+			timers.push(
+				window.setInterval(() => {
+					if (ws.readyState === WebSocket.OPEN) {
+						ws.send(HUB_PING);
+					}
+				}, HUB_PING_INTERVAL_MS),
+			);
+			timers.push(
+				window.setInterval(() => {
+					// A half-open socket keeps readyState OPEN and never fires onclose,
+					// so silence is the only symptom. Closing it triggers the retry.
+					if (Date.now() - lastSeen > HUB_SILENCE_LIMIT_MS) {
+						ws.close();
+					}
+				}, HUB_PING_INTERVAL_MS),
+			);
+		};
+		ws.onmessage = (event) => {
+			lastSeen = Date.now();
 			if (typeof event.data !== "string") {
 				return;
 			}
 			try {
 				const parsed = wsEnvelopeSchema.safeParse(JSON.parse(event.data));
-				if (parsed.success) {
-					onEnvelope(parsed.data);
+				if (!parsed.success || parsed.data.type === "ping" || parsed.data.type === "pong") {
+					return;
 				}
+				onEnvelope(parsed.data);
 			} catch {
 				return;
 			}
 		};
-		socket.onclose = () => {
-			if (!closed) {
-				window.setTimeout(() => void open(), 2000);
+		ws.onerror = () => ws.close();
+		ws.onclose = () => {
+			if (socket === ws) {
+				retry();
 			}
 		};
 	}
@@ -53,6 +107,7 @@ export function connectHub(onEnvelope: (envelope: WsEnvelope) => void): HubSessi
 		},
 		close() {
 			closed = true;
+			stopTimers();
 			socket?.close();
 		},
 	};

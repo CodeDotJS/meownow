@@ -190,7 +190,6 @@ export default function Page() {
 		}
 		const session = connectHub((envelope) => {
 			if (envelope.type === "hello") {
-				setLive(true);
 				void refreshItems();
 				meshRef.current?.close();
 				meshRef.current = new Mesh(
@@ -241,7 +240,7 @@ export default function Page() {
 			if (envelope.type === "item.deleted") {
 				setItems((current) => current.filter((row) => row.id !== envelope.id));
 			}
-		});
+		}, setLive);
 		function onWake() {
 			if (document.visibilityState === "visible") {
 				void refreshItems();
@@ -259,6 +258,19 @@ export default function Page() {
 			window.removeEventListener("online", onWake);
 		};
 	}, [me, hasLocal, openItem, refreshItems]);
+
+	// Only while the socket is down, so a healthy session costs no extra requests.
+	useEffect(() => {
+		if (!me || !hasLocal || live) {
+			return;
+		}
+		const id = window.setInterval(() => {
+			if (document.visibilityState === "visible") {
+				void refreshItems();
+			}
+		}, 15000);
+		return () => window.clearInterval(id);
+	}, [me, hasLocal, live, refreshItems]);
 
 	const sendPlain = useCallback(
 		async (plain: string) => {

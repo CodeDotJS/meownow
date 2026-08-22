@@ -1,5 +1,14 @@
 import { expect, test } from "vitest";
-import { mintHubTicket, openHubTicket } from "./ws";
+import { HUB_PING, HUB_PONG, mintHubTicket, openHubTicket, wsEnvelopeSchema } from "./ws";
+
+test("keepalive frames parse and stay byte-exact for the edge auto-response", () => {
+	expect(wsEnvelopeSchema.parse(JSON.parse(HUB_PING)).type).toBe("ping");
+	expect(wsEnvelopeSchema.parse(JSON.parse(HUB_PONG)).type).toBe("pong");
+	// setWebSocketAutoResponse matches on the exact string, so a re-serialised
+	// frame must be identical to the constant the client sends.
+	expect(JSON.stringify({ v: 1, type: "ping" })).toBe(HUB_PING);
+	expect(JSON.stringify({ v: 1, type: "pong" })).toBe(HUB_PONG);
+});
 
 const secret = "0".repeat(32);
 

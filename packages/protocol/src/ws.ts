@@ -8,6 +8,16 @@ export const HUB_FANOUT_TTL_MS = 30 * 1000;
 export const HUB_LIMIT_TTL_MS = 30 * 1000;
 export const AUTH_LIMIT_USER_ID = "00000000-0000-4000-8000-00000000000a";
 
+/**
+ * Cloudflare matches auto-responses by exact string, so these are the literal
+ * frames rather than something re-serialised at the call site.
+ */
+export const HUB_PING = '{"v":1,"type":"ping"}';
+export const HUB_PONG = '{"v":1,"type":"pong"}';
+/** Silence longer than this means the socket is dead, even if onclose never fired. */
+export const HUB_PING_INTERVAL_MS = 25 * 1000;
+export const HUB_SILENCE_LIMIT_MS = 70 * 1000;
+
 export const hubTicketSchema = z.object({
 	v: z.literal(1),
 	purpose: z.enum(["ws", "fanout", "limit", "cron"]),
@@ -36,6 +46,14 @@ export const wsEnvelopeSchema = z.discriminatedUnion("type", [
 		v: z.literal(1),
 		type: z.literal("hello"),
 		deviceId: z.string().uuid(),
+	}),
+	z.object({
+		v: z.literal(1),
+		type: z.literal("ping"),
+	}),
+	z.object({
+		v: z.literal(1),
+		type: z.literal("pong"),
 	}),
 	z.object({
 		v: z.literal(1),
