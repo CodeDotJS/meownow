@@ -56,12 +56,13 @@ export default function RequestsPage() {
 		<main>
 			<Panel>
 				<h1>Upload requests</h1>
-				<p className="lead">Grant R2 quota. Text and links do not need this.</p>
+				<p className="lead">Grant file upload space. Text and links do not need this.</p>
 				<label>
 					Grant bytes
 					<input value={grant} onChange={(e) => setGrant(e.target.value)} className="mono" />
 				</label>
 				<Status value={status} />
+				{rows.length === 0 ? <p className="hint">No pending requests.</p> : null}
 				<ul>
 					{rows.map((row) => (
 						<li key={row.id}>

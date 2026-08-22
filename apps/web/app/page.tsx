@@ -57,6 +57,10 @@ function itemTtl(kind: Shown["kind"]): number {
 	return kind === "image" || kind === "file" ? BLOB_TTL_MS : TEXT_TTL_MS;
 }
 
+const UNREADABLE = "This browser cannot read that line";
+const CLIP_HINT_KEY = "meownow.clip-hint";
+const FORGET_UNDO_MS = 5000;
+
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
 	const [loaded, setLoaded] = useState(false);
@@ -68,9 +72,12 @@ export default function Page() {
 	const [local, setLocal] = useState(false);
 	const [ephemeral, setEphemeral] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [hint, setHint] = useState(false);
+	const [undo, setUndo] = useState<Shown | null>(null);
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
+	const forgottenRef = useRef<{ item: Shown; timer: number } | null>(null);
 	const reduceMotion = useReducedMotion();
 	itemsRef.current = items;
 
@@ -111,7 +118,7 @@ export default function Page() {
 			wrappedKey: item.wrappedKey,
 		};
 		if (!stored) {
-			return { ...base, text: "(locked)" };
+			return { ...base, text: UNREADABLE };
 		}
 		try {
 			if ((item.kind === "image" || item.kind === "file") && item.metaCiphertext) {
@@ -124,7 +131,7 @@ export default function Page() {
 				return { ...base, text: meta.filename || item.kind };
 			}
 			if (!item.ciphertext) {
-				return { ...base, text: "(undecryptable)" };
+				return { ...base, text: UNREADABLE };
 			}
 			const plain = await decrypt(
 				stored.vaultKey,
@@ -133,7 +140,7 @@ export default function Page() {
 			);
 			return { ...base, text: new TextDecoder().decode(plain) };
 		} catch {
-			return { ...base, text: "(undecryptable)" };
+			return { ...base, text: UNREADABLE };
 		}
 	}, []);
 
@@ -310,24 +317,95 @@ export default function Page() {
 		void registerPush();
 	}, [me, hasLocal]);
 
-	const onCopy = useCallback(async (text: string) => {
-		await navigator.clipboard.writeText(text);
-		setStatus("Copied.");
+	const dismissHint = useCallback(() => {
+		sessionStorage.setItem(CLIP_HINT_KEY, "1");
+		setHint(false);
 	}, []);
 
-	const onForget = useCallback(async (id: string) => {
-		const res = await deleteJson(`/api/items/${id}`);
+	useEffect(() => {
+		setHint(sessionStorage.getItem(CLIP_HINT_KEY) !== "1");
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			const pending = forgottenRef.current;
+			if (!pending) {
+				return;
+			}
+			window.clearTimeout(pending.timer);
+			void deleteJson(`/api/items/${pending.item.id}`);
+		};
+	}, []);
+
+	const onCopy = useCallback(
+		async (text: string) => {
+			dismissHint();
+			try {
+				await navigator.clipboard.writeText(text);
+				setStatus("Copied.");
+			} catch {
+				setStatus("copy_failed");
+			}
+		},
+		[dismissHint],
+	);
+
+	const flushForgotten = useCallback(async (pending: { item: Shown; timer: number }) => {
+		window.clearTimeout(pending.timer);
+		const res = await deleteJson(`/api/items/${pending.item.id}`);
 		if (!res.ok) {
 			setStatus(errorCode(res.data));
+		}
+	}, []);
+
+	const onForget = useCallback(
+		async (id: string) => {
+			const item = itemsRef.current.find((row) => row.id === id);
+			if (!item) {
+				return;
+			}
+			const previous = forgottenRef.current;
+			forgottenRef.current = null;
+			if (previous) {
+				await flushForgotten(previous);
+			}
+			setItems((current) => current.filter((row) => row.id !== id));
+			setSelectedId((current) => (current === id ? null : current));
+			setUndo(item);
+			const timer = window.setTimeout(() => {
+				forgottenRef.current = null;
+				setUndo((current) => (current?.id === id ? null : current));
+				void deleteJson(`/api/items/${id}`).then((res) => {
+					if (!res.ok) {
+						setStatus(errorCode(res.data));
+					}
+				});
+			}, FORGET_UNDO_MS);
+			forgottenRef.current = { item, timer };
+		},
+		[flushForgotten],
+	);
+
+	const onUndoForget = useCallback(() => {
+		const pending = forgottenRef.current;
+		if (!pending) {
 			return;
 		}
-		setItems((current) => current.filter((row) => row.id !== id));
-		setSelectedId((current) => (current === id ? null : current));
+		window.clearTimeout(pending.timer);
+		forgottenRef.current = null;
+		setItems((current) =>
+			current.some((row) => row.id === pending.item.id) ? current : [pending.item, ...current],
+		);
+		setUndo(null);
 	}, []);
 
 	const activateItem = useCallback(
 		(item: Shown) => {
 			setSelectedId(item.id);
+			if (item.text === UNREADABLE) {
+				return;
+			}
+			dismissHint();
 			if (item.kind === "image" || item.kind === "file") {
 				if (item.blobId && item.wrappedKey && item.iv && item.metaCiphertext) {
 					void downloadBlobItem({
@@ -337,13 +415,17 @@ export default function Page() {
 						iv: item.iv,
 						metaCiphertext: item.metaCiphertext,
 						wrappedKey: item.wrappedKey,
+					}).then((ok) => {
+						setStatus(ok ? "Downloaded." : "download_failed");
 					});
+					return;
 				}
+				setStatus("download_failed");
 				return;
 			}
 			void onCopy(item.text);
 		},
-		[onCopy],
+		[dismissHint, onCopy],
 	);
 
 	useEffect(() => {
@@ -401,6 +483,7 @@ export default function Page() {
 	}, [activateItem, hasLocal, me, onForget, selectedId]);
 
 	async function onSend() {
+		dismissHint();
 		await sendPlain(draft);
 	}
 
@@ -409,6 +492,7 @@ export default function Page() {
 		if (!file) {
 			return;
 		}
+		dismissHint();
 		const result = await sendBlobFile(file);
 		if ("error" in result) {
 			setStatus(result.error);
@@ -426,6 +510,14 @@ export default function Page() {
 		return (
 			<main>
 				<h1 className="file-hidden">Clipboard</h1>
+				<p className="file-hidden" role="status">
+					Loading
+				</p>
+				<div className="panel sheet-skeleton" aria-hidden="true">
+					<span className="skel" />
+					<span className="skel" />
+					<span className="skel skel-short" />
+				</div>
 			</main>
 		);
 	}
@@ -446,15 +538,12 @@ export default function Page() {
 		return (
 			<main>
 				<Panel>
-					<h1>This browser is empty</h1>
-					<p className="lead">
-						Your keys are on another device. On this one tap Pair. On the working one tap Scan.
-					</p>
+					<h1>This browser is new</h1>
+					<p className="lead">On the phone or laptop that already works, tap Scan.</p>
 					<nav className="stack">
 						<a className="select" href="/pair/show">
-							Pair
+							Show a QR
 						</a>
-						<a href="/pair/scan">Scan</a>
 					</nav>
 					<p className="hint">
 						Lost every device? <a href="/recover">Use the 12 words</a>
@@ -466,93 +555,114 @@ export default function Page() {
 	}
 
 	return (
-		<main>
+		<main className="clipboard">
 			<h1 className="file-hidden">Clipboard</h1>
-			<Panel>
-				<div className="log-item is-compose">
-					<span className="gutter mono">{formatGutterTime(new Date(now).toISOString(), now)}</span>
-					<textarea
-						aria-label="Buffer"
-						value={draft}
-						onChange={(e) => setDraft(e.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-								event.preventDefault();
-								void onSend();
-							}
-						}}
-						rows={3}
-					/>
-					<div className="composer-bar">
-						<button className="select" type="button" onClick={() => void onSend()}>
-							Send
-						</button>
-						<button
-							type="button"
-							className={ephemeral ? "is-on" : undefined}
-							aria-pressed={ephemeral}
-							onClick={() => setEphemeral((on) => !on)}
-						>
-							Ephemeral
-						</button>
-						{me.canUpload ? (
-							<>
-								<input
-									ref={fileRef}
-									className="file-hidden"
-									type="file"
-									onChange={(event) => {
-										void onFile(event.target.files);
-										event.target.value = "";
-									}}
-								/>
-								<button type="button" onClick={() => fileRef.current?.click()}>
-									File
-								</button>
-							</>
-						) : null}
-						{local ? <span className="mode mono">Local</span> : null}
-					</div>
+			{hint ? (
+				<p className="hint clip-hint">Tap a line to copy. Paste on this page to send.</p>
+			) : null}
+			<div className="composer">
+				<textarea
+					aria-label="Buffer"
+					value={draft}
+					onChange={(e) => setDraft(e.target.value)}
+					onKeyDown={(event) => {
+						if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+							event.preventDefault();
+							void onSend();
+						}
+					}}
+					rows={4}
+				/>
+				<div className="composer-bar">
+					<button className="select" type="button" onClick={() => void onSend()}>
+						Send
+					</button>
+					<button
+						type="button"
+						className={ephemeral ? "composer-quiet is-on" : "composer-quiet"}
+						aria-pressed={ephemeral}
+						onClick={() => setEphemeral((on) => !on)}
+					>
+						Ephemeral
+					</button>
+					{me.canUpload ? (
+						<>
+							<input
+								ref={fileRef}
+								className="file-hidden"
+								type="file"
+								onChange={(event) => {
+									void onFile(event.target.files);
+									event.target.value = "";
+								}}
+							/>
+							<button
+								type="button"
+								className="composer-quiet"
+								onClick={() => fileRef.current?.click()}
+							>
+								File
+							</button>
+						</>
+					) : null}
+					{local ? <span className="mode mono">Local</span> : null}
 				</div>
-				{items.length === 0 ? <p className="empty">Nothing on the clipboard.</p> : null}
-				{items.length > 0 ? (
-					<ul className="log">
-						<AnimatePresence initial={false}>
-							{items.map((item) => {
-								const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
-								const warn = ttlWarn(item.expiresAt, now);
-								const selected = item.id === selectedId;
-								return (
-									<motion.li
-										key={item.id}
-										layout={!reduceMotion}
-										initial={reduceMotion ? false : { opacity: 0, y: -10 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-										transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-										className={["log-item", selected ? "is-selected" : ""]
-											.filter(Boolean)
-											.join(" ")}
-									>
-										<span className="gutter mono">{formatGutterTime(item.createdAt, now)}</span>
+				{ephemeral ? (
+					<p className="field-hint">Skip the server. Needs another device on this Wi‑Fi.</p>
+				) : null}
+			</div>
+			{items.length === 0 ? <p className="empty">Nothing on the clipboard.</p> : null}
+			{items.length > 0 ? (
+				<ul className="log log-sheet">
+					<AnimatePresence initial={false}>
+						{items.map((item) => {
+							const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
+							const warn = ttlWarn(item.expiresAt, now);
+							const selected = item.id === selectedId;
+							const locked = item.text === UNREADABLE;
+							return (
+								<motion.li
+									key={item.id}
+									layout={!reduceMotion}
+									initial={reduceMotion ? false : { opacity: 0, y: -10 }}
+									animate={{ opacity: 1, y: 0 }}
+									exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+									transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+									className={["log-item", selected ? "is-selected" : ""].filter(Boolean).join(" ")}
+								>
+									<span className="gutter mono">{formatGutterTime(item.createdAt, now)}</span>
+									{locked ? (
+										<p className="body mono">
+											{item.text}. <a href="/pair/show">Pair</a> or{" "}
+											<a href="/recover">use the 12 words</a>
+										</p>
+									) : (
 										<button type="button" className="body mono" onClick={() => activateItem(item)}>
 											{item.text}
 										</button>
-										<button type="button" className="forget" onClick={() => void onForget(item.id)}>
-											Forget
-										</button>
-										<span
-											className={warn ? "ttl warn" : "ttl"}
-											style={{ ["--remain" as string]: String(remain) }}
-										/>
-									</motion.li>
-								);
-							})}
-						</AnimatePresence>
-					</ul>
-				) : null}
-				<Status value={status} />
-			</Panel>
+									)}
+									<button type="button" className="forget" onClick={() => void onForget(item.id)}>
+										Forget
+									</button>
+									<span
+										className={warn ? "ttl warn" : "ttl"}
+										style={{ ["--remain" as string]: String(remain) }}
+									/>
+								</motion.li>
+							);
+						})}
+					</AnimatePresence>
+				</ul>
+			) : null}
+			{undo ? (
+				<p className="hint" role="status">
+					Forgotten.{" "}
+					<button type="button" onClick={onUndoForget}>
+						Undo
+					</button>
+				</p>
+			) : null}
+			<Status value={status} />
 		</main>
 	);
 }

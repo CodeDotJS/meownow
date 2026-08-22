@@ -153,10 +153,9 @@ export default function PairShowPage() {
 		<main>
 			<Panel>
 				<PairRoles current="show" />
-				<h1>Pair</h1>
+				<h1>Show a QR</h1>
 				<p className="lead">
-					Leave this QR up. On the working device open meownow, tap Scan, and point that camera
-					here.
+					Leave this up. On the working device open meownow, tap Scan, and point that camera here.
 				</p>
 				{payload ? <PairingQrCanvas payload={payload} /> : <p className="hint">Making a QR.</p>}
 				{payload ? (
@@ -165,16 +164,16 @@ export default function PairShowPage() {
 						onClick={() => {
 							void navigator.clipboard.writeText(payload).then(
 								() => setCopied(true),
-								() => setStatus(payload),
+								() => setStatus("copy_failed"),
 							);
 						}}
 					>
-						{copied ? "Copied payload" : "Copy payload"}
+						{copied ? "Copied QR text" : "Copy QR text"}
 					</button>
 				) : null}
 				{fingerprint ? (
-					<>
-						<p className="lead">Read these numbers on both screens.</p>
+					<div className="fp-sheet">
+						<p className="lead">If the numbers differ, stop.</p>
 						<p className="fp">{fingerprint}</p>
 						<button
 							className="select"
@@ -184,7 +183,7 @@ export default function PairShowPage() {
 						>
 							{busy ? "Working…" : "Numbers match"}
 						</button>
-					</>
+					</div>
 				) : (
 					<p className="hint" role="status">
 						Waiting for a scan in meownow. Not the phone Camera app.

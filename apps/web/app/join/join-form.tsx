@@ -52,7 +52,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 			<h1>{invited ? "Join" : "You need an invite"}</h1>
 			<p className="lead">
 				{invited
-					? "Pick a handle, then create a passkey on this device. Face ID or Windows Hello. No password."
+					? "Pick a username, then create a passkey on this device. Face ID or Windows Hello. No password."
 					: "Someone already in has to send you a link. It looks like /join?t=… You can paste the code below if you have one."}
 			</p>
 			<form onSubmit={onSubmit}>
@@ -69,7 +69,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 					</label>
 				)}
 				<label>
-					Handle
+					Username
 					<input
 						className="mono"
 						value={handle}
@@ -90,7 +90,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 						onChange={(e) => setDisplayName(e.target.value)}
 						autoComplete="name"
 						maxLength={64}
-						placeholder={handle || "same as handle"}
+						placeholder={handle || "same as username"}
 					/>
 				</label>
 				<button className="select" type="submit" disabled={busy}>

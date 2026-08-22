@@ -1,21 +1,59 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Panel } from "@/lib/ui/panel";
+import { loadVault } from "@/lib/vault/idb";
+
 export default function PairHubPage() {
+	const [hasLocal, setHasLocal] = useState<boolean | null>(null);
+
+	useEffect(() => {
+		void loadVault().then((stored) => setHasLocal(stored !== null));
+	}, []);
+
+	if (hasLocal === null) {
+		return (
+			<main>
+				<Panel>
+					<h1>Pair</h1>
+				</Panel>
+			</main>
+		);
+	}
+
+	if (hasLocal) {
+		return (
+			<main>
+				<Panel>
+					<h1>This browser already works</h1>
+					<p className="lead">Point the camera at the QR on the new device.</p>
+					<nav className="stack">
+						<a className="select" href="/pair/scan">
+							Scan
+						</a>
+					</nav>
+					<p className="hint">
+						This one is new? <a href="/pair/show">Show a QR</a>
+					</p>
+				</Panel>
+			</main>
+		);
+	}
+
 	return (
 		<main>
-			<h1>Pair or scan</h1>
-			<p className="lead">
-				One browser shows a QR. The other scans it in meownow. The phone Camera app will not finish
-				this.
-			</p>
-			<div className="pair-choice">
-				<a className="pair-card" href="/pair/show">
-					<h2>Pair</h2>
-					<p>This browser is new. Show a QR for the working device to scan.</p>
-				</a>
-				<a className="pair-card" href="/pair/scan">
-					<h2>Scan</h2>
-					<p>This browser already works. Point the camera at the QR on the new one.</p>
-				</a>
-			</div>
+			<Panel>
+				<h1>This browser is new</h1>
+				<p className="lead">Show a QR. On the phone or laptop that already works, tap Scan.</p>
+				<nav className="stack">
+					<a className="select" href="/pair/show">
+						Show a QR
+					</a>
+				</nav>
+				<p className="hint">
+					This one already works? <a href="/pair/scan">Scan</a>
+				</p>
+			</Panel>
 		</main>
 	);
 }

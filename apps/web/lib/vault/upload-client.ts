@@ -105,49 +105,54 @@ export async function downloadBlobItem(item: {
 	iv: string;
 	metaCiphertext: string;
 	wrappedKey: { iv: string; bytes: string };
-}): Promise<void> {
-	const stored = await loadVault();
-	if (!stored) {
-		return;
-	}
-	const metaBytes = await decrypt(
-		stored.vaultKey,
-		{ iv: b64urlToBytes(item.iv), bytes: b64urlToBytes(item.metaCiphertext) },
-		{ itemId: item.id, kind: item.kind },
-	);
-	const meta = JSON.parse(new TextDecoder().decode(metaBytes)) as {
-		filename?: string;
-		baseIv?: string;
-	};
-	if (!meta.baseIv) {
-		return;
-	}
-	const fileKey = await unwrapFileKey(stored.vaultKey, wrapFromWire(item.wrappedKey));
-	const chunks: Uint8Array[] = [];
-	for (let i = 0; i < 1024; i += 1) {
-		const body = await getChunk(item.blobId, String(i));
-		if (!body) {
-			break;
+}): Promise<boolean> {
+	try {
+		const stored = await loadVault();
+		if (!stored) {
+			return false;
 		}
-		chunks.push(body);
+		const metaBytes = await decrypt(
+			stored.vaultKey,
+			{ iv: b64urlToBytes(item.iv), bytes: b64urlToBytes(item.metaCiphertext) },
+			{ itemId: item.id, kind: item.kind },
+		);
+		const meta = JSON.parse(new TextDecoder().decode(metaBytes)) as {
+			filename?: string;
+			baseIv?: string;
+		};
+		if (!meta.baseIv) {
+			return false;
+		}
+		const fileKey = await unwrapFileKey(stored.vaultKey, wrapFromWire(item.wrappedKey));
+		const chunks: Uint8Array[] = [];
+		for (let i = 0; i < 1024; i += 1) {
+			const body = await getChunk(item.blobId, String(i));
+			if (!body) {
+				break;
+			}
+			chunks.push(body);
+		}
+		const trailer = await getChunk(item.blobId, "trailer");
+		if (!trailer) {
+			return false;
+		}
+		const plain = await decryptChunks(
+			fileKey,
+			{ baseIv: b64urlToBytes(meta.baseIv), chunks, trailer },
+			{ itemId: item.id, kind: item.kind },
+		);
+		const blob = new Blob([toArrayBuffer(plain)]);
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = meta.filename || "download";
+		link.rel = "noopener";
+		link.click();
+		URL.revokeObjectURL(url);
+		return true;
+	} catch {
+		return false;
 	}
-	const trailer = await getChunk(item.blobId, "trailer");
-	if (!trailer) {
-		return;
-	}
-	const plain = await decryptChunks(
-		fileKey,
-		{ baseIv: b64urlToBytes(meta.baseIv), chunks, trailer },
-		{ itemId: item.id, kind: item.kind },
-	);
-	const blob = new Blob([toArrayBuffer(plain)]);
-	const url = URL.createObjectURL(blob);
-	const link = document.createElement("a");
-	link.href = url;
-	link.download = meta.filename || "download";
-	link.rel = "noopener";
-	link.click();
-	URL.revokeObjectURL(url);
 }
 
 async function putChunk(

@@ -106,7 +106,7 @@ export default function RecoverPage() {
 				</p>
 				<form onSubmit={(event) => void onSubmit(event)}>
 					<label>
-						Handle
+						Username
 						<input
 							className="mono"
 							value={handle}

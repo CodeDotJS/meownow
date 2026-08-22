@@ -7,7 +7,7 @@ import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 
 export default function EnrollPage() {
-	const [handle, setHandle] = useState("rishi");
+	const [handle, setHandle] = useState("");
 	const [secret, setSecret] = useState("");
 	const [deviceLabel, setDeviceLabel] = useState("this device");
 	const [status, setStatus] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export default function EnrollPage() {
 				<p className="lead">Creates the first seat and a passkey. No password.</p>
 				<form onSubmit={onSubmit}>
 					<label>
-						Handle
+						Username
 						<input
 							className="mono"
 							value={handle}

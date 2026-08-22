@@ -462,13 +462,13 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Type.** Outfit for UI. Martian Mono for paste, timestamps, handles. Never Inter.
 
-**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. The signed-in clipboard stays one column with a timestamp gutter. Newest at top. ⌘K on a keyboard, Menu on a phone. TTL hairline under each item. Phone chrome keeps Pair and Scan; Forget is visible without hover. Inputs stay at 16px so iOS does not zoom.
+**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. The signed-in clipboard stays one column with a timestamp gutter. Newest at top. ⌘K on a keyboard, Menu on a phone. TTL hairline under each item. Phone chrome keeps Pair and Scan. Forget is visible on every width. Inputs stay at 16px so iOS does not zoom.
 
 **Motion.** Short ease-out on enter and press (`scale(0.98)`). New items may ease ~220ms. Grain is a fixed overlay. Respect `prefers-reduced-motion`.
 
 **Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state. First-run copy names the next action in plain language. Do not say “vault” on a screen a guest has to complete.
 
-**First-run.** One visible next action. A guest without an invite is told they need a link. Join, recover, and first-admin enroll are not equal choices on the signed-out home. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only offered when the account already has keys and this browser does not. Recovery is the lost-every-device path, never a peer of pairing. Adding a second device is Pair (show a QR) and Scan (read that QR) in the top bar, not a ⌘K-only command. Invites are sent as a `/join?t=` URL, not a bare token.
+**First-run.** One visible next action. The signed-out hero has one CTA: Continue with passkey. A guest without an invite is told they need a link. Join, recover, and first-admin enroll are not equal choices on the signed-out home. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only offered when the account already has keys and this browser does not. An empty browser only offers Show a QR. Recovery is the lost-every-device path, never a peer of pairing. Adding a second device is Pair (show a QR) and Scan (read that QR) in the signed-in top bar, not a ⌘K-only command. Invites are sent as a `/join?t=` URL, not a bare token.
 
 **Forbidden:** Inter, purple-to-pink soup, dark auto-theme, glow, mesh, conic border, emoji buttons, unread shadcn, implying the server can read paste contents.
 

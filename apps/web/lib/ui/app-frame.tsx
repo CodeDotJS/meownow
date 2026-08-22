@@ -58,9 +58,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			return [
 				{ id: "login", label: "Continue with passkey", href: "/login" },
 				{ id: "join", label: "Paste an invite code", href: "/join" },
-				{ id: "pair", label: "Pair or scan", href: "/pair" },
-				{ id: "enroll", label: "First admin", href: "/enroll" },
-				{ id: "recover", label: "Use the 12 words", href: "/recover" },
 			];
 		}
 		const rows: PaletteAction[] = [{ id: "home", label: "Clipboard", href: "/" }];

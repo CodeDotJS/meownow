@@ -25,7 +25,7 @@ export default function AccessPage() {
 		<main>
 			<Panel>
 				<h1>Upload access</h1>
-				<p className="lead">Ask an admin for R2 quota. Text and links do not need this.</p>
+				<p className="lead">Ask an admin for file upload space. Text and links do not need this.</p>
 				<form onSubmit={(event) => void onSubmit(event)}>
 					<label>
 						Reason

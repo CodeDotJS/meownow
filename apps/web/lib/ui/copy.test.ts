@@ -14,6 +14,7 @@ describe("statusCopy", () => {
 
 	test("passes through literal status lines", () => {
 		expect(statusCopy("Copied.")).toBe("Copied.");
+		expect(statusCopy("Downloaded.")).toBe("Downloaded.");
 		expect(statusCopy("Request sent.")).toBe("Request sent.");
 	});
 
@@ -22,5 +23,13 @@ describe("statusCopy", () => {
 		expect(statusCopy("camera_denied")).toBe("Camera permission was denied.");
 		expect(statusCopy("fingerprint mismatch")).toBe("Numbers did not match. Abort.");
 		expect(statusCopy("vault_upload_failed")).toBe("Could not finish setup. Try again.");
+		expect(statusCopy("vault_missing")).toBe(
+			"This browser has no keys. Show a QR or use the 12 words.",
+		);
+		expect(statusCopy("wrap_failed")).toBe("Could not send keys to that device.");
+	});
+
+	test("does not dump raw JSON into the status pill", () => {
+		expect(statusCopy('{"v":1,"id":"x"}')).toBe("Could not copy that.");
 	});
 });

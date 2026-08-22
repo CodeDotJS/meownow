@@ -1,12 +1,14 @@
 export function PairRoles({ current }: { current: "show" | "scan" }) {
+	if (current === "show") {
+		return (
+			<p className="pair-role-line">
+				This browser is new. <a href="/pair/scan">This one already works</a>
+			</p>
+		);
+	}
 	return (
-		<nav className="pair-roles" aria-label="Pair or scan">
-			<a className={current === "show" ? "pair-role select" : "pair-role"} href="/pair/show">
-				Pair
-			</a>
-			<a className={current === "scan" ? "pair-role select" : "pair-role"} href="/pair/scan">
-				Scan
-			</a>
-		</nav>
+		<p className="pair-role-line">
+			This browser already works. <a href="/pair/show">This one is new</a>
+		</p>
 	);
 }

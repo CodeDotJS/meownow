@@ -29,7 +29,6 @@ export function Landing() {
 						<a className="select" href="/login">
 							Continue with passkey
 						</a>
-						<a href="/pair">Pair or scan</a>
 					</nav>
 					<p className="hint">
 						I have a code to paste. <a href="/join">Open join</a>

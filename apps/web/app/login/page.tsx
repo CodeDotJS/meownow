@@ -39,7 +39,7 @@ export default function LoginPage() {
 	return (
 		<main>
 			<Panel>
-				<h1>Login</h1>
+				<h1>Sign in</h1>
 				<p className="lead">Face ID, Touch ID, or your device passkey. No password.</p>
 				<nav className="stack">
 					<button className="select" type="button" onClick={onLogin} disabled={busy}>

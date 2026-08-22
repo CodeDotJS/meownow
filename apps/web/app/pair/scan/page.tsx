@@ -152,22 +152,19 @@ export default function PairScanPage() {
 				<PairRoles current="scan" />
 				<h1>Scan</h1>
 				{fingerprint ? (
-					<>
-						<p className="lead">
-							The other screen should show these numbers now. If they match, you are done here.
-						</p>
+					<div className="fp-sheet">
+						<p className="lead">If the numbers differ, stop.</p>
 						<p className="fp">{fingerprint}</p>
-						{sent ? (
-							<p className="hint">Sent. Keep this open until the other device confirms.</p>
-						) : null}
+						{sent ? <p className="hint">The other screen still has to tap Numbers match.</p> : null}
 						<a className="select" href="/">
-							Done
+							Back to clipboard
 						</a>
-					</>
+					</div>
 				) : (
 					<>
 						<p className="lead">
-							Point this camera at the Pair QR. Scan inside meownow, not the phone Camera app.
+							Point this camera at the QR on the new device. Scan inside meownow, not the phone
+							Camera app.
 						</p>
 						<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
 						<canvas ref={canvasRef} className="file-hidden" aria-hidden />
@@ -183,7 +180,7 @@ export default function PairScanPage() {
 						</nav>
 						<form onSubmit={(event) => void onPrepare(event)}>
 							<label>
-								Or paste the payload
+								Paste QR text
 								<textarea
 									className="mono"
 									value={raw}
@@ -192,7 +189,7 @@ export default function PairScanPage() {
 								/>
 							</label>
 							<button type="submit" disabled={busy}>
-								Use payload
+								Use QR text
 							</button>
 						</form>
 					</>

@@ -109,6 +109,7 @@ export default function InvitesPage() {
 					</>
 				) : null}
 				<Status value={status} />
+				{invites.length === 0 ? <p className="hint">No invites yet.</p> : null}
 				<ul>
 					{invites.map((invite) => (
 						<li key={invite.id}>
