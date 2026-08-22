@@ -57,7 +57,6 @@ export function connectHub(
 		lastSeen = Date.now();
 		ws.onopen = () => {
 			lastSeen = Date.now();
-			onLive?.(true);
 			timers.push(
 				window.setInterval(() => {
 					if (ws.readyState === WebSocket.OPEN) {
