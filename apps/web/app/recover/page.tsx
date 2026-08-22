@@ -108,7 +108,6 @@ export default function RecoverPage() {
 					<label>
 						Username
 						<input
-							className="mono"
 							value={handle}
 							onChange={(e) => setHandle(e.target.value)}
 							autoComplete="username"

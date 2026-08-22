@@ -122,7 +122,7 @@ export function CommandPalette({
 									onClick={() => void go(action)}
 								>
 									<span>{action.label}</span>
-									{action.hint ? <span className="mono">{action.hint}</span> : null}
+									{action.hint ? <span>{action.hint}</span> : null}
 								</button>
 							</li>
 						))

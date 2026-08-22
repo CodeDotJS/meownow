@@ -40,9 +40,9 @@ export default function AuditPage() {
 				<ul>
 					{entries.map((entry) => (
 						<li key={entry.id}>
-							<span className="mono">{entry.createdAt}</span> {entry.action}
+							<span>{entry.createdAt}</span> {entry.action}
 							{entry.subjectType ? (
-								<span className="mono">
+								<span>
 									{" "}
 									{entry.subjectType}/{entry.subjectId?.slice(0, 8)}
 								</span>

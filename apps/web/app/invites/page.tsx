@@ -113,7 +113,7 @@ export default function InvitesPage() {
 				<ul>
 					{invites.map((invite) => (
 						<li key={invite.id}>
-							<span className="mono">{invite.id.slice(0, 8)}</span>
+							<span>{invite.id.slice(0, 8)}</span>
 							{invite.note ? ` ${invite.note}` : ""}
 							{invite.redeemedAt ? " redeemed" : invite.revokedAt ? " revoked" : " open"}
 							{invite.redeemedAt || invite.revokedAt ? null : (

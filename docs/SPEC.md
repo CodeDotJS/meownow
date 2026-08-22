@@ -460,7 +460,7 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Signature.** White sheets with a tinted shadow and a 1rem radius. Primary actions are ink pills of that radius, not inverted selection blocks. Hover uses `--wash`, not a full-row colour flip.
 
-**Type.** Outfit for UI. Martian Mono for paste, timestamps, handles. Never Inter.
+**Type.** Outfit is the product face: chrome, paste, timestamps, handles, forms, admin. Martian Mono is only for pairing codes, the 6-digit fingerprint, and the 12-word phrase. Never Inter.
 
 **Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. The signed-in clipboard stays one column with a timestamp gutter. Newest at top. ⌘K on a keyboard, Menu on a phone. TTL hairline under each item. Phone chrome keeps Pair and Scan. Forget is visible on every width. Inputs stay at 16px so iOS does not zoom.
 
@@ -538,7 +538,7 @@ You are the technical lead on **meownow**, a private, invite-only, end-to-end en
 
 ## Design constraints for any UI work
 
-Read §1.8. Light is locked. Outfit for UI, Martian Mono for paste. White sheets, ink CTAs, no OS dark flip.
+Read §1.8. Light is locked. Outfit for the product. Martian Mono only for pairing codes, fingerprints, and the 12 words. White sheets, ink CTAs, no OS dark flip.
 
 First-run is a single visible path. Do not hide the next setup action in ⌘K. Invites are full `/join?t=` links.
 

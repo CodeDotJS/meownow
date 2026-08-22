@@ -8,7 +8,7 @@ alwaysApply: false
 
 Light is locked. `color-scheme: only light`. Cool silver `--paper`, white `--surface`, ink CTAs. Do not add `prefers-color-scheme: dark`.
 
-Outfit for UI. Martian Mono for paste. Sheets use `--radius` and `--shadow`. Hover is `--wash`, not a full invert. Press uses `scale(0.98)`.
+Outfit is the product face. Martian Mono is only for pairing codes, fingerprints, and the 12 words. Sheets use `--radius` and `--shadow`. Hover is `--wash`, not a full invert. Press uses `scale(0.98)`.
 
 The signed-out home is an asymmetric split: headline left, demo sheet right. No hero glow, mesh, or beam.
 

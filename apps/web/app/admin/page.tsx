@@ -85,7 +85,7 @@ export default function AdminPage() {
 					<a href="/admin/usage">Usage</a>
 				</nav>
 				{seats ? (
-					<p className="mono">
+					<p>
 						Seats {seats.claimed} / {seats.total}
 					</p>
 				) : null}
@@ -94,9 +94,9 @@ export default function AdminPage() {
 					{users.map((user) => (
 						<li key={user.id}>
 							<div>
-								<span className="mono">{user.handle}</span> {user.displayName} {user.role}
+								<span>{user.handle}</span> {user.displayName} {user.role}
 								{user.canUpload ? " upload" : ""}
-								<span className="mono">
+								<span>
 									{" "}
 									{user.storageUsedBytes} / {user.storageQuotaBytes}
 								</span>
@@ -108,7 +108,7 @@ export default function AdminPage() {
 								<ul>
 									{user.devices.map((device) => (
 										<li key={device.id}>
-											<span className="mono">{device.label}</span>
+											<span>{device.label}</span>
 											{device.revokedAt ? " revoked" : null}
 											{device.revokedAt ? null : (
 												<button type="button" onClick={() => void revoke(device.id)}>

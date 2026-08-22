@@ -101,7 +101,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 					meownow
 				</a>
 				<div className="chrome-right">
-					{me ? <span className="chrome-handle mono">{me.handle}</span> : null}
+					{me ? <span className="chrome-handle">{me.handle}</span> : null}
 					{me?.role === "admin" ? (
 						<a className="chrome-add chrome-desk" href="/invites">
 							Invites

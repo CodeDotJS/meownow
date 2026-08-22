@@ -612,7 +612,7 @@ export default function Page() {
 							</button>
 						</>
 					) : null}
-					{local ? <span className="mode mono">Local</span> : null}
+					{local ? <span className="mode">Local</span> : null}
 				</div>
 				{ephemeral ? (
 					<p className="field-hint">Skip the server. Needs another device on this Wi‑Fi.</p>
@@ -637,14 +637,14 @@ export default function Page() {
 									transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
 									className={["log-item", selected ? "is-selected" : ""].filter(Boolean).join(" ")}
 								>
-									<span className="gutter mono">{formatGutterTime(item.createdAt, now)}</span>
+									<span className="gutter">{formatGutterTime(item.createdAt, now)}</span>
 									{locked ? (
-										<p className="body mono">
+										<p className="body">
 											{item.text}. <a href="/pair/show">Pair</a> or{" "}
 											<a href="/recover">use the 12 words</a>
 										</p>
 									) : (
-										<button type="button" className="body mono" onClick={() => activateItem(item)}>
+										<button type="button" className="body" onClick={() => activateItem(item)}>
 											{item.text}
 										</button>
 									)}

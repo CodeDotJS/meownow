@@ -63,25 +63,25 @@ export default function UsagePage() {
 				<Status value={status} />
 				{usage ? (
 					<>
-						<p className="mono">
+						<p>
 							R2 {formatBytes(usage.r2CommittedBytes)} / {formatBytes(usage.r2CeilingBytes)}
 							{usage.r2PendingBytes > 0 ? ` pending ${formatBytes(usage.r2PendingBytes)}` : ""}
 						</p>
 						<div className="meter">
 							<span style={{ width: `${fill * 100}%` }} />
 						</div>
-						<p className="mono">
+						<p>
 							Class A ~{usage.classAEstimate} / {usage.classACeiling}
 						</p>
-						<p className="mono">Class B not counted / {usage.classBCeiling}</p>
-						<p className="mono">
+						<p>Class B not counted / {usage.classBCeiling}</p>
+						<p>
 							Seats {usage.seatsClaimed} / {usage.seatsTotal}
 						</p>
 						<ul>
 							{usage.users.map((user) => (
 								<li key={user.handle}>
-									<span className="mono">{user.handle}</span>
-									<span className="mono">
+									<span>{user.handle}</span>
+									<span>
 										{formatBytes(user.storageUsedBytes)} / {formatBytes(user.storageQuotaBytes)}
 									</span>
 								</li>

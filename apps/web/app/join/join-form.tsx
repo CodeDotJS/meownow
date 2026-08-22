@@ -60,7 +60,6 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 					<label>
 						Invite code
 						<input
-							className="mono"
 							value={token}
 							onChange={(e) => setToken(e.target.value)}
 							autoComplete="off"
@@ -71,7 +70,6 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 				<label>
 					Username
 					<input
-						className="mono"
 						value={handle}
 						onChange={(e) => setHandle(e.target.value)}
 						autoComplete="username"

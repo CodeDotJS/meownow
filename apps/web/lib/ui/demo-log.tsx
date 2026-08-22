@@ -34,10 +34,10 @@ export function DemoLog() {
 			<ul className="log landing-log">
 				{DEMO_LINES.map((line, index) => (
 					<li key={line.time} className="log-item">
-						<span className="gutter mono">{line.time}</span>
+						<span className="gutter">{line.time}</span>
 						<button
 							type="button"
-							className="body mono"
+							className="body"
 							onClick={() => {
 								void navigator.clipboard.writeText(line.text).then(
 									() => setCopied(line.text),

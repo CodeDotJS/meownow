@@ -90,7 +90,6 @@ body::before {
 }
 
 kbd {
-	font-family: var(--font-mono), ui-monospace, monospace;
 	font-size: 0.72rem;
 	padding: 0.18rem 0.4rem;
 	background: var(--wash);
@@ -166,6 +165,7 @@ h1 {
 .lead {
 	margin: 0.85rem 0 0;
 	max-width: 34rem;
+	font-size: 1.0625rem;
 	color: var(--muted);
 	line-height: 1.55;
 }
@@ -411,8 +411,7 @@ button:disabled {
 	background: var(--wash);
 	color: var(--ink);
 	border-radius: var(--radius-sm);
-	font-family: var(--font-mono), ui-monospace, monospace;
-	font-size: 0.85rem;
+	font-size: 0.8125rem;
 }
 
 .fp-sheet {
@@ -434,7 +433,7 @@ button:disabled {
 .fp {
 	font-family: var(--font-mono), ui-monospace, monospace;
 	font-size: 1.6rem;
-	letter-spacing: 0.14em;
+	letter-spacing: 0.16em;
 	margin: 1.1rem 0;
 	padding: 0.7rem 0.85rem;
 	width: fit-content;
@@ -446,8 +445,9 @@ button:disabled {
 	margin: 1.15rem 0 0.55rem;
 	padding: 0.85rem 1rem;
 	width: fit-content;
+	font-family: var(--font-mono), ui-monospace, monospace;
 	font-size: clamp(1.85rem, 6vw, 2.35rem);
-	letter-spacing: 0.14em;
+	letter-spacing: 0.16em;
 	line-height: 1;
 	background: var(--paper);
 	border: 1px solid var(--rule);
@@ -455,8 +455,9 @@ button:disabled {
 }
 
 .pair-code-input {
+	font-family: var(--font-mono), ui-monospace, monospace;
 	font-size: 1.25rem;
-	letter-spacing: 0.12em;
+	letter-spacing: 0.14em;
 	text-transform: uppercase;
 }
 
@@ -504,9 +505,9 @@ button:disabled {
 	background: transparent;
 	resize: none;
 	overflow-y: auto;
-	font-family: var(--font-mono), ui-monospace, monospace;
+	font-family: inherit;
 	font-size: 1.125rem;
-	line-height: 1.45;
+	line-height: 1.5;
 	caret-color: var(--ink);
 	box-shadow: none;
 }
@@ -580,8 +581,8 @@ li {
 
 .steps li::before {
 	content: counter(step);
-	font-family: var(--font-mono), ui-monospace, monospace;
 	font-size: 0.75rem;
+	font-variant-numeric: tabular-nums;
 	color: var(--muted);
 }
 
@@ -631,8 +632,8 @@ li {
 	padding: 0.05rem 0.08rem;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
-	font-size: 1rem;
-	line-height: 1.4;
+	font-size: 1.0625rem;
+	line-height: 1.45;
 	border-radius: 0.35rem;
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
@@ -685,9 +686,9 @@ li {
 	border: 0;
 	background: transparent;
 	resize: none;
-	font-family: var(--font-mono), ui-monospace, monospace;
-	font-size: 1rem;
-	line-height: 1.4;
+	font-family: inherit;
+	font-size: 1.125rem;
+	line-height: 1.5;
 	caret-color: var(--ink);
 	box-shadow: none;
 }
@@ -744,7 +745,7 @@ li {
 	align-items: center;
 	gap: 0.65rem;
 	margin: 1rem 0.2rem 0.35rem;
-	font-family: var(--font-mono), ui-monospace, monospace;
+	font-size: 0.9375rem;
 	color: var(--muted);
 }
 
