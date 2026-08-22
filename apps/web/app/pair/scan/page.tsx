@@ -263,6 +263,8 @@ export default function PairScanPage() {
 									value={code}
 									onChange={(e) => setCode(e.target.value.toUpperCase())}
 									autoComplete="off"
+									autoCapitalize="characters"
+									autoCorrect="off"
 									spellCheck={false}
 									inputMode="text"
 									placeholder="7K3M-2Q9P"

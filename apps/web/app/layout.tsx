@@ -23,13 +23,16 @@ export const metadata: Metadata = {
 	description: "Copy on one device. Paste on the next.",
 	appleWebApp: {
 		capable: true,
-		statusBarStyle: "default",
+		statusBarStyle: "black-translucent",
 		title: "meownow",
 	},
 	formatDetection: { telephone: false },
 	icons: {
-		icon: "/icons/icon-192.png",
-		apple: "/icons/icon-192.png",
+		icon: [
+			{ url: "/icons/icon-192.png", sizes: "192x192" },
+			{ url: "/icons/icon-512.png", sizes: "512x512" },
+		],
+		apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180" },
 	},
 	openGraph: {
 		title: "meownow",
@@ -45,9 +48,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
 	themeColor: "#eef0f3",
 	colorScheme: "only light",
 	viewportFit: "cover",
+	interactiveWidget: "resizes-content",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { getJson, postJson } from "@/lib/client/http";
+import { markStandalone } from "@/lib/pwa/standalone";
 import { loadVault } from "@/lib/vault/idb";
 import { dropStaleLocalVault } from "@/lib/vault/local";
 import { CommandPalette, type PaletteAction } from "./palette";
@@ -24,6 +25,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		const mac = /Mac|iPhone|iPad/.test(navigator.platform) || navigator.userAgent.includes("Mac");
 		setMod(mac ? "⌘K" : "Ctrl K");
+		markStandalone();
 	}, []);
 
 	useEffect(() => {
@@ -164,7 +166,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
 					) : null}
 					{me?.hasVault ? (
 						<a className="chrome-add" href="/pair">
-							{hasLocal ? "Add a device" : "Show a code"}
+							<span className="chrome-wide">{hasLocal ? "Add a device" : "Show a code"}</span>
+							<span className="chrome-narrow">{hasLocal ? "Add" : "Show"}</span>
 						</a>
 					) : null}
 					<button type="button" className="chrome-menu" onClick={() => setOpen(true)}>

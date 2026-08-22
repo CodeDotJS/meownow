@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { DemoLog } from "./demo-log";
+import { InstallHint } from "./install-hint";
 
 export function Landing() {
 	const reduce = useReducedMotion();
@@ -41,6 +42,7 @@ export function Landing() {
 							Lost every device. <a href="/recover">Use the 12 words</a>
 						</li>
 					</ul>
+					<InstallHint />
 				</motion.div>
 				<motion.div
 					className="hero-sheet"

@@ -704,6 +704,9 @@ export default function Page() {
 						aria-label={ephemeral ? "This Wi‑Fi only" : "New paste"}
 						value={draft}
 						placeholder="Type or paste"
+						enterKeyHint="send"
+						autoComplete="off"
+						autoCorrect="on"
 						onChange={(e) => setDraft(e.target.value)}
 						onKeyDown={(event) => {
 							if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -759,7 +762,7 @@ export default function Page() {
 						<span>
 							Nothing on the clipboard.
 							<span className="empty-how">
-								Type above, then Send. It will show on your other devices.
+								Type a note, then Send. It will show on your other devices.
 							</span>
 						</span>
 					</p>
