@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { errorCode, getJson } from "@/lib/client/http";
+import { AdminNav } from "@/lib/ui/admin-nav";
+import { formatBytes } from "@/lib/ui/bytes";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 
@@ -21,19 +23,6 @@ type Usage = {
 		storageQuotaBytes: number;
 	}>;
 };
-
-function formatBytes(n: number): string {
-	if (n < 1024) {
-		return `${n} B`;
-	}
-	if (n < 1024 * 1024) {
-		return `${(n / 1024).toFixed(1)} KB`;
-	}
-	if (n < 1024 * 1024 * 1024) {
-		return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-	}
-	return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 export default function UsagePage() {
 	const [usage, setUsage] = useState<Usage | null>(null);
@@ -57,33 +46,32 @@ export default function UsagePage() {
 			<Panel>
 				<h1>Usage</h1>
 				<p className="lead">Free-tier ceiling. Stay under it.</p>
-				<nav>
-					<a href="/admin">Admin</a>
-				</nav>
+				<AdminNav />
 				<Status value={status} />
 				{usage ? (
 					<>
-						<p>
-							R2 {formatBytes(usage.r2CommittedBytes)} / {formatBytes(usage.r2CeilingBytes)}
-							{usage.r2PendingBytes > 0 ? ` pending ${formatBytes(usage.r2PendingBytes)}` : ""}
+						<p className="dir-meta seats-meta">
+							R2 {formatBytes(usage.r2CommittedBytes)} of {formatBytes(usage.r2CeilingBytes)}
+							{usage.r2PendingBytes > 0 ? ` · pending ${formatBytes(usage.r2PendingBytes)}` : ""}
 						</p>
 						<div className="meter">
 							<span style={{ width: `${fill * 100}%` }} />
 						</div>
-						<p>
-							Class A ~{usage.classAEstimate} / {usage.classACeiling}
+						<p className="dir-meta">
+							Class A ~{usage.classAEstimate} of {usage.classACeiling}. Class B is not counted.
 						</p>
-						<p>Class B not counted / {usage.classBCeiling}</p>
-						<p>
-							Seats {usage.seatsClaimed} / {usage.seatsTotal}
+						<p className="dir-meta">
+							{usage.seatsClaimed} of {usage.seatsTotal} seats taken
 						</p>
-						<ul>
+						<ul className="dir-list">
 							{usage.users.map((user) => (
 								<li key={user.handle}>
-									<span>{user.handle}</span>
-									<span>
-										{formatBytes(user.storageUsedBytes)} / {formatBytes(user.storageQuotaBytes)}
-									</span>
+									<div className="dir-head">
+										<span className="dir-name">{user.handle}</span>
+										<span className="dir-meta">
+											{formatBytes(user.storageUsedBytes)} of {formatBytes(user.storageQuotaBytes)}
+										</span>
+									</div>
 								</li>
 							))}
 						</ul>
