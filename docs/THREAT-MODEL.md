@@ -26,7 +26,7 @@ The seeded admin has no passkey. First enroll is invite-less and gated by `ADMIN
 
 `createVault()` wraps recovery while the key is extractable, then imports a non-extractable working copy. Each browser stores a device-local wrapping key in IndexedDB and a device-wrapped extractable clone so a later pairing wrap can proceed without keeping extractable material in RAM.
 
-Pairing: the new device creates a 5-minute session with its ephemeral ECDH public JWK (no login yet — `pairing_sessions.user_id` is null until wrap). The enrolled device wraps VaultKey plus a vault-wrapped identity private key, shows a 6-digit fingerprint of the ECDH shared secret, and posts the blob only after the user confirms. The new device computes the same fingerprint locally and does not unwrap until the numbers match. The server cannot MITM silently. After unwrap, the new device enrolls a passkey onto the existing user (no extra seat).
+Pairing: the new device creates a 5-minute session with its ephemeral ECDH public JWK (no login yet — `pairing_sessions.user_id` is null until wrap). The enrolled device wraps VaultKey plus a vault-wrapped identity private key and POSTs that blob as soon as the QR is read, so the waiting browser can show the same 6-digit fingerprint. Both sides confirm the numbers before the new device unwraps. A wrap that does not match the local fingerprint is aborted. The server cannot MITM silently. After unwrap, the new device enrolls a passkey onto the existing user (no extra seat).
 
 Recovery: Argon2id over the 12-word phrase unwraps `wrapped_vault_recovery`. A phrase-derived verifier hash (`recovery_verifier_hash`) lets a lost-all-devices client prove possession without giving the server VaultKey. Total-loss recovery rotates the identity key because identity private has no server column.
 
@@ -42,7 +42,7 @@ The service worker (Serwist) intercepts Android Share Target POSTs, writes the s
 
 ## Uploads (milestone 6)
 
-Vercel never writes to R2. It checks `can_upload` and remaining quota, inserts a pending blob with a server-generated key, and mints a 60s EdDSA JWT (`CAPABILITY_TOKEN_PRIVATE_KEY`). The Worker verifies that JWT (`CAPABILITY_TOKEN_PUBLIC_KEY`), rejects missing/oversize `Content-Length`, and only then PUTs ciphertext. Spec said Vercel `HeadObject`s R2; Vercel has no R2 credentials, so commit calls Worker `GET /stat` with a capability token. Admin approval grants quota bytes, not a boolean. Filenames and MIME types stay in the encrypted metadata envelope.
+Vercel never writes to R2. It checks `can_upload` and remaining quota, inserts a pending blob with a server-generated key, and mints a 60s EdDSA JWT (`CAPABILITY_TOKEN_PRIVATE_KEY`). The Worker verifies that JWT (`CAPABILITY_TOKEN_PUBLIC_KEY`), rejects missing/oversize `Content-Length`, and only then PUTs ciphertext. Spec said Vercel `HeadObject`s R2; Vercel has no R2 credentials, so commit calls Worker `GET /stat` with a capability token. Admin approval grants quota bytes, not a boolean. Filenames and MIME types stay in the encrypted metadata envelope. Images are redrawn to a canvas before encryption so EXIF/GPS does not survive.
 
 ## P2P (milestone 7)
 
@@ -56,7 +56,7 @@ Directory, audit, and usage are admin-only. A member session is `403 forbidden` 
 
 HTML responses carry a per-request CSP nonce with `strict-dynamic`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`, and `require-trusted-types-for 'script'`. `style-src` allows `'unsafe-inline'` because React inline styles (TTL hairline, usage meter) cannot be nonced. Trusted Types policies include Next’s `nextjs` / `nextjs#bundler` names.
 
-Send and auth rate limits are token buckets in Durable Object storage. Vercel never trusts the UI for this: a 429 is `rate_limited`. Auth limiter keys are `sha256(ip)`, not the raw address.
+Send and auth rate limits are token buckets in Durable Object storage (`bucket:send:{userId}` on that user’s object, `bucket:auth:{sha256(ip)}` on the dedicated limiter object). Vercel never trusts the UI for this: a 429 is `rate_limited`. Auth limiter keys are `sha256(ip)`, not the raw address. If `EDGE_URL` or `HUB_SECRET` is unset in production, `take()` denies. In development it allows so local pages work without a Worker.
 
 Nightly Worker cron tickets `POST /api/internal/prune` (`purpose: cron`). Vercel deletes expired unpinned rows, expired sessions/pairings, and pending blobs older than one hour, then returns keep/delete R2 prefixes. The Worker deletes R2 objects whose prefix is not kept. **Pinned items are not expired.** A bucket-wide R2 lifecycle expiry would delete pinned blobs, so it is not configured.
 

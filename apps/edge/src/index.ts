@@ -1,16 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import { parseEdgeEnv } from "@meownow/config/env";
-import {
-	AUTH_LIMIT_USER_ID,
-	HUB_LIMIT_TTL_MS,
-	mintHubTicket,
-	pruneResponseSchema,
-	wsEnvelopeSchema,
-} from "@meownow/protocol";
+import { wsEnvelopeSchema } from "@meownow/protocol";
+import { runCron } from "./cron";
 import { handleRequest } from "./http";
 import { HubRoom } from "./hub";
-import { sweepOrphans } from "./prune";
-import { AUTH_LIMIT, SEND_LIMIT, type TokenBucket, takeToken } from "./rate-limit";
+import { AUTH_LIMIT, limitStorageKey, SEND_LIMIT, type TokenBucket, takeToken } from "./rate-limit";
 
 export interface Env {
 	HUB: DurableObjectNamespace;
@@ -44,12 +38,16 @@ export class HubDO extends DurableObject<Env> {
 			return new Response(null, { status: 204 });
 		}
 		if (url.pathname === "/limit" && request.method === "POST") {
-			const raw = (await request.json().catch(() => null)) as { bucket?: string } | null;
+			const raw = (await request.json().catch(() => null)) as {
+				bucket?: string;
+				key?: string;
+			} | null;
 			const name = raw?.bucket === "auth" ? "auth" : "send";
 			const limit = name === "auth" ? AUTH_LIMIT : SEND_LIMIT;
-			const stored = await this.ctx.storage.get<TokenBucket>(`bucket:${name}`);
+			const storageKey = limitStorageKey(name, raw?.key);
+			const stored = await this.ctx.storage.get<TokenBucket>(storageKey);
 			const result = takeToken(stored, Date.now(), limit);
-			await this.ctx.storage.put(`bucket:${name}`, result.bucket);
+			await this.ctx.storage.put(storageKey, result.bucket);
 			return new Response(null, { status: result.ok ? 204 : 429 });
 		}
 		return new Response("not found", { status: 404 });
@@ -117,27 +115,3 @@ export default {
 		await runCron(env);
 	},
 };
-
-export async function runCron(env: Env): Promise<void> {
-	const ticket = await mintHubTicket(env.HUB_SECRET, {
-		v: 1,
-		purpose: "cron",
-		userId: AUTH_LIMIT_USER_ID,
-		exp: Date.now() + HUB_LIMIT_TTL_MS,
-	});
-	const res = await fetch(`${env.APP_URL.replace(/\/$/, "")}/api/internal/prune`, {
-		method: "POST",
-		headers: { authorization: `Bearer ${ticket}` },
-	});
-	if (!res.ok) {
-		return;
-	}
-	const parsed = pruneResponseSchema.safeParse(await res.json().catch(() => null));
-	if (!parsed.success) {
-		return;
-	}
-	await sweepOrphans(
-		env.BLOBS as Parameters<typeof sweepOrphans>[0],
-		new Set(parsed.data.keepR2Keys),
-	);
-}

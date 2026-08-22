@@ -12,7 +12,7 @@ export function createHttpLimits(input: { edgeUrl?: string; hubSecret?: string }
 	return {
 		async take(bucket, key) {
 			if (!input.edgeUrl || !input.hubSecret) {
-				return true;
+				return process.env.NODE_ENV !== "production";
 			}
 			const userId = bucket === "send" ? key : AUTH_LIMIT_USER_ID;
 			const ticket = await mintHubTicket(input.hubSecret, {

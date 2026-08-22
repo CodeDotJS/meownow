@@ -57,5 +57,6 @@ Do **not** set a bucket-wide 7-day object expiry on R2. That would delete pinned
 
 ## Rate limits
 
-- Sends: 30/minute/user, stored on that user’s Durable Object.
-- Auth: 10/minute/IP, stored on a dedicated limiter object. Over limit returns `rate_limited` (429).
+- Sends: 30/minute/user, stored on that user’s Durable Object as `bucket:send:{userId}`.
+- Auth: 10/minute/IP, stored on the dedicated limiter object as `bucket:auth:{sha256(ip)}`. Over limit returns `rate_limited` (429).
+- If nightly prune returns a non-2xx, the Worker logs `prune_http_{status}` and does not delete R2 objects.

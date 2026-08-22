@@ -6,6 +6,13 @@ export type TokenBucket = {
 export const SEND_LIMIT = { capacity: 30, windowMs: 60_000 };
 export const AUTH_LIMIT = { capacity: 10, windowMs: 60_000 };
 
+export function limitStorageKey(bucket: "auth" | "send", key: unknown): string {
+	if (typeof key !== "string" || !/^[a-f0-9]{16,128}$/i.test(key)) {
+		return `bucket:${bucket}:invalid`;
+	}
+	return `bucket:${bucket}:${key.toLowerCase()}`;
+}
+
 export function takeToken(
 	bucket: TokenBucket | undefined,
 	now: number,

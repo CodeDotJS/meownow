@@ -174,6 +174,27 @@ test("upload over the token byte cap is rejected", async () => {
 	expect(blobs.puts).toEqual([]);
 });
 
+test("ticketed limit forwards the hashed key to the durable object", async () => {
+	const fanouts: unknown[] = [];
+	const token = await mintHubTicket(secret, {
+		v: 1,
+		purpose: "limit",
+		userId,
+		exp: Date.now() + 30_000,
+	});
+	const body = { bucket: "auth", key: "ab".repeat(32) };
+	const response = await handleRequest(
+		new Request("https://edge.meownow.test/limit", {
+			method: "POST",
+			headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+			body: JSON.stringify(body),
+		}),
+		env(fanouts),
+	);
+	expect(response.status).toBe(204);
+	expect(fanouts).toEqual([body]);
+});
+
 test("limit without a ticket is denied", async () => {
 	const response = await handleRequest(
 		new Request("https://edge.meownow.test/limit", {

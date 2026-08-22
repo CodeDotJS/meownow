@@ -12,6 +12,8 @@ test("CSP uses a per-request nonce, strict-dynamic, and the required lock-downs"
 	expect(policy).toContain("base-uri 'none'");
 	expect(policy).toContain("frame-ancestors 'none'");
 	expect(policy).toContain("require-trusted-types-for 'script'");
+	expect(policy).toContain("trusted-types default nextjs nextjs#bundler");
+	expect(policy).toContain("style-src 'self' 'unsafe-inline'");
 	expect(policy).toContain("https://edge.meownow.example");
 	expect(policy).toContain("wss://edge.meownow.example");
 	expect(policy).toContain("'wasm-unsafe-eval'");

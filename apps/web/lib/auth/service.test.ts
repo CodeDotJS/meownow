@@ -1,4 +1,5 @@
 import type { WebEnv } from "@meownow/config/env";
+import { AUTH_LIMIT_USER_ID, mintHubTicket } from "@meownow/protocol";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { expect, test } from "vitest";
 import { createHandlers } from "./handlers";
@@ -378,4 +379,40 @@ test("auth options are rate-limited per IP", async () => {
 	);
 	expect(res.status).toBe(429);
 	expect(await res.json()).toEqual({ error: "rate_limited" });
+});
+
+test("internal prune without a cron ticket is denied", async () => {
+	const handlers = createHandlers({
+		env: { ...env, HUB_SECRET: "0".repeat(32) },
+		store: new MemoryAuthStore(),
+		webauthn: mockWebAuthn(),
+	});
+	const res = await handlers.postInternalPrune(
+		new Request("https://meownow.example/api/internal/prune", { method: "POST" }),
+	);
+	expect(res.status).toBe(401);
+	expect(await res.json()).toEqual({ error: "unauthorized" });
+});
+
+test("internal prune with a cron ticket returns keep and delete keys", async () => {
+	const secret = "0".repeat(32);
+	const ticket = await mintHubTicket(secret, {
+		v: 1,
+		purpose: "cron",
+		userId: AUTH_LIMIT_USER_ID,
+		exp: Date.now() + 30_000,
+	});
+	const handlers = createHandlers({
+		env: { ...env, HUB_SECRET: secret },
+		store: new MemoryAuthStore(),
+		webauthn: mockWebAuthn(),
+	});
+	const res = await handlers.postInternalPrune(
+		new Request("https://meownow.example/api/internal/prune", {
+			method: "POST",
+			headers: { authorization: `Bearer ${ticket}` },
+		}),
+	);
+	expect(res.status).toBe(200);
+	expect(await res.json()).toEqual({ keepR2Keys: [], deleteR2Keys: [] });
 });
