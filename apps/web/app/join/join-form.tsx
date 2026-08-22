@@ -5,15 +5,34 @@ import { type FormEvent, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
 import { parseInviteToken } from "@/lib/ui/invite-url";
 import { Panel } from "@/lib/ui/panel";
+import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
 import { Status } from "@/lib/ui/status";
 
 export function JoinForm({ initialToken }: { initialToken: string }) {
+	const { ready, me, hasLocal } = useBrowserSession();
 	const [token, setToken] = useState(initialToken);
 	const [handle, setHandle] = useState("");
 	const [displayName, setDisplayName] = useState("");
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const invited = initialToken.length > 0;
+
+	if (!ready) {
+		return <SessionLoading title="Join" />;
+	}
+	if (me) {
+		return <AlreadyHere title="You're already in" lead={`Signed in as ${me.handle}.`} />;
+	}
+	if (hasLocal) {
+		return (
+			<AlreadyHere
+				title="This browser already works"
+				lead="This browser already has the clipboard. Sign in instead of joining again."
+				actionHref="/login"
+				action="Sign in"
+			/>
+		);
+	}
 
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
