@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { AdminNav } from "@/lib/ui/admin-nav";
+import { formatBytes } from "@/lib/ui/bytes";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 
@@ -76,51 +78,60 @@ export default function AdminPage() {
 	return (
 		<main>
 			<Panel>
-				<h1>Admin</h1>
-				<p className="lead">Seats, devices, revoke.</p>
-				<nav>
-					<a href="/invites">Invites</a>
-					<a href="/requests">Requests</a>
-					<a href="/admin/audit">Audit</a>
-					<a href="/admin/usage">Usage</a>
-				</nav>
+				<h1>People</h1>
+				<p className="lead">Who has a seat, and which browsers they use.</p>
+				<AdminNav />
 				{seats ? (
-					<p>
-						Seats {seats.claimed} / {seats.total}
+					<p className="dir-meta seats-meta">
+						{seats.claimed} of {seats.total} seats taken
 					</p>
 				) : null}
 				<Status value={status} />
-				<ul>
-					{users.map((user) => (
-						<li key={user.id}>
-							<div>
-								<span>{user.handle}</span> {user.displayName} {user.role}
-								{user.canUpload ? " upload" : ""}
-								<span>
-									{" "}
-									{user.storageUsedBytes} / {user.storageQuotaBytes}
-								</span>
-								{user.role === "member" ? (
-									<button type="button" onClick={() => void remove(user.id)}>
-										Remove
-									</button>
-								) : null}
-								<ul>
-									{user.devices.map((device) => (
-										<li key={device.id}>
-											<span>{device.label}</span>
-											{device.revokedAt ? " revoked" : null}
-											{device.revokedAt ? null : (
+				<ul className="dir-list">
+					{users.map((user) => {
+						const live = user.devices.filter((device) => !device.revokedAt);
+						const revoked = user.devices.length - live.length;
+						return (
+							<li key={user.id}>
+								<div className="dir-head">
+									<div>
+										<p className="dir-name">{user.handle}</p>
+										<p className="dir-meta">
+											{user.displayName}
+											{user.role === "admin" ? " · admin" : ""}
+											{user.canUpload ? " · files" : ""}
+											{" · "}
+											{formatBytes(user.storageUsedBytes)} of {formatBytes(user.storageQuotaBytes)}
+										</p>
+									</div>
+									{user.role === "member" ? (
+										<button type="button" onClick={() => void remove(user.id)}>
+											Remove
+										</button>
+									) : null}
+								</div>
+								{live.length > 0 ? (
+									<ul className="dir-devices">
+										{live.map((device) => (
+											<li key={device.id}>
+												<span>{device.label}</span>
 												<button type="button" onClick={() => void revoke(device.id)}>
 													Revoke
 												</button>
-											)}
-										</li>
-									))}
-								</ul>
-							</div>
-						</li>
-					))}
+											</li>
+										))}
+									</ul>
+								) : (
+									<p className="dir-meta">No live devices.</p>
+								)}
+								{revoked > 0 ? (
+									<p className="dir-meta">
+										{revoked === 1 ? "1 revoked device." : `${revoked} revoked devices.`}
+									</p>
+								) : null}
+							</li>
+						);
+					})}
 				</ul>
 			</Panel>
 		</main>
