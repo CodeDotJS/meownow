@@ -313,7 +313,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
 	font: inherit;
 	color: inherit;
 	background: var(--paper);
@@ -353,8 +354,14 @@ textarea {
 	border: 1px solid var(--rule);
 }
 
+select {
+	width: fit-content;
+	max-width: 100%;
+}
+
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
 	outline: none;
 	background: var(--surface);
 	border-color: var(--ink);
@@ -537,7 +544,7 @@ button:disabled {
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 1rem;
-	margin: 0 0 0.55rem;
+	margin: 0 0 0.4rem;
 	padding: 0 0.15rem;
 	font-size: 0.8125rem;
 	color: var(--muted);
@@ -550,10 +557,23 @@ button:disabled {
 
 .clip-hint,
 .clipboard > .hint,
-.clipboard > .status {
-	margin-top: 0.85rem;
+.clipboard > .status,
+.clip-notices {
+	margin-top: 0.5rem;
 	padding: 0 0.15rem;
 	flex-shrink: 0;
+}
+
+.clip-notices {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem 0.75rem;
+}
+
+.clip-notices .hint,
+.clip-notices .status {
+	margin: 0;
 }
 
 .clip-hint {
@@ -579,7 +599,7 @@ button:disabled {
 	display: flex;
 	flex-direction: column;
 	flex-shrink: 0;
-	padding: 1rem 1.1rem 1rem;
+	padding: 0.8rem 0.95rem 0.85rem;
 	background: transparent;
 	border: 0;
 	border-radius: 0;
@@ -599,8 +619,8 @@ button:disabled {
 
 .composer textarea {
 	width: 100%;
-	min-height: 5.5rem;
-	max-height: 10.5rem;
+	min-height: 4.5rem;
+	max-height: 9rem;
 	margin: 0;
 	padding: 0.15rem 0.1rem;
 	border: 0;
@@ -646,8 +666,8 @@ button:disabled {
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 0.3rem;
-	margin-top: 0.75rem;
-	padding-top: 0.7rem;
+	margin-top: 0.55rem;
+	padding-top: 0.55rem;
 	border-top: 1px solid var(--rule);
 }
 
@@ -690,6 +710,84 @@ li {
 
 .panel li li {
 	padding: 0.4rem 0;
+}
+
+.admin-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.15rem;
+	margin: 1rem 0 0;
+	padding: 0.2rem;
+	background: var(--paper);
+	border-radius: var(--radius-sm);
+}
+
+.admin-nav a {
+	min-height: 2.15rem;
+	padding: 0.3rem 0.7rem;
+	font-size: 0.8125rem;
+}
+
+.admin-nav a.is-on,
+.admin-nav a.is-on:hover,
+.admin-nav a.is-on:focus-visible {
+	background: var(--surface);
+	box-shadow: var(--shadow-soft);
+}
+
+.seats-meta {
+	margin: 1rem 0 0;
+}
+
+.dir-list {
+	list-style: none;
+	margin: 1.15rem 0 0;
+	padding: 0;
+}
+
+.dir-list > li {
+	display: block;
+	padding: 0.95rem 0;
+	border-bottom: 1px solid var(--rule);
+}
+
+.dir-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+.dir-name {
+	margin: 0;
+	font-weight: 550;
+}
+
+.dir-meta {
+	margin: 0.2rem 0 0;
+	font-size: 0.8125rem;
+	color: var(--muted);
+}
+
+.dir-actions {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 0.15rem;
+}
+
+.dir-devices {
+	list-style: none;
+	margin: 0.45rem 0 0;
+	padding: 0;
+}
+
+.dir-devices li {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.3rem 0;
+	border: 0;
 }
 
 .hint-list {
@@ -749,7 +847,7 @@ li {
 	flex: 1 1 auto;
 	min-height: 0;
 	margin: 0;
-	padding: 0.15rem 0.4rem 0.5rem;
+	padding: 0.05rem 0.25rem 0.3rem;
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
 	overscroll-behavior: contain;
@@ -764,7 +862,7 @@ li {
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 1rem;
-	padding: 0.7rem 0.95rem 0.2rem;
+	padding: 0.5rem 0.7rem 0.1rem;
 	margin: 0;
 	border-top: 1px solid var(--rule);
 	border-bottom: 0;
@@ -784,13 +882,13 @@ li {
 
 .log-item {
 	display: grid;
-	grid-template-columns: 3.75rem minmax(0, 1fr) auto;
-	column-gap: 0.85rem;
+	grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+	column-gap: 0.65rem;
 	align-items: baseline;
-	padding: 0.8rem 0.9rem 0.55rem;
+	padding: 0.45rem 0.65rem 0.3rem;
 	margin: 0;
 	border-bottom: 0;
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-sm);
 	transition:
 		background-color 200ms var(--ease),
 		box-shadow 200ms var(--ease);
@@ -807,11 +905,11 @@ li {
 	text-align: left;
 	width: 100%;
 	margin: 0;
-	padding: 0.05rem 0.08rem;
+	padding: 0;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
-	font-size: 1.0625rem;
-	line-height: 1.45;
+	font-size: 1rem;
+	line-height: 1.4;
 	border-radius: var(--radius-xs);
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
@@ -834,14 +932,14 @@ li {
 }
 
 .log-item .copied {
-	padding: 0.25rem 0.35rem;
-	font-size: 0.8125rem;
+	padding: 0;
+	font-size: 0.75rem;
 	color: var(--ink);
 }
 
 .log-item .forget {
-	min-height: 2.25rem;
-	padding: 0.25rem 0.5rem;
+	min-height: 1.85rem;
+	padding: 0.15rem 0.4rem;
 	font-size: 0.8125rem;
 	color: var(--muted);
 	opacity: 1;
@@ -857,7 +955,7 @@ li {
 	grid-column: 2;
 	width: 100%;
 	height: 2px;
-	margin: 0.4rem 0 0;
+	margin: 0.25rem 0 0;
 	background: var(--rule);
 	transform: scaleX(var(--remain, 1));
 	transform-origin: left;
@@ -871,8 +969,8 @@ li {
 }
 
 .landing-log .log-item {
-	grid-template-columns: 3.75rem minmax(0, 1fr);
-	padding: 0.7rem 0.1rem 0.5rem;
+	grid-template-columns: 3.5rem minmax(0, 1fr);
+	padding: 0.5rem 0.05rem 0.35rem;
 	margin: 0;
 }
 
@@ -954,7 +1052,7 @@ li {
 	align-items: flex-start;
 	gap: 0.7rem;
 	margin: 0;
-	padding: 0.85rem 1.05rem 1.4rem;
+	padding: 0.55rem 0.85rem 1rem;
 	border-top: 0;
 	flex: 1 1 auto;
 	font-size: 0.9375rem;
@@ -998,7 +1096,7 @@ li {
 		height: 100%;
 		min-width: 0;
 		min-height: 0;
-		padding: 0.95rem 1.1rem 1rem;
+		padding: 0.8rem 0.95rem 0.85rem;
 		border-right: 1px solid var(--rule);
 	}
 
@@ -1312,6 +1410,7 @@ li {
 
 	input,
 	textarea,
+	select,
 	.palette input,
 	.composer textarea,
 	.log-item.is-compose textarea {
@@ -1356,7 +1455,7 @@ li {
 
 	.log-item {
 		grid-template-columns: minmax(0, 1fr) auto;
-		padding: 0.8rem 0.7rem 0.55rem;
+		padding: 0.5rem 0.55rem 0.35rem;
 		margin: 0;
 	}
 
@@ -1392,14 +1491,14 @@ li {
 
 	.log-item .forget {
 		opacity: 1;
-		min-height: 2.5rem;
-		padding: 0.35rem 0.55rem;
+		min-height: 2.25rem;
+		padding: 0.25rem 0.45rem;
 	}
 
 	.log-item .body {
 		grid-column: 1 / -1;
-		padding: 0.35rem 0.1rem 0.15rem;
-		font-size: 1.0625rem;
+		padding: 0.15rem 0 0.05rem;
+		font-size: 1rem;
 	}
 
 	.log-item .ttl {
