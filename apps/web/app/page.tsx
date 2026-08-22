@@ -716,112 +716,111 @@ export default function Page() {
 						}}
 						rows={4}
 					/>
-					{draftLines > 8 ? (
-						<p className="field-hint">{draftLines} lines. The box stays this size.</p>
-					) : null}
-					<div className="composer-bar">
-						<button className="select" type="button" onClick={() => void onSend()}>
-							Send
-						</button>
-						<button
-							type="button"
-							className={ephemeral ? "composer-quiet is-on" : "composer-quiet"}
-							aria-pressed={ephemeral}
-							onClick={() => setEphemeral((on) => !on)}
-						>
-							Ephemeral
-						</button>
-						{me.canUpload ? (
-							<>
-								<input
-									ref={fileRef}
-									className="file-hidden"
-									type="file"
-									onChange={(event) => {
-										void onFile(event.target.files);
-										event.target.value = "";
-									}}
-								/>
-								<button
-									type="button"
-									className="composer-quiet"
-									onClick={() => fileRef.current?.click()}
-								>
-									File
-								</button>
-							</>
-						) : null}
-						{local ? <span className="mode">Local</span> : null}
-					</div>
-					{ephemeral ? (
-						<p className="field-hint">Skip the server. Needs another device on this Wi‑Fi.</p>
-					) : null}
-				</div>
-				{visible.length === 0 ? (
-					<p className="empty">
-						<span>
-							Nothing on the clipboard.
-							<span className="empty-how">
-								Type a note, then Send. It will show on your other devices.
-							</span>
-						</span>
-					</p>
-				) : null}
-				{visible.length > 0 ? (
-					<ul className="log log-sheet">
-						<li className="log-head">
-							<p className="sheet-label">On the clipboard</p>
-							<p className="clip-count">{visible.length}</p>
-						</li>
-						<AnimatePresence initial={false}>
-							{visible.map((item) => {
-								const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
-								const warn = ttlWarn(item.expiresAt, now);
-								const selected = item.id === selectedId;
-								const locked = item.text === UNREADABLE;
-								return (
-									<motion.li
-										key={item.id}
-										layout={!reduceMotion}
-										initial={reduceMotion ? false : { opacity: 0, y: -10 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-										transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-										className={["log-item", selected ? "is-selected" : ""]
-											.filter(Boolean)
-											.join(" ")}
+					<div className="composer-foot">
+						{draftLines > 8 ? <p className="field-hint">{draftLines} lines</p> : null}
+						<div className="composer-bar">
+							<button className="select" type="button" onClick={() => void onSend()}>
+								Send
+							</button>
+							<button
+								type="button"
+								className={ephemeral ? "composer-quiet is-on" : "composer-quiet"}
+								aria-pressed={ephemeral}
+								onClick={() => setEphemeral((on) => !on)}
+							>
+								Ephemeral
+							</button>
+							{me.canUpload ? (
+								<>
+									<input
+										ref={fileRef}
+										className="file-hidden"
+										type="file"
+										onChange={(event) => {
+											void onFile(event.target.files);
+											event.target.value = "";
+										}}
+									/>
+									<button
+										type="button"
+										className="composer-quiet"
+										onClick={() => fileRef.current?.click()}
 									>
-										<span className="gutter">{formatGutterTime(item.createdAt, now)}</span>
-										{locked ? (
-											<p className="body">
-												{item.text}. <a href="/pair/show">Show a code</a> or{" "}
-												<a href="/recover">use the 12 words</a>
-											</p>
-										) : (
-											<button type="button" className="body" onClick={() => activateItem(item)}>
-												{item.text}
-											</button>
-										)}
-										<span className="log-actions">
-											{copiedId === item.id ? <span className="copied">Copied</span> : null}
-											<button
-												type="button"
-												className="forget"
-												onClick={() => void onForget(item.id)}
-											>
-												Forget
-											</button>
-										</span>
-										<span
-											className={warn ? "ttl warn" : "ttl"}
-											style={{ ["--remain" as string]: String(remain) }}
-										/>
-									</motion.li>
-								);
-							})}
-						</AnimatePresence>
-					</ul>
-				) : null}
+										File
+									</button>
+								</>
+							) : null}
+							{local ? <span className="mode">Local</span> : null}
+						</div>
+						{ephemeral ? (
+							<p className="field-hint">Skip the server. Needs another device on this Wi‑Fi.</p>
+						) : null}
+					</div>
+				</div>
+				<div className="tray">
+					<div className="log-head">
+						<p className="sheet-label">On the clipboard</p>
+						<p className="clip-count">{visible.length}</p>
+					</div>
+					{visible.length === 0 ? (
+						<p className="empty">
+							<span>
+								Nothing here yet.
+								<span className="empty-how">Send a note and it shows on your other devices.</span>
+							</span>
+						</p>
+					) : (
+						<ul className="log log-sheet">
+							<AnimatePresence initial={false}>
+								{visible.map((item) => {
+									const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
+									const warn = ttlWarn(item.expiresAt, now);
+									const selected = item.id === selectedId;
+									const locked = item.text === UNREADABLE;
+									return (
+										<motion.li
+											key={item.id}
+											layout={!reduceMotion}
+											initial={reduceMotion ? false : { opacity: 0, y: -10 }}
+											animate={{ opacity: 1, y: 0 }}
+											exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+											transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+											className={["log-item", selected ? "is-selected" : ""]
+												.filter(Boolean)
+												.join(" ")}
+										>
+											<span className="gutter">{formatGutterTime(item.createdAt, now)}</span>
+											{locked ? (
+												<p className="body">
+													{item.text}. <a href="/pair/show">Show a code</a> or{" "}
+													<a href="/recover">use the 12 words</a>
+												</p>
+											) : (
+												<button type="button" className="body" onClick={() => activateItem(item)}>
+													{item.text}
+												</button>
+											)}
+											<span className="log-actions">
+												{copiedId === item.id ? <span className="copied">Copied</span> : null}
+												<button
+													type="button"
+													className="forget"
+													onClick={() => void onForget(item.id)}
+												>
+													Forget
+												</button>
+											</span>
+											<span
+												className={warn ? "ttl warn" : "ttl"}
+												style={{ ["--remain" as string]: String(remain) }}
+											/>
+										</motion.li>
+									);
+								})}
+							</AnimatePresence>
+						</ul>
+					)}
+				</div>
 			</div>
 			{undo ? (
 				<p className="hint" role="status">
