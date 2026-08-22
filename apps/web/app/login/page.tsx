@@ -5,11 +5,28 @@ import { useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
 import { Panel } from "@/lib/ui/panel";
 import { safeNextPath } from "@/lib/ui/safe-next";
+import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
 import { Status } from "@/lib/ui/status";
 
 export default function LoginPage() {
+	const { ready, me, hasLocal } = useBrowserSession();
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+
+	if (!ready) {
+		return (
+			<main>
+				<SessionLoading title="Sign in" />
+			</main>
+		);
+	}
+	if (me) {
+		return (
+			<main>
+				<AlreadyHere title="You're already in" lead={`Signed in as ${me.handle}.`} />
+			</main>
+		);
+	}
 
 	async function onLogin() {
 		setBusy(true);
@@ -51,9 +68,25 @@ export default function LoginPage() {
 				<p className="hint">
 					This only unlocks a passkey already saved on this browser. A passkey from
 					meownow.vercel.app will not appear here.
-					<br />
-					New here? You need an invite link.
 				</p>
+				{hasLocal ? (
+					<p className="hint">This browser already has the clipboard.</p>
+				) : (
+					<ul className="hint-list">
+						<li>
+							New here? You need an <a href="/join">invite link</a>
+						</li>
+						<li>
+							Adding this browser? <a href="/pair/show">Show a code</a>
+						</li>
+						<li>
+							Lost every device. <a href="/recover">Use the 12 words</a>
+						</li>
+						<li>
+							First seat? <a href="/enroll">First admin</a>
+						</li>
+					</ul>
+				)}
 			</Panel>
 		</main>
 	);
