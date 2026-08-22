@@ -97,11 +97,9 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 
 	if (me.role === "admin") {
 		rows.push(
-			{ id: "admin", label: "Admin", href: "/admin" },
-			{ id: "invites", label: "Invites", href: "/invites" },
-			{ id: "requests", label: "Upload requests", href: "/requests" },
-			{ id: "audit", label: "Audit", href: "/admin/audit" },
-			{ id: "usage", label: "Usage", href: "/admin/usage" },
+			{ id: "admin", label: "People", hint: "Seats and devices", href: "/admin" },
+			{ id: "invites", label: "Invites", hint: "Send a join link", href: "/invites" },
+			{ id: "requests", label: "Requests", hint: "Grant file space", href: "/requests" },
 		);
 	}
 
