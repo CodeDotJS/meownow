@@ -2,21 +2,14 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { AdminNav } from "@/lib/ui/admin-nav";
+import { formatInviteLeft, type InviteRow, openInvites } from "@/lib/ui/invite-list";
 import { inviteJoinUrl } from "@/lib/ui/invite-url";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 
-type Invite = {
-	id: string;
-	note: string | null;
-	expiresAt: string;
-	redeemedAt: string | null;
-	revokedAt: string | null;
-	createdAt: string;
-};
-
 export default function InvitesPage() {
-	const [invites, setInvites] = useState<Invite[]>([]);
+	const [invites, setInvites] = useState<InviteRow[]>([]);
 	const [note, setNote] = useState("");
 	const [token, setToken] = useState<string | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
@@ -27,7 +20,7 @@ export default function InvitesPage() {
 			setStatus(errorCode(res.data));
 			return;
 		}
-		const data = res.data as { invites: Invite[] };
+		const data = res.data as { invites: InviteRow[] };
 		setInvites(data.invites);
 	}
 
@@ -38,7 +31,7 @@ export default function InvitesPage() {
 				setStatus(errorCode(res.data));
 				return;
 			}
-			const data = res.data as { invites: Invite[] };
+			const data = res.data as { invites: InviteRow[] };
 			setInvites(data.invites);
 		})();
 	}, []);
@@ -68,19 +61,23 @@ export default function InvitesPage() {
 		await refresh();
 	}
 
+	const open = openInvites(invites);
+	const closed = invites.length - open.length;
+
 	return (
 		<main>
 			<Panel>
 				<h1>Invites</h1>
 				<p className="lead">Send the link. One person, 72 hours, shown once.</p>
+				<AdminNav />
 				<form onSubmit={onCreate}>
 					<label>
-						Note
+						Who it is for
 						<input
 							value={note}
 							onChange={(e) => setNote(e.target.value)}
 							maxLength={120}
-							placeholder="who it is for"
+							placeholder="optional note"
 						/>
 					</label>
 					<button className="select" type="submit">
@@ -109,21 +106,27 @@ export default function InvitesPage() {
 					</>
 				) : null}
 				<Status value={status} />
-				{invites.length === 0 ? <p className="hint">No invites yet.</p> : null}
-				<ul>
-					{invites.map((invite) => (
-						<li key={invite.id}>
-							<span>{invite.id.slice(0, 8)}</span>
-							{invite.note ? ` ${invite.note}` : ""}
-							{invite.redeemedAt ? " redeemed" : invite.revokedAt ? " revoked" : " open"}
-							{invite.redeemedAt || invite.revokedAt ? null : (
-								<button type="button" onClick={() => void onRevoke(invite.id)}>
-									Revoke
-								</button>
-							)}
-						</li>
-					))}
-				</ul>
+				{open.length === 0 ? <p className="hint">No open invites.</p> : null}
+				{open.length > 0 ? (
+					<ul className="dir-list">
+						{open.map((invite) => (
+							<li key={invite.id}>
+								<div className="dir-head">
+									<span className="dir-name">{invite.note || "Invite"}</span>
+									<button type="button" onClick={() => void onRevoke(invite.id)}>
+										Revoke
+									</button>
+								</div>
+								<p className="dir-meta">{formatInviteLeft(invite.expiresAt)}</p>
+							</li>
+						))}
+					</ul>
+				) : null}
+				{closed > 0 ? (
+					<p className="hint">
+						{closed === 1 ? "1 closed invite." : `${closed} closed invites.`} They cannot be used.
+					</p>
+				) : null}
 			</Panel>
 		</main>
 	);
