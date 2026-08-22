@@ -9,32 +9,46 @@ export function silentPush(): PushPort {
 	return { notify: async () => undefined };
 }
 
+/** web-push rejects anything else, and an http:// APP_URL would throw on localhost. */
+export function pushSubject(raw: string | undefined): string | null {
+	if (!raw) {
+		return null;
+	}
+	return raw.startsWith("https:") || raw.startsWith("mailto:") ? raw : null;
+}
+
 export function createWebPush(env: WebEnv, store: VaultStore): PushPort {
 	return {
 		async notify(input) {
 			if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) {
 				return;
 			}
-			const webpush = await import("web-push");
-			webpush.setVapidDetails(
-				env.VAPID_SUBJECT ?? env.APP_URL,
-				env.VAPID_PUBLIC_KEY,
-				env.VAPID_PRIVATE_KEY,
-			);
-			const subs = await store.listPushSubscriptions(input.userId, input.exceptDeviceId);
-			const payload = JSON.stringify({ title: input.title });
-			for (const sub of subs) {
-				try {
-					await webpush.sendNotification(
-						{ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-						payload,
-					);
-				} catch (err) {
-					const status = (err as { statusCode?: number }).statusCode;
-					if (status === 404 || status === 410) {
-						await store.deletePushSubscription(sub.endpoint);
+			const subject = pushSubject(env.VAPID_SUBJECT ?? env.APP_URL);
+			if (!subject) {
+				return;
+			}
+			// The item is already stored and fanned out by now. A notification is a
+			// courtesy, so nothing in here may fail the write.
+			try {
+				const webpush = await import("web-push");
+				webpush.setVapidDetails(subject, env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY);
+				const subs = await store.listPushSubscriptions(input.userId, input.exceptDeviceId);
+				const payload = JSON.stringify({ title: input.title });
+				for (const sub of subs) {
+					try {
+						await webpush.sendNotification(
+							{ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+							payload,
+						);
+					} catch (err) {
+						const status = (err as { statusCode?: number }).statusCode;
+						if (status === 404 || status === 410) {
+							await store.deletePushSubscription(sub.endpoint);
+						}
 					}
 				}
+			} catch {
+				return;
 			}
 		},
 	};
