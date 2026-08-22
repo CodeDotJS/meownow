@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { AdminNav } from "@/lib/ui/admin-nav";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 
@@ -14,10 +15,15 @@ type Row = {
 	createdAt: string;
 };
 
+const GRANTS = [
+	{ bytes: 524_288_000, label: "500 MB" },
+	{ bytes: 1_073_741_824, label: "1 GB" },
+] as const;
+
 export default function RequestsPage() {
 	const [rows, setRows] = useState<Row[]>([]);
 	const [status, setStatus] = useState<string | null>(null);
-	const [grant, setGrant] = useState("524288000");
+	const [grant, setGrant] = useState(String(GRANTS[0].bytes));
 
 	async function refresh() {
 		const res = await getJson("/api/uploads/requests");
@@ -52,34 +58,52 @@ export default function RequestsPage() {
 		await refresh();
 	}
 
+	const pending = rows.filter((row) => row.status === "pending");
+	const settled = rows.length - pending.length;
+
 	return (
 		<main>
 			<Panel>
-				<h1>Upload requests</h1>
-				<p className="lead">Grant file upload space. Text and links do not need this.</p>
+				<h1>Requests</h1>
+				<p className="lead">Grant file space. Text and links do not need this.</p>
+				<AdminNav />
 				<label>
-					Grant bytes
-					<input value={grant} onChange={(e) => setGrant(e.target.value)} />
+					If you approve, grant
+					<select value={grant} onChange={(e) => setGrant(e.target.value)}>
+						{GRANTS.map((option) => (
+							<option key={option.bytes} value={option.bytes}>
+								{option.label}
+							</option>
+						))}
+					</select>
 				</label>
 				<Status value={status} />
-				{rows.length === 0 ? <p className="hint">No pending requests.</p> : null}
-				<ul>
-					{rows.map((row) => (
-						<li key={row.id}>
-							<span>{row.handle}</span> {row.reason} {row.status}
-							{row.status === "pending" ? (
-								<>
-									<button type="button" onClick={() => void decide(row.id, "approved")}>
-										Approve
-									</button>
-									<button type="button" onClick={() => void decide(row.id, "denied")}>
-										Deny
-									</button>
-								</>
-							) : null}
-						</li>
-					))}
-				</ul>
+				{pending.length === 0 ? <p className="hint">No pending requests.</p> : null}
+				{pending.length > 0 ? (
+					<ul className="dir-list">
+						{pending.map((row) => (
+							<li key={row.id}>
+								<div className="dir-head">
+									<span className="dir-name">{row.handle}</span>
+									<span className="dir-actions">
+										<button type="button" onClick={() => void decide(row.id, "approved")}>
+											Approve
+										</button>
+										<button type="button" onClick={() => void decide(row.id, "denied")}>
+											Deny
+										</button>
+									</span>
+								</div>
+								{row.reason ? <p className="dir-meta">{row.reason}</p> : null}
+							</li>
+						))}
+					</ul>
+				) : null}
+				{settled > 0 ? (
+					<p className="hint">
+						{settled === 1 ? "1 settled request." : `${settled} settled requests.`}
+					</p>
+				) : null}
 			</Panel>
 		</main>
 	);
