@@ -251,6 +251,17 @@ h1 {
 	max-width: 28ch;
 }
 
+.pair-tag {
+	display: inline-block;
+	margin-top: 0.85rem;
+	padding: 0.2rem 0.55rem;
+	background: var(--select);
+	color: var(--select-ink);
+	border-radius: 99px;
+	font-size: 0.75rem;
+	font-weight: 500;
+}
+
 a.pair-card:hover,
 a.pair-card:focus-visible {
 	background: var(--surface);

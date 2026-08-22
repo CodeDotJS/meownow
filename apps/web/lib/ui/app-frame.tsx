@@ -85,19 +85,35 @@ export function AppFrame({ children }: { children: ReactNode }) {
 				href: "/setup",
 			});
 		} else if (hasLocal) {
-			rows.push({
-				id: "add-device",
-				label: "Add a device",
-				hint: "Type the code from the new browser",
-				href: "/pair/scan",
-			});
+			rows.push(
+				{
+					id: "add-device",
+					label: "Add a device",
+					hint: "Type the code the new browser shows",
+					href: "/pair/scan",
+				},
+				{
+					id: "pair",
+					label: "Show a code",
+					hint: "Only if this browser is the new one",
+					href: "/pair/show",
+				},
+			);
 		} else {
-			rows.push({
-				id: "pair",
-				label: "This browser is new",
-				hint: "Show a code for the working device",
-				href: "/pair/show",
-			});
+			rows.push(
+				{
+					id: "pair",
+					label: "Show a code",
+					hint: "This browser is new",
+					href: "/pair/show",
+				},
+				{
+					id: "add-device",
+					label: "Add a device",
+					hint: "Type the code the new browser shows",
+					href: "/pair/scan",
+				},
+			);
 		}
 		rows.push({
 			id: "recover",
@@ -146,9 +162,9 @@ export function AppFrame({ children }: { children: ReactNode }) {
 							Invites
 						</a>
 					) : null}
-					{me?.hasVault && hasLocal ? (
-						<a className="chrome-add" href="/pair/scan">
-							Add a device
+					{me?.hasVault ? (
+						<a className="chrome-add" href="/pair">
+							{hasLocal ? "Add a device" : "Show a code"}
 						</a>
 					) : null}
 					<button type="button" className="chrome-menu" onClick={() => setOpen(true)}>

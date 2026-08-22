@@ -46,7 +46,7 @@ export default function PairShowPage() {
 	}, []);
 
 	useEffect(() => {
-		if (role !== "new") {
+		if (role === "loading") {
 			return;
 		}
 		void (async () => {
@@ -172,30 +172,18 @@ export default function PairShowPage() {
 		);
 	}
 
-	if (role === "working") {
-		return (
-			<main>
-				<Panel>
-					<h1>This browser already works</h1>
-					<p className="lead">
-						To add a phone or laptop, open meownow there and show a code. Type it here.
-					</p>
-					<nav className="stack">
-						<a className="select" href="/pair/scan">
-							Add a device
-						</a>
-					</nav>
-				</Panel>
-			</main>
-		);
-	}
-
 	return (
 		<main>
 			<Panel>
 				<h1>Show a code</h1>
 				<p className="lead">Keep this screen open. The other computer types the code.</p>
 				<PairSteps side="new" />
+				{role === "working" ? (
+					<p className="hint">
+						This browser already has the clipboard. If you meant to add another phone or laptop,{" "}
+						<a href="/pair/scan">type its code instead</a>.
+					</p>
+				) : null}
 				{code ? (
 					<>
 						<p className="pair-code mono">{formatPairingCode(code)}</p>

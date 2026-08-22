@@ -62,7 +62,7 @@ Every external input is Zod-parsed: HTTP bodies, WebSocket frames, DataChannel m
 
 ## Design
 
-See `docs/SPEC.md` §1.8 and `.cursor/rules/50-ui.mdc`. Light is locked. Outfit for the product; Martian Mono only for pairing codes, fingerprints, and the 12 words. First-run is one visible path; invites are `/join?t=` links; a new browser shows a code and a working browser adds the device; do not say “vault” on a guest setup screen.
+See `docs/SPEC.md` §1.8 and `.cursor/rules/50-ui.mdc`. Light is locked. Outfit for the product; Martian Mono only for pairing codes, fingerprints, and the 12 words. First-run is one visible path; invites are `/join?t=` links; pairing keeps both roles reachable (`/pair` tags the likely one); do not say “vault” on a guest setup screen.
 
 ## Working method
 
