@@ -19,6 +19,13 @@ export const dcEnvelopeSchema = z.discriminatedUnion("type", [
 			}),
 		})
 		.strict(),
+	z
+		.object({
+			v: z.literal(1),
+			type: z.literal("item.deleted"),
+			id: z.string().uuid(),
+		})
+		.strict(),
 ]);
 
 export type DcEnvelope = z.infer<typeof dcEnvelopeSchema>;

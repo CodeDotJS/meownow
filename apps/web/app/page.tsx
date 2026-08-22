@@ -51,6 +51,8 @@ type Shown = {
 	metaCiphertext?: string;
 	iv?: string;
 	wrappedKey?: { iv: string; bytes: string };
+	/** Never persisted server-side, so a refresh must not treat its absence as a delete. */
+	ephemeral?: boolean;
 };
 
 function itemTtl(kind: Shown["kind"]): number {
@@ -159,7 +161,20 @@ export default function Page() {
 				opened.push(await openItem(item));
 			}
 		}
-		setItems(opened);
+		const forgetting = forgottenRef.current?.item.id ?? null;
+		setItems((current) => {
+			const merged = [...current.filter((row) => row.ephemeral), ...opened];
+			const seen = new Set<string>();
+			return merged
+				.filter((row) => {
+					if (seen.has(row.id) || row.id === forgetting) {
+						return false;
+					}
+					seen.add(row.id);
+					return true;
+				})
+				.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+		});
 	}, [openItem]);
 
 	useEffect(() => {
@@ -182,6 +197,11 @@ export default function Page() {
 					envelope.deviceId,
 					(msg) => session.send(msg),
 					(dc) => {
+						if (dc.type === "item.deleted") {
+							setItems((current) => current.filter((row) => row.id !== dc.id));
+							setSelectedId((current) => (current === dc.id ? null : current));
+							return;
+						}
 						void openItem({
 							id: dc.item.id,
 							kind: dc.item.kind,
@@ -192,8 +212,9 @@ export default function Page() {
 							createdAt: new Date().toISOString(),
 							expiresAt: dc.item.expiresAt,
 						}).then((shown) => {
+							const row = dc.ephemeral ? { ...shown, ephemeral: true } : shown;
 							setItems((current) =>
-								current.some((row) => row.id === shown.id) ? current : [shown, ...current],
+								current.some((entry) => entry.id === row.id) ? current : [row, ...current],
 							);
 						});
 					},
@@ -287,7 +308,7 @@ export default function Page() {
 			setDraft("");
 			const createdAt = new Date().toISOString();
 			setItems((current) => [
-				{ id, text: trimmed, createdAt, expiresAt, kind },
+				{ id, text: trimmed, createdAt, expiresAt, kind, ephemeral },
 				...current.filter((row) => row.id !== id),
 			]);
 			setSelectedId(id);
@@ -342,17 +363,6 @@ export default function Page() {
 		setHint(sessionStorage.getItem(CLIP_HINT_KEY) !== "1");
 	}, []);
 
-	useEffect(() => {
-		return () => {
-			const pending = forgottenRef.current;
-			if (!pending) {
-				return;
-			}
-			window.clearTimeout(pending.timer);
-			void deleteJson(`/api/items/${pending.item.id}`);
-		};
-	}, []);
-
 	const onCopy = useCallback(
 		async (text: string, id?: string) => {
 			dismissHint();
@@ -368,13 +378,42 @@ export default function Page() {
 		[dismissHint],
 	);
 
-	const flushForgotten = useCallback(async (pending: { item: Shown; timer: number }) => {
-		window.clearTimeout(pending.timer);
-		const res = await deleteJson(`/api/items/${pending.item.id}`);
+	const commitForget = useCallback(async (item: Shown) => {
+		// Peers hold their own copy. An ephemeral item exists nowhere else, so the
+		// mesh is the only way to revoke it; for a stored item this just beats the
+		// hub's fan-out and still works when the socket is down.
+		await sendOnMesh(meshRef.current?.links() ?? [], {
+			v: 1,
+			type: "item.deleted",
+			id: item.id,
+		});
+		if (item.ephemeral) {
+			return;
+		}
+		const res = await deleteJson(`/api/items/${item.id}`);
 		if (!res.ok) {
 			setStatus(errorCode(res.data));
 		}
 	}, []);
+
+	const flushForgotten = useCallback(
+		async (pending: { item: Shown; timer: number }) => {
+			window.clearTimeout(pending.timer);
+			await commitForget(pending.item);
+		},
+		[commitForget],
+	);
+
+	useEffect(() => {
+		return () => {
+			const pending = forgottenRef.current;
+			if (!pending) {
+				return;
+			}
+			forgottenRef.current = null;
+			void flushForgotten(pending);
+		};
+	}, [flushForgotten]);
 
 	const onForget = useCallback(
 		async (id: string) => {
@@ -393,15 +432,11 @@ export default function Page() {
 			const timer = window.setTimeout(() => {
 				forgottenRef.current = null;
 				setUndo((current) => (current?.id === id ? null : current));
-				void deleteJson(`/api/items/${id}`).then((res) => {
-					if (!res.ok) {
-						setStatus(errorCode(res.data));
-					}
-				});
+				void commitForget(item);
 			}, FORGET_UNDO_MS);
 			forgottenRef.current = { item, timer };
 		},
-		[flushForgotten],
+		[commitForget, flushForgotten],
 	);
 
 	const onUndoForget = useCallback(() => {

@@ -27,3 +27,15 @@ test("datachannel item is ciphertext and rejects a plaintext field", () => {
 		}).success,
 	).toBe(false);
 });
+
+test("datachannel carries a delete so an ephemeral item can be revoked off-server", () => {
+	const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+	const gone = dcEnvelopeSchema.parse({ v: 1, type: "item.deleted", id });
+	expect(gone).toEqual({ v: 1, type: "item.deleted", id });
+	expect(dcEnvelopeSchema.safeParse({ v: 1, type: "item.deleted", id: "nope" }).success).toBe(
+		false,
+	);
+	expect(
+		dcEnvelopeSchema.safeParse({ v: 1, type: "item.deleted", id, plaintext: "hi" }).success,
+	).toBe(false);
+});
