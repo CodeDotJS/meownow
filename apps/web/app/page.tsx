@@ -37,6 +37,7 @@ type ItemRow = {
 	iv: string;
 	wrappedKey?: { iv: string; bytes: string };
 	blobId?: string;
+	byteSize?: number;
 	createdAt: string;
 	expiresAt: string;
 };
@@ -51,9 +52,21 @@ type Shown = {
 	metaCiphertext?: string;
 	iv?: string;
 	wrappedKey?: { iv: string; bytes: string };
+	/** Kept so Undo can restore the exact row rather than re-encrypting. */
+	ciphertext?: string;
+	byteSize?: number;
 	/** Never persisted server-side, so a refresh must not treat its absence as a delete. */
 	ephemeral?: boolean;
 };
+
+/** Blob ciphertext lives in R2 and is not held here, so only text can come back. */
+function restorable(item: Shown): boolean {
+	return (
+		(item.kind === "text" || item.kind === "link") &&
+		Boolean(item.ciphertext && item.metaCiphertext && item.iv) &&
+		typeof item.byteSize === "number"
+	);
+}
 
 function itemTtl(kind: Shown["kind"]): number {
 	return kind === "image" || kind === "file" ? BLOB_TTL_MS : TEXT_TTL_MS;
@@ -61,7 +74,7 @@ function itemTtl(kind: Shown["kind"]): number {
 
 const UNREADABLE = "This browser cannot read that line";
 const CLIP_HINT_KEY = "meownow.clip-hint";
-const FORGET_UNDO_MS = 5000;
+const FORGET_TOMBSTONE_MS = 15000;
 
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
@@ -81,7 +94,8 @@ export default function Page() {
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
-	const forgottenRef = useRef<{ item: Shown; timer: number } | null>(null);
+	/** id -> when the tombstone lapses. Stops an in-flight GET restoring a deleted row. */
+	const tombstonesRef = useRef<Map<string, number>>(new Map());
 	const reduceMotion = useReducedMotion();
 	itemsRef.current = items;
 
@@ -120,6 +134,8 @@ export default function Page() {
 			metaCiphertext: item.metaCiphertext,
 			iv: item.iv,
 			wrappedKey: item.wrappedKey,
+			ciphertext: item.ciphertext,
+			byteSize: item.byteSize,
 		};
 		if (!stored) {
 			return { ...base, text: UNREADABLE };
@@ -161,13 +177,19 @@ export default function Page() {
 				opened.push(await openItem(item));
 			}
 		}
-		const forgetting = forgottenRef.current?.item.id ?? null;
+		const now = Date.now();
+		const tombstones = tombstonesRef.current;
+		for (const [id, lapses] of tombstones) {
+			if (lapses <= now) {
+				tombstones.delete(id);
+			}
+		}
 		setItems((current) => {
 			const merged = [...current.filter((row) => row.ephemeral), ...opened];
 			const seen = new Set<string>();
 			return merged
 				.filter((row) => {
-					if (seen.has(row.id) || row.id === forgetting) {
+					if (seen.has(row.id) || tombstones.has(row.id)) {
 						return false;
 					}
 					seen.add(row.id);
@@ -208,6 +230,7 @@ export default function Page() {
 							metaCiphertext: dc.item.metaCiphertext,
 							iv: dc.item.iv,
 							wrappedKey: dc.item.wrappedKey,
+							byteSize: dc.item.byteSize,
 							createdAt: new Date().toISOString(),
 							expiresAt: dc.item.expiresAt,
 						}).then((shown) => {
@@ -320,7 +343,18 @@ export default function Page() {
 			setDraft("");
 			const createdAt = new Date().toISOString();
 			setItems((current) => [
-				{ id, text: trimmed, createdAt, expiresAt, kind, ephemeral },
+				{
+					id,
+					text: trimmed,
+					createdAt,
+					expiresAt,
+					kind,
+					ephemeral,
+					ciphertext: payload.ciphertext,
+					metaCiphertext: payload.metaCiphertext,
+					iv: payload.iv,
+					byteSize: payload.byteSize,
+				},
 				...current.filter((row) => row.id !== id),
 			]);
 			setSelectedId(id);
@@ -408,61 +442,60 @@ export default function Page() {
 		}
 	}, []);
 
-	const flushForgotten = useCallback(
-		async (pending: { item: Shown; timer: number }) => {
-			window.clearTimeout(pending.timer);
-			await commitForget(pending.item);
-		},
-		[commitForget],
-	);
-
-	useEffect(() => {
-		return () => {
-			const pending = forgottenRef.current;
-			if (!pending) {
-				return;
-			}
-			forgottenRef.current = null;
-			void flushForgotten(pending);
-		};
-	}, [flushForgotten]);
-
 	const onForget = useCallback(
 		async (id: string) => {
 			const item = itemsRef.current.find((row) => row.id === id);
 			if (!item) {
 				return;
 			}
-			const previous = forgottenRef.current;
-			forgottenRef.current = null;
-			if (previous) {
-				await flushForgotten(previous);
-			}
 			setItems((current) => current.filter((row) => row.id !== id));
 			setSelectedId((current) => (current === id ? null : current));
-			setUndo(item);
-			const timer = window.setTimeout(() => {
-				forgottenRef.current = null;
-				setUndo((current) => (current?.id === id ? null : current));
-				void commitForget(item);
-			}, FORGET_UNDO_MS);
-			forgottenRef.current = { item, timer };
+			setUndo(restorable(item) ? item : null);
+			tombstonesRef.current.set(id, Date.now() + FORGET_TOMBSTONE_MS);
+			// Forget is not deferred: every other device should drop it now, not
+			// after an undo window that only this device knows about.
+			await commitForget(item);
 		},
-		[commitForget, flushForgotten],
+		[commitForget],
 	);
 
-	const onUndoForget = useCallback(() => {
-		const pending = forgottenRef.current;
-		if (!pending) {
+	const onUndoForget = useCallback(async () => {
+		const item = undo;
+		if (!item?.ciphertext || !item.metaCiphertext || !item.iv || item.byteSize === undefined) {
 			return;
 		}
-		window.clearTimeout(pending.timer);
-		forgottenRef.current = null;
-		setItems((current) =>
-			current.some((row) => row.id === pending.item.id) ? current : [pending.item, ...current],
-		);
 		setUndo(null);
-	}, []);
+		tombstonesRef.current.delete(item.id);
+		const payload = {
+			id: item.id,
+			kind: item.kind === "link" ? ("link" as const) : ("text" as const),
+			ciphertext: item.ciphertext,
+			metaCiphertext: item.metaCiphertext,
+			iv: item.iv,
+			byteSize: item.byteSize,
+			expiresAt: item.expiresAt,
+		};
+		if (item.ephemeral) {
+			const back = await sendOnMesh(meshRef.current?.links() ?? [], {
+				v: 1,
+				type: "item",
+				ephemeral: true,
+				item: payload,
+			});
+			if (back.delivered === 0) {
+				setStatus("No Local peer.");
+			}
+		} else {
+			const res = await postJson("/api/items", payload);
+			if (!res.ok) {
+				setStatus(errorCode(res.data));
+				return;
+			}
+		}
+		setItems((current) =>
+			current.some((row) => row.id === item.id) ? current : [item, ...current],
+		);
+	}, [undo]);
 
 	const activateItem = useCallback(
 		(item: Shown) => {
@@ -768,7 +801,7 @@ export default function Page() {
 			{undo ? (
 				<p className="hint" role="status">
 					Forgotten.{" "}
-					<button type="button" onClick={onUndoForget}>
+					<button type="button" onClick={() => void onUndoForget()}>
 						Undo
 					</button>
 				</p>
