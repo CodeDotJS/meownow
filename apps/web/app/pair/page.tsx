@@ -35,9 +35,11 @@ export default function PairHubPage() {
 					One browser shows a code. The other types it. Pick what this browser is doing.
 				</p>
 				<div className="pair-choice">{hasLocal ? [addCard, showCard] : [showCard, addCard]}</div>
-				<p className="hint">
-					Lost every device? <a href="/recover">Use the 12 words</a>
-				</p>
+				{hasLocal === false ? (
+					<p className="hint">
+						Lost every device? <a href="/recover">Use the 12 words</a>
+					</p>
+				) : null}
 			</Panel>
 		</main>
 	);
