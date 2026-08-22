@@ -168,6 +168,7 @@ export const uploadRequests = pgTable(
 export const pairingSessions = pgTable("pairing_sessions", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+	code: text("code").notNull().unique(),
 	newDevicePub: jsonb("new_device_pub").notNull(),
 	wrappedVault: bytea("wrapped_vault"),
 	fingerprint: text("fingerprint").notNull().default(""),

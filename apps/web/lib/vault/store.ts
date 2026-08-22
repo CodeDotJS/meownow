@@ -58,11 +58,13 @@ export type VaultStore = {
 	getVaultByHandle(handle: string): Promise<{ userId: string; vault: VaultRecord } | null>;
 	createPairing(input: {
 		id: string;
+		code: string;
 		publicJwk: PublicJwk;
 		expiresAt: Date;
 		now: Date;
 	}): Promise<void>;
 	getPairing(id: string): Promise<PairingRecord | null>;
+	getPairingByCode(code: string): Promise<PairingRecord | null>;
 	savePairingWrap(input: {
 		id: string;
 		userId: string;

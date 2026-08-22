@@ -10,6 +10,7 @@ import {
 	itemCreateRequestSchema,
 	loginVerifyRequestSchema,
 	openHubTicket,
+	pairingLookupRequestSchema,
 	pairingStartRequestSchema,
 	pairingWrapRequestSchema,
 	pushSubscribeRequestSchema,
@@ -167,6 +168,12 @@ export function createHandlers(deps: HandlerDeps) {
 			}),
 		getPairing: (_request: Request, id: string) =>
 			run(async () => json(await vault.getPairing(id))),
+		postPairingLookup: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				await requireAuthLimit(limits, request);
+				const body = await readBody(request, pairingLookupRequestSchema);
+				return json(await vault.lookupPairing(sid(request), body.code));
+			}),
 		postPairingWrap: (request: Request, id: string) =>
 			mutating(request, deps.env, async () => {
 				const body = await readBody(request, pairingWrapRequestSchema);

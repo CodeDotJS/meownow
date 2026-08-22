@@ -44,10 +44,12 @@ export default function PairHubPage() {
 		<main>
 			<Panel>
 				<h1>This browser is new</h1>
-				<p className="lead">Show a QR. On the phone or laptop that already works, tap Scan.</p>
+				<p className="lead">
+					Show a code. On the phone or laptop that already works, tap Scan and type it.
+				</p>
 				<nav className="stack">
 					<a className="select" href="/pair/show">
-						Show a QR
+						Show a code
 					</a>
 				</nav>
 				<p className="hint">

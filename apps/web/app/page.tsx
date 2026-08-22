@@ -506,6 +506,8 @@ export default function Page() {
 		setSelectedId(result.id);
 	}
 
+	const draftLines = draft.split("\n").length;
+
 	if (!loaded) {
 		return (
 			<main>
@@ -539,10 +541,12 @@ export default function Page() {
 			<main>
 				<Panel>
 					<h1>This browser is new</h1>
-					<p className="lead">On the phone or laptop that already works, tap Scan.</p>
+					<p className="lead">
+						On the phone or laptop that already works, tap Scan and type the code. Or scan the QR.
+					</p>
 					<nav className="stack">
 						<a className="select" href="/pair/show">
-							Show a QR
+							Show a code
 						</a>
 					</nav>
 					<p className="hint">
@@ -573,6 +577,9 @@ export default function Page() {
 					}}
 					rows={4}
 				/>
+				{draftLines > 8 ? (
+					<p className="field-hint">{draftLines} lines. The box stays this size.</p>
+				) : null}
 				<div className="composer-bar">
 					<button className="select" type="button" onClick={() => void onSend()}>
 						Send

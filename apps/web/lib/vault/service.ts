@@ -15,6 +15,7 @@ import {
 	HUB_WS_TTL_MS,
 	type ItemCreateRequest,
 	mintHubTicket,
+	mintPairingCode,
 	PAIRING_TTL_MS,
 	type PairingWrapRequest,
 	type PublicJwk,
@@ -101,25 +102,32 @@ export class VaultService {
 	async startPairing(publicJwk: PublicJwk) {
 		const now = this.now();
 		const id = randomUUID();
+		const expiresAt = new Date(now.getTime() + PAIRING_TTL_MS);
+		const code = await this.mintUnusedPairingCode();
 		await this.vault.createPairing({
 			id,
+			code,
 			publicJwk,
-			expiresAt: new Date(now.getTime() + PAIRING_TTL_MS),
+			expiresAt,
 			now,
 		});
-		return { id, expiresAt: new Date(now.getTime() + PAIRING_TTL_MS).toISOString() };
+		return { id, code, expiresAt: expiresAt.toISOString() };
 	}
 
 	async getPairing(id: string) {
-		const row = await this.requireLivePairing(id);
-		const handle = row.userId ? ((await this.auth.getUserById(row.userId))?.handle ?? null) : null;
-		return {
-			id: row.id,
-			expiresAt: row.expiresAt.toISOString(),
-			publicJwk: row.publicJwk,
-			handle,
-			wrap: row.wrap,
-		};
+		return this.pairingView(await this.requireLivePairing(id));
+	}
+
+	async lookupPairing(sessionToken: string | undefined, code: string) {
+		await this.requireUser(sessionToken);
+		const row = await this.vault.getPairingByCode(code);
+		if (!row) {
+			throw new AuthError("pairing_missing", 404);
+		}
+		if (row.expiresAt.getTime() <= this.now().getTime()) {
+			throw new AuthError("pairing_expired", 400);
+		}
+		return this.pairingView(row);
 	}
 
 	async postWrap(sessionToken: string | undefined, id: string, wrap: PairingWrapRequest) {
@@ -593,6 +601,27 @@ export class VaultService {
 
 	async prune(): Promise<{ keepR2Keys: string[]; deleteR2Keys: string[] }> {
 		return this.vault.prune(this.now());
+	}
+
+	private async pairingView(row: Awaited<ReturnType<VaultService["requireLivePairing"]>>) {
+		const handle = row.userId ? ((await this.auth.getUserById(row.userId))?.handle ?? null) : null;
+		return {
+			id: row.id,
+			expiresAt: row.expiresAt.toISOString(),
+			publicJwk: row.publicJwk,
+			handle,
+			wrap: row.wrap,
+		};
+	}
+
+	private async mintUnusedPairingCode(): Promise<string> {
+		for (let attempt = 0; attempt < 8; attempt += 1) {
+			const code = mintPairingCode();
+			if (!(await this.vault.getPairingByCode(code))) {
+				return code;
+			}
+		}
+		throw new AuthError("rate_limited", 429);
 	}
 
 	private async requireLivePairing(id: string) {

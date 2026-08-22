@@ -65,6 +65,12 @@ export {
 	webAuthnRegistrationResponseSchema,
 } from "./http";
 export {
+	formatPairingCode,
+	mintPairingCode,
+	normalizePairingCode,
+	PAIRING_CODE_LENGTH,
+} from "./pairing-code";
+export {
 	uploadCommitRequestSchema,
 	uploadIntentRequestSchema,
 	uploadRequestCreateSchema,
@@ -90,8 +96,10 @@ export {
 	itemRecordSchema,
 	PAIRING_TTL_MS,
 	pairingGetResponseSchema,
+	pairingLookupRequestSchema,
 	pairingQrSchema,
 	pairingStartRequestSchema,
+	pairingStartResponseSchema,
 	pairingWrapRequestSchema,
 	publicJwkSchema,
 	pushSubscribeRequestSchema,

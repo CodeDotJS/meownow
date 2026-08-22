@@ -25,7 +25,7 @@ import {
 	pairingWrapRequestSchema,
 	type WrappedKeyWire,
 } from "@meownow/protocol";
-import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, ne, type SQL, sql } from "drizzle-orm";
 import { planPrune } from "../vault/prune";
 import type {
 	BlobRow,
@@ -497,6 +497,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 
 	async createPairing(input: {
 		id: string;
+		code: string;
 		publicJwk: PublicJwk;
 		expiresAt: Date;
 		now: Date;
@@ -504,6 +505,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		await this.withDb(async (db) => {
 			await db.insert(pairingSessions).values({
 				id: input.id,
+				code: input.code,
 				newDevicePub: input.publicJwk,
 				fingerprint: "",
 				expiresAt: input.expiresAt,
@@ -513,12 +515,16 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 	}
 
 	async getPairing(id: string): Promise<PairingRecord | null> {
+		return this.pairingWhere(eq(pairingSessions.id, id));
+	}
+
+	async getPairingByCode(code: string): Promise<PairingRecord | null> {
+		return this.pairingWhere(eq(pairingSessions.code, code));
+	}
+
+	private pairingWhere(where: SQL): Promise<PairingRecord | null> {
 		return this.withDb(async (db) => {
-			const rows = await db
-				.select()
-				.from(pairingSessions)
-				.where(eq(pairingSessions.id, id))
-				.limit(1);
+			const rows = await db.select().from(pairingSessions).where(where).limit(1);
 			const row = rows[0];
 			if (!row) {
 				return null;

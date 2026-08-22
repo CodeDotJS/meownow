@@ -9,7 +9,7 @@ import {
 	unwrapIdentityKey,
 	wrapExtractableForDevice,
 } from "@meownow/crypto";
-import { asPublicJwk, type PairingQr } from "@meownow/protocol";
+import { asPublicJwk, formatPairingCode, type PairingQr } from "@meownow/protocol";
 import { startRegistration } from "@simplewebauthn/browser";
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
@@ -34,8 +34,9 @@ export default function PairShowPage() {
 	const [status, setStatus] = useState<string | null>(null);
 	const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
 	const [sessionId, setSessionId] = useState<string | null>(null);
+	const [code, setCode] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
-	const [copied, setCopied] = useState(false);
+	const [copied, setCopied] = useState<"code" | "qr" | null>(null);
 
 	useEffect(() => {
 		void (async () => {
@@ -46,9 +47,10 @@ export default function PairShowPage() {
 				setStatus(errorCode(res.data));
 				return;
 			}
-			const started = res.data as { id: string };
+			const started = res.data as { id: string; code: string };
 			setPrivateKey(pair.privateKey);
 			setSessionId(started.id);
+			setCode(started.code);
 			const qr: PairingQr = { v: 1, id: started.id, publicJwk: asPublicJwk(pub) };
 			setPayload(JSON.stringify(qr));
 		})();
@@ -153,22 +155,40 @@ export default function PairShowPage() {
 		<main>
 			<Panel>
 				<PairRoles current="show" />
-				<h1>Show a QR</h1>
+				<h1>Show a code</h1>
 				<p className="lead">
-					Leave this up. On the working device open meownow, tap Scan, and point that camera here.
+					On the other computer tap Scan and type this code. On a phone, scan the QR instead.
 				</p>
-				{payload ? <PairingQrCanvas payload={payload} /> : <p className="hint">Making a QR.</p>}
+				{code ? (
+					<>
+						<p className="pair-code mono">{formatPairingCode(code)}</p>
+						<button
+							type="button"
+							onClick={() => {
+								void navigator.clipboard.writeText(formatPairingCode(code)).then(
+									() => setCopied("code"),
+									() => setStatus("copy_failed"),
+								);
+							}}
+						>
+							{copied === "code" ? "Copied code" : "Copy code"}
+						</button>
+					</>
+				) : (
+					<p className="hint">Making a code.</p>
+				)}
+				{payload ? <PairingQrCanvas payload={payload} /> : null}
 				{payload ? (
 					<button
 						type="button"
 						onClick={() => {
 							void navigator.clipboard.writeText(payload).then(
-								() => setCopied(true),
+								() => setCopied("qr"),
 								() => setStatus("copy_failed"),
 							);
 						}}
 					>
-						{copied ? "Copied QR text" : "Copy QR text"}
+						{copied === "qr" ? "Copied QR text" : "Copy QR text"}
 					</button>
 				) : null}
 				{fingerprint ? (
@@ -186,7 +206,7 @@ export default function PairShowPage() {
 					</div>
 				) : (
 					<p className="hint" role="status">
-						Waiting for a scan in meownow. Not the phone Camera app.
+						Waiting for the other device. Camera or the code both work.
 					</p>
 				)}
 				<Status value={status} />

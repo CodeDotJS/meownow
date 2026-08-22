@@ -213,6 +213,31 @@ test("unauthenticated wrap and item create are denied", async () => {
 	).rejects.toMatchObject({ code: "unauthorized" });
 });
 
+test("signed-in device looks up a pairing session by code", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn });
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const newDevice = await generatePairingKeyPair();
+	const started = await vaultApi.startPairing(asPublicJwk(await publicJwk(newDevice.publicKey)));
+	expect(started.code).toMatch(/^[23456789ABCDEFGHJKMNPQRSTVWXYZ]{8}$/);
+	const found = await vaultApi.lookupPairing(enrolled.sessionToken, started.code);
+	expect(found.id).toBe(started.id);
+	expect(found.publicJwk.x).toBe((await publicJwk(newDevice.publicKey)).x);
+	await expect(vaultApi.lookupPairing(undefined, started.code)).rejects.toMatchObject({
+		code: "unauthorized",
+	});
+	await expect(vaultApi.lookupPairing(enrolled.sessionToken, "22222222")).rejects.toMatchObject({
+		code: "pairing_missing",
+	});
+});
+
 test("wrong recovery verifier cannot enroll a device", async () => {
 	const store = new MemoryAuthStore();
 	const webauthn = mockWebAuthn();

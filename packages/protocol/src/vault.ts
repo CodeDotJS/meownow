@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizePairingCode, PAIRING_CODE_LENGTH } from "./pairing-code";
 
 export const TEXT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const PAIRING_TTL_MS = 5 * 60 * 1000;
@@ -43,7 +44,22 @@ export const pairingStartRequestSchema = z.object({
 
 export const pairingStartResponseSchema = z.object({
 	id: z.string().uuid(),
+	code: z.string().length(PAIRING_CODE_LENGTH),
 	expiresAt: z.string(),
+});
+
+export const pairingLookupRequestSchema = z.object({
+	code: z
+		.string()
+		.min(1)
+		.transform((value, ctx) => {
+			const normalized = normalizePairingCode(value);
+			if (!normalized) {
+				ctx.addIssue({ code: "custom", message: "pairing_code" });
+				return z.NEVER;
+			}
+			return normalized;
+		}),
 });
 
 export const pairingWrapRequestSchema = z.object({

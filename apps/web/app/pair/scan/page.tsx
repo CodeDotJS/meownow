@@ -14,6 +14,7 @@ import { wrapToWire } from "@/lib/vault/wire";
 
 export default function PairScanPage() {
 	const [raw, setRaw] = useState("");
+	const [code, setCode] = useState("");
 	const [scanning, setScanning] = useState(false);
 	const [fingerprint, setFingerprint] = useState<string | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
@@ -136,6 +137,23 @@ export default function PairScanPage() {
 		void prepare(scanned);
 	}, [scanned, prepare]);
 
+	async function onCode(event: FormEvent) {
+		event.preventDefault();
+		setBusy(true);
+		setStatus(null);
+		try {
+			const res = await postJson("/api/pairing/lookup", { code });
+			if (!res.ok) {
+				setStatus(errorCode(res.data));
+				return;
+			}
+			const found = res.data as { id: string; publicJwk: PairingQr["publicJwk"] };
+			await prepare({ v: 1, id: found.id, publicJwk: found.publicJwk });
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	async function onPrepare(event: FormEvent) {
 		event.preventDefault();
 		const qr = parsePairingQr(raw);
@@ -163,19 +181,32 @@ export default function PairScanPage() {
 				) : (
 					<>
 						<p className="lead">
-							Point this camera at the QR on the new device. Scan inside meownow, not the phone
-							Camera app.
+							Type the code from the new computer. On a phone you can scan the QR instead.
 						</p>
+						<form onSubmit={(event) => void onCode(event)}>
+							<label>
+								Code
+								<input
+									className="mono pair-code-input"
+									value={code}
+									onChange={(e) => setCode(e.target.value.toUpperCase())}
+									autoComplete="off"
+									spellCheck={false}
+									inputMode="text"
+									placeholder="7K3M-2Q9P"
+									maxLength={9}
+									required
+								/>
+							</label>
+							<button className="select" type="submit" disabled={busy}>
+								{busy ? "Working…" : "Use code"}
+							</button>
+						</form>
 						<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
 						<canvas ref={canvasRef} className="file-hidden" aria-hidden />
 						<nav className="stack">
-							<button
-								className="select"
-								type="button"
-								onClick={() => setScanning((on) => !on)}
-								disabled={busy}
-							>
-								{scanning ? "Stop camera" : busy ? "Working…" : "Scan"}
+							<button type="button" onClick={() => setScanning((on) => !on)} disabled={busy}>
+								{scanning ? "Stop camera" : "Scan QR"}
 							</button>
 						</nav>
 						<form onSubmit={(event) => void onPrepare(event)}>

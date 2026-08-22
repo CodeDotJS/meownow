@@ -43,6 +43,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 	audit: AuditEntry[] = [];
 	vaults = new Map<string, VaultRecord>();
 	pairings = new Map<string, PairingRecord>();
+	pairingCodes = new Map<string, string>();
 	items: StoredItem[] = [];
 	pushes: Array<{ deviceId: string; endpoint: string; p256dh: string; auth: string }> = [];
 	uploadRequests: UploadRequestRow[] = [];
@@ -366,6 +367,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 
 	async createPairing(input: {
 		id: string;
+		code: string;
 		publicJwk: PairingRecord["publicJwk"];
 		expiresAt: Date;
 		now: Date;
@@ -379,10 +381,16 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			expiresAt: input.expiresAt,
 			createdAt: input.now,
 		});
+		this.pairingCodes.set(input.code, input.id);
 	}
 
 	async getPairing(id: string): Promise<PairingRecord | null> {
 		return this.pairings.get(id) ?? null;
+	}
+
+	async getPairingByCode(code: string): Promise<PairingRecord | null> {
+		const id = this.pairingCodes.get(code);
+		return id ? (this.pairings.get(id) ?? null) : null;
 	}
 
 	async savePairingWrap(input: {
@@ -406,6 +414,11 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 
 	async deletePairing(id: string): Promise<void> {
 		this.pairings.delete(id);
+		for (const [code, pairingId] of this.pairingCodes) {
+			if (pairingId === id) {
+				this.pairingCodes.delete(code);
+			}
+		}
 	}
 
 	async createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void> {

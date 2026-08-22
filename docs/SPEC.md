@@ -116,8 +116,8 @@ VaultKey (AES-256-GCM, per user, never leaves the client)
 
 **Adding a device (the flow that has to feel effortless)**
 
-1. New device generates an ephemeral ECDH P-256 keypair, shows a QR containing its public JWK plus a pairing session id.
-2. Enrolled device scans it, does ECDH → HKDF-SHA256 → wrapping key, AES-GCM-wraps `VaultKey`, POSTs the wrapped blob to the pairing session.
+1. New device generates an ephemeral ECDH P-256 keypair, shows a QR containing its public JWK plus a pairing session id, and an 8-character typed code for the same session.
+2. Enrolled device scans the QR or types the code (signed-in lookup). It does ECDH → HKDF-SHA256 → wrapping key, AES-GCM-wraps `VaultKey`, POSTs the wrapped blob to the pairing session.
 3. **Both devices display a 6-digit fingerprint of the shared secret.** User confirms they match. This is what stops your own server from MITMing the pairing.
 4. New device polls, fetches wrapped blob, unwraps, imports non-extractable. Session is destroyed. TTL 5 minutes.
 
@@ -468,7 +468,7 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state. First-run copy names the next action in plain language. Do not say “vault” on a screen a guest has to complete.
 
-**First-run.** One visible next action. The signed-out hero has one CTA: Continue with passkey. A guest without an invite is told they need a link. Join, recover, and first-admin enroll are not equal choices on the signed-out home. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only offered when the account already has keys and this browser does not. An empty browser only offers Show a QR. Recovery is the lost-every-device path, never a peer of pairing. Adding a second device is Pair (show a QR) and Scan (read that QR) in the signed-in top bar, not a ⌘K-only command. Invites are sent as a `/join?t=` URL, not a bare token.
+**First-run.** One visible next action. The signed-out hero has one CTA: Continue with passkey. A guest without an invite is told they need a link. Join, recover, and first-admin enroll are not equal choices on the signed-out home. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only offered when the account already has keys and this browser does not. An empty browser only offers Show a code. Recovery is the lost-every-device path, never a peer of pairing. Adding a second device is Pair (show a code or QR) and Scan (type that code or read the QR) in the signed-in top bar, not a ⌘K-only command. Invites are sent as a `/join?t=` URL, not a bare token.
 
 **Forbidden:** Inter, purple-to-pink soup, dark auto-theme, glow, mesh, conic border, emoji buttons, unread shadcn, implying the server can read paste contents.
 
