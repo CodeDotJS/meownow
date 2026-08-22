@@ -443,6 +443,22 @@ test("deleteItem without a session is denied", async () => {
 	});
 });
 
+test("deleteItem on a missing row is a no-op so a second Forget is not an error", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn });
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	await expect(
+		vaultApi.deleteItem(enrolled.sessionToken, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+	).resolves.toBeUndefined();
+});
+
 test("upload intent is denied when can_upload is false", async () => {
 	const store = new MemoryAuthStore();
 	const webauthn = mockWebAuthn();

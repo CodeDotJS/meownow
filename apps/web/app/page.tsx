@@ -11,6 +11,7 @@ import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
 import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { Landing } from "@/lib/ui/landing";
+import { mergeRemoteItems } from "@/lib/ui/merge-items";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 import { formatGutterTime, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
@@ -98,6 +99,9 @@ export default function Page() {
 	const itemsRef = useRef<Shown[]>([]);
 	/** id -> when the tombstone lapses. Stops an in-flight GET restoring a deleted row. */
 	const tombstonesRef = useRef<Map<string, number>>(new Map());
+	/** Notes this browser wrote that a slower GET must not drop. */
+	const pendingRef = useRef<Set<string>>(new Set());
+	const refreshSeqRef = useRef(0);
 	const reduceMotion = useReducedMotion();
 	itemsRef.current = items;
 
@@ -167,9 +171,16 @@ export default function Page() {
 	}, []);
 
 	const refreshItems = useCallback(async () => {
+		const seq = ++refreshSeqRef.current;
 		const res = await getJson("/api/items");
+		if (seq !== refreshSeqRef.current) {
+			return;
+		}
 		if (!res.ok) {
-			setStatus(errorCode(res.data));
+			const failed = errorCode(res.data);
+			if (failed === "vault_missing") {
+				setStatus(failed);
+			}
 			return;
 		}
 		const list = (res.data as { items: ItemRow[] }).items;
@@ -179,6 +190,9 @@ export default function Page() {
 				opened.push(await openItem(item));
 			}
 		}
+		if (seq !== refreshSeqRef.current) {
+			return;
+		}
 		const now = Date.now();
 		const tombstones = tombstonesRef.current;
 		for (const [id, lapses] of tombstones) {
@@ -186,19 +200,15 @@ export default function Page() {
 				tombstones.delete(id);
 			}
 		}
-		setItems((current) => {
-			const merged = [...current.filter((row) => row.ephemeral), ...opened];
-			const seen = new Set<string>();
-			return merged
-				.filter((row) => {
-					if (seen.has(row.id) || tombstones.has(row.id)) {
-						return false;
-					}
-					seen.add(row.id);
-					return true;
-				})
-				.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-		});
+		for (const row of opened) {
+			pendingRef.current.delete(row.id);
+		}
+		setItems((current) =>
+			mergeRemoteItems(current, opened, {
+				tombstones: tombstones.keys(),
+				pending: pendingRef.current,
+			}),
+		);
 	}, [openItem]);
 
 	useEffect(() => {
@@ -325,6 +335,24 @@ export default function Page() {
 				byteSize: sealed.bytes.byteLength,
 				expiresAt,
 			};
+			const createdAt = new Date().toISOString();
+			const localItem: Shown = {
+				id,
+				text: trimmed,
+				createdAt,
+				expiresAt,
+				kind,
+				ephemeral,
+				ciphertext: payload.ciphertext,
+				metaCiphertext: payload.metaCiphertext,
+				iv: payload.iv,
+				byteSize: payload.byteSize,
+			};
+			pendingRef.current.add(id);
+			setStatus(null);
+			setDraft("");
+			setItems((current) => [localItem, ...current.filter((row) => row.id !== id)]);
+			setSelectedId(id);
 			const meshSend = await sendOnMesh(meshRef.current?.links() ?? [], {
 				v: 1,
 				type: "item",
@@ -334,31 +362,19 @@ export default function Page() {
 			if (shouldPersist(ephemeral)) {
 				const res = await postJson("/api/items", payload);
 				if (!res.ok) {
+					pendingRef.current.delete(id);
+					setItems((current) => current.filter((row) => row.id !== id));
+					setDraft(trimmed);
 					setStatus(errorCode(res.data));
-					return;
 				}
-			} else if (meshSend.delivered === 0) {
-				setStatus("No Local peer.");
 				return;
 			}
-			setDraft("");
-			const createdAt = new Date().toISOString();
-			setItems((current) => [
-				{
-					id,
-					text: trimmed,
-					createdAt,
-					expiresAt,
-					kind,
-					ephemeral,
-					ciphertext: payload.ciphertext,
-					metaCiphertext: payload.metaCiphertext,
-					iv: payload.iv,
-					byteSize: payload.byteSize,
-				},
-				...current.filter((row) => row.id !== id),
-			]);
-			setSelectedId(id);
+			if (meshSend.delivered === 0) {
+				pendingRef.current.delete(id);
+				setItems((current) => current.filter((row) => row.id !== id));
+				setDraft(trimmed);
+				setStatus("No Local peer.");
+			}
 		},
 		[ephemeral],
 	);
@@ -439,7 +455,10 @@ export default function Page() {
 		}
 		const res = await deleteJson(`/api/items/${item.id}`);
 		if (!res.ok) {
-			setStatus(errorCode(res.data));
+			const failed = errorCode(res.data);
+			if (failed !== "item_invalid" && failed !== "not_found") {
+				setStatus(failed);
+			}
 		}
 	}, []);
 
@@ -452,6 +471,7 @@ export default function Page() {
 			setItems((current) => current.filter((row) => row.id !== id));
 			setSelectedId((current) => (current === id ? null : current));
 			setUndo(restorable(item) ? item : null);
+			pendingRef.current.delete(id);
 			tombstonesRef.current.set(id, Date.now() + FORGET_TOMBSTONE_MS);
 			// Forget is not deferred: every other device should drop it now, not
 			// after an undo window that only this device knows about.
@@ -467,6 +487,7 @@ export default function Page() {
 		}
 		setUndo(null);
 		tombstonesRef.current.delete(item.id);
+		pendingRef.current.add(item.id);
 		const payload = {
 			id: item.id,
 			kind: item.kind === "link" ? ("link" as const) : ("text" as const),

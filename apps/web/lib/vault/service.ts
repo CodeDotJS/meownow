@@ -183,10 +183,7 @@ export class VaultService {
 
 	async deleteItem(sessionToken: string | undefined, id: string) {
 		const user = await this.requireUser(sessionToken);
-		const ok = await this.vault.deleteItem(user.id, id);
-		if (!ok) {
-			throw new AuthError("item_invalid", 404);
-		}
+		await this.vault.deleteItem(user.id, id);
 		await this.hub.publish(user.id, { v: 1, type: "item.deleted", id });
 	}
 
