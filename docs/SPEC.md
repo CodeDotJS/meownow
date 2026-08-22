@@ -462,7 +462,7 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Type.** Outfit is the product face: chrome, paste, timestamps, handles, forms, admin. Martian Mono is only for pairing codes, the 6-digit fingerprint, and the 12-word phrase. Never Inter.
 
-**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. The signed-in clipboard stays one column with a timestamp gutter. Newest at top. ⌘K on a keyboard, Menu on a phone. TTL hairline under each item. Chrome carries one pairing entry pointing at `/pair`, labelled for what this browser most likely is. Forget is visible on every width. Inputs stay at 16px so iOS does not zoom.
+**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. From 960px the signed-in clipboard is two panes in one sheet: write on the left, the tray on the right, timestamp gutter on each line. Below that it is one column; on a phone the composer sits at the bottom. Newest at top. ⌘K on a keyboard, Menu on a phone. TTL hairline under each item. Chrome carries one pairing entry pointing at `/pair`, labelled for what this browser most likely is. Forget is visible on every width. Inputs stay at 16px so iOS does not zoom.
 
 **Motion.** Short ease-out on enter and press (`scale(0.98)`). New items may ease ~220ms. Grain is a fixed overlay. Respect `prefers-reduced-motion`.
 
