@@ -35,6 +35,13 @@ describe("menuActions", () => {
 		expect(ids).not.toContain("enroll");
 	});
 
+	test("admin menu is people, invites, and requests", () => {
+		const ids = menuActions({ ...member, role: "admin" }, true).map((row) => row.id);
+		expect(ids).toEqual(["home", "add-device", "pair", "admin", "invites", "requests", "logout"]);
+		expect(ids).not.toContain("audit");
+		expect(ids).not.toContain("usage");
+	});
+
 	test("setup is the only path before the 12 words exist", () => {
 		expect(menuActions({ ...member, hasVault: false }, false).map((row) => row.id)).toEqual([
 			"setup",
