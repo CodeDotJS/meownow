@@ -157,7 +157,8 @@ export default function PairShowPage() {
 				<PairRoles current="show" />
 				<h1>Show a code</h1>
 				<p className="lead">
-					On the other computer tap Scan and type this code. On a phone, scan the QR instead.
+					On the computer that already works, sign in, tap Scan, and type this code. On a phone,
+					scan the QR instead.
 				</p>
 				{code ? (
 					<>

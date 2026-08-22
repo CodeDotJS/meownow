@@ -4,6 +4,7 @@ import { startAuthentication } from "@simplewebauthn/browser";
 import { useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
 import { Panel } from "@/lib/ui/panel";
+import { safeNextPath } from "@/lib/ui/safe-next";
 import { Status } from "@/lib/ui/status";
 
 export default function LoginPage() {
@@ -28,7 +29,7 @@ export default function LoginPage() {
 				setStatus(errorCode(verifyRes.data));
 				return;
 			}
-			window.location.href = "/";
+			window.location.href = safeNextPath(new URL(window.location.href).searchParams.get("next"));
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "passkey_failed");
 		} finally {

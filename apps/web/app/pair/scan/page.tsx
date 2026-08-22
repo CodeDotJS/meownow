@@ -3,7 +3,7 @@
 import { unwrapExtractableForPairing, wrapVaultForPairing } from "@meownow/crypto";
 import { asPublicJwk, type PairingQr } from "@meownow/protocol";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { errorCode, postJson } from "@/lib/client/http";
+import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { parsePairingQr } from "@/lib/pair/qr";
 import { readPairingQrFromVideo } from "@/lib/pair/read-qr";
 import { PairRoles } from "@/lib/ui/pair-roles";
@@ -19,11 +19,27 @@ export default function PairScanPage() {
 	const [fingerprint, setFingerprint] = useState<string | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [gate, setGate] = useState<"loading" | "signin" | "new-browser" | "ready">("loading");
 	const [scanned, setScanned] = useState<PairingQr | null>(null);
 	const [sent, setSent] = useState(false);
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const streamRef = useRef<MediaStream | null>(null);
+
+	useEffect(() => {
+		void (async () => {
+			const [stored, me] = await Promise.all([loadVault(), getJson("/api/auth/me")]);
+			if (!me.ok) {
+				setGate("signin");
+				return;
+			}
+			if (!stored) {
+				setGate("new-browser");
+				return;
+			}
+			setGate("ready");
+		})();
+	}, []);
 
 	useEffect(() => {
 		if (!scanning || scanned) {
@@ -144,7 +160,8 @@ export default function PairScanPage() {
 		try {
 			const res = await postJson("/api/pairing/lookup", { code });
 			if (!res.ok) {
-				setStatus(errorCode(res.data));
+				const failed = errorCode(res.data);
+				setStatus(failed === "unauthorized" ? "scan_needs_signin" : failed);
 				return;
 			}
 			const found = res.data as { id: string; publicJwk: PairingQr["publicJwk"] };
@@ -162,6 +179,63 @@ export default function PairScanPage() {
 			return;
 		}
 		await prepare(qr);
+	}
+
+	if (gate === "loading") {
+		return (
+			<main>
+				<Panel>
+					<h1>Scan</h1>
+					<p className="lead">Checking this browser.</p>
+				</Panel>
+			</main>
+		);
+	}
+
+	if (gate === "signin") {
+		return (
+			<main>
+				<Panel>
+					<h1>Sign in on this browser first</h1>
+					<p className="lead">
+						Scan is only for a computer that already has the clipboard. Sign in here, then type the
+						code from the new browser.
+					</p>
+					<nav className="stack">
+						<a className="select" href="/login?next=/pair/scan">
+							Continue with passkey
+						</a>
+					</nav>
+					<ul className="hint-list">
+						<li>
+							This browser is new? <a href="/pair/show">Show a code</a>
+						</li>
+						<li>
+							Lost every device? <a href="/recover">Use the 12 words</a>
+						</li>
+					</ul>
+				</Panel>
+			</main>
+		);
+	}
+
+	if (gate === "new-browser") {
+		return (
+			<main>
+				<Panel>
+					<h1>This browser is new</h1>
+					<p className="lead">
+						It can sign in, but it has no keys yet. Show a code here. On the computer that already
+						works, tap Scan and type it.
+					</p>
+					<nav className="stack">
+						<a className="select" href="/pair/show">
+							Show a code
+						</a>
+					</nav>
+				</Panel>
+			</main>
+		);
 	}
 
 	return (

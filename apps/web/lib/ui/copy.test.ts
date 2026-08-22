@@ -27,6 +27,9 @@ describe("statusCopy", () => {
 			"This browser has no keys. Show a QR or use the 12 words.",
 		);
 		expect(statusCopy("wrap_failed")).toBe("Could not send keys to that device.");
+		expect(statusCopy("scan_needs_signin")).toBe(
+			"Sign in on this browser first. Scan is only for a device that already works.",
+		);
 	});
 
 	test("does not dump raw JSON into the status pill", () => {

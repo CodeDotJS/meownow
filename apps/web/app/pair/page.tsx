@@ -53,7 +53,7 @@ export default function PairHubPage() {
 					</a>
 				</nav>
 				<p className="hint">
-					This one already works? <a href="/pair/scan">Scan</a>
+					This one already works and is signed in? <a href="/pair/scan">Scan</a>
 				</p>
 			</Panel>
 		</main>
