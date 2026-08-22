@@ -6,6 +6,7 @@ import { getJson, postJson } from "@/lib/client/http";
 import { markStandalone } from "@/lib/pwa/standalone";
 import { loadVault } from "@/lib/vault/idb";
 import { dropStaleLocalVault } from "@/lib/vault/local";
+import { menuActions } from "./menu";
 import { CommandPalette, type PaletteAction } from "./palette";
 
 type FrameMe = {
@@ -59,91 +60,17 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	}, [open]);
 
 	const actions = useMemo((): PaletteAction[] => {
-		if (!me) {
-			return [
-				{ id: "login", label: "Sign in", hint: "Passkey already on this browser", href: "/login" },
-				{
-					id: "join",
-					label: "Join with an invite",
-					hint: "Someone sent you a link",
-					href: "/join",
-				},
-				{
-					id: "pair",
-					label: "This browser is new",
-					hint: "Show a code for the working device",
-					href: "/pair/show",
-				},
-				{ id: "recover", label: "Lost every device", hint: "Use the 12 words", href: "/recover" },
-				{ id: "enroll", label: "First admin", hint: "Bootstrap the first seat", href: "/enroll" },
-			];
-		}
-		const rows: PaletteAction[] = [{ id: "home", label: "Clipboard", href: "/" }];
-		if (!me.hasVault) {
-			rows.push({
-				id: "setup",
-				label: "Finish setup",
-				hint: "Write down the 12 words",
-				href: "/setup",
-			});
-		} else if (hasLocal) {
-			rows.push(
-				{
-					id: "add-device",
-					label: "Add a device",
-					hint: "Type the code the new browser shows",
-					href: "/pair/scan",
-				},
-				{
-					id: "pair",
-					label: "Show a code",
-					hint: "Only if this browser is the new one",
-					href: "/pair/show",
-				},
-			);
-		} else {
-			rows.push(
-				{
-					id: "pair",
-					label: "Show a code",
-					hint: "This browser is new",
-					href: "/pair/show",
-				},
-				{
-					id: "add-device",
-					label: "Add a device",
-					hint: "Type the code the new browser shows",
-					href: "/pair/scan",
-				},
-			);
-		}
-		rows.push({
-			id: "recover",
-			label: "Lost every device",
-			hint: "Use the 12 words",
-			href: "/recover",
-		});
-		if (!me.canUpload) {
-			rows.push({ id: "access", label: "Request file uploads", href: "/access" });
-		}
-		if (me.role === "admin") {
-			rows.push(
-				{ id: "admin", label: "Admin", href: "/admin" },
-				{ id: "invites", label: "Invites", href: "/invites" },
-				{ id: "requests", label: "Upload requests", href: "/requests" },
-				{ id: "audit", label: "Audit", href: "/admin/audit" },
-				{ id: "usage", label: "Usage", href: "/admin/usage" },
-			);
-		}
-		rows.push({
-			id: "logout",
-			label: "Log out",
-			run: async () => {
-				await postJson("/api/auth/logout", {});
-				window.location.href = "/";
-			},
-		});
-		return rows;
+		return menuActions(me, hasLocal).map((row) =>
+			row.id === "logout"
+				? {
+						...row,
+						run: async () => {
+							await postJson("/api/auth/logout", {});
+							window.location.href = "/";
+						},
+					}
+				: row,
+		);
 	}, [me, hasLocal]);
 
 	return (
