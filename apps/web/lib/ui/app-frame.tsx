@@ -56,23 +56,56 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	const actions = useMemo((): PaletteAction[] => {
 		if (!me) {
 			return [
-				{ id: "login", label: "Continue with passkey", href: "/login" },
-				{ id: "join", label: "Paste an invite code", href: "/join" },
+				{ id: "login", label: "Sign in", hint: "Passkey already on this browser", href: "/login" },
+				{
+					id: "join",
+					label: "Join with an invite",
+					hint: "Someone sent you a link",
+					href: "/join",
+				},
+				{
+					id: "pair",
+					label: "This browser is new",
+					hint: "Show a code for the working device",
+					href: "/pair/show",
+				},
+				{ id: "recover", label: "Lost every device", hint: "Use the 12 words", href: "/recover" },
+				{ id: "enroll", label: "First admin", hint: "Bootstrap the first seat", href: "/enroll" },
 			];
 		}
 		const rows: PaletteAction[] = [{ id: "home", label: "Clipboard", href: "/" }];
 		if (!me.hasVault) {
-			rows.push({ id: "setup", label: "Finish setup", href: "/setup" });
+			rows.push({
+				id: "setup",
+				label: "Finish setup",
+				hint: "Write down the 12 words",
+				href: "/setup",
+			});
 		}
 		if (me.hasVault) {
 			rows.push(
-				{ id: "pair", label: "Pair", href: "/pair/show" },
-				{ id: "scan", label: "Scan", href: "/pair/scan" },
+				{
+					id: "pair",
+					label: "This browser is new",
+					hint: "Show a code",
+					href: "/pair/show",
+				},
+				{
+					id: "scan",
+					label: "This browser already works",
+					hint: "Type a code or scan",
+					href: "/pair/scan",
+				},
 			);
 		}
-		rows.push({ id: "recover", label: "Use the 12 words", href: "/recover" });
+		rows.push({
+			id: "recover",
+			label: "Lost every device",
+			hint: "Use the 12 words",
+			href: "/recover",
+		});
 		if (!me.canUpload) {
-			rows.push({ id: "access", label: "Request upload access", href: "/access" });
+			rows.push({ id: "access", label: "Request file uploads", href: "/access" });
 		}
 		if (me.role === "admin") {
 			rows.push(
@@ -102,6 +135,11 @@ export function AppFrame({ children }: { children: ReactNode }) {
 				</a>
 				<div className="chrome-right">
 					{me ? <span className="chrome-handle">{me.handle}</span> : null}
+					{me ? null : (
+						<a className="chrome-add" href="/login">
+							Sign in
+						</a>
+					)}
 					{me?.role === "admin" ? (
 						<a className="chrome-add chrome-desk" href="/invites">
 							Invites

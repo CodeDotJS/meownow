@@ -33,7 +33,7 @@ export default function PairHubPage() {
 						</a>
 					</nav>
 					<p className="hint">
-						This one is new? <a href="/pair/show">Show a QR</a>
+						This one is new? <a href="/pair/show">Show a code</a>
 					</p>
 				</Panel>
 			</main>

@@ -850,6 +850,12 @@ li {
 	color: inherit;
 }
 
+.palette-hint {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	text-align: right;
+}
+
 .palette-empty {
 	padding: 0.45rem 0.4rem;
 	color: var(--muted);

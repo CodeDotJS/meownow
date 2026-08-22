@@ -31,7 +31,9 @@ export function Landing() {
 						</a>
 					</nav>
 					<p className="hint">
-						I have a code to paste. <a href="/join">Open join</a>
+						Have an invite? <a href="/join">Join</a>
+						<br />
+						This browser is new. <a href="/pair/show">Show a code</a>
 						<br />
 						Lost every device. <a href="/recover">Use the 12 words</a>
 					</p>
