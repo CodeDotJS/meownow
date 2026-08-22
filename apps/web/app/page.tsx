@@ -13,6 +13,7 @@ import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { Landing } from "@/lib/ui/landing";
 import { mergeRemoteItems } from "@/lib/ui/merge-items";
 import { Panel } from "@/lib/ui/panel";
+import { OFFLINE_POLL_MS, shouldHttpPoll } from "@/lib/ui/reconcile";
 import { Status } from "@/lib/ui/status";
 import { formatGutterTime, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
 import { loadVault } from "@/lib/vault/idb";
@@ -76,8 +77,6 @@ function itemTtl(kind: Shown["kind"]): number {
 const UNREADABLE = "This browser cannot read that line";
 const CLIP_HINT_KEY = "meownow.clip-hint";
 const FORGET_TOMBSTONE_MS = 15000;
-/** Re-read even while the socket is up. A live socket can be on a different hub than the writer. */
-const RECONCILE_MS = 4000;
 
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
@@ -224,6 +223,7 @@ export default function Page() {
 		}
 		const session = connectHub((envelope) => {
 			if (envelope.type === "hello") {
+				setLive(true);
 				void refreshItems();
 				meshRef.current?.close();
 				meshRef.current = new Mesh(
@@ -294,17 +294,29 @@ export default function Page() {
 		};
 	}, [me, hasLocal, openItem, refreshItems]);
 
+	const hadLive = useRef(false);
 	useEffect(() => {
 		if (!me || !hasLocal) {
 			return;
 		}
+		if (live) {
+			hadLive.current = true;
+			return;
+		}
+		if (hadLive.current) {
+			hadLive.current = false;
+			void refreshItems();
+		}
+		if (!shouldHttpPoll({ live: false, visible: document.visibilityState === "visible" })) {
+			return;
+		}
 		const id = window.setInterval(() => {
-			if (document.visibilityState === "visible") {
+			if (shouldHttpPoll({ live: false, visible: document.visibilityState === "visible" })) {
 				void refreshItems();
 			}
-		}, RECONCILE_MS);
+		}, OFFLINE_POLL_MS);
 		return () => window.clearInterval(id);
-	}, [me, hasLocal, refreshItems]);
+	}, [me, hasLocal, live, refreshItems]);
 
 	const sendPlain = useCallback(
 		async (plain: string) => {
@@ -432,7 +444,7 @@ export default function Page() {
 			try {
 				await navigator.clipboard.writeText(text);
 				setCopiedId(id ?? null);
-				setStatus("Copied.");
+				setStatus(null);
 			} catch {
 				setCopiedId(null);
 				setStatus("copy_failed");
@@ -440,6 +452,22 @@ export default function Page() {
 		},
 		[dismissHint],
 	);
+
+	useEffect(() => {
+		if (!copiedId) {
+			return;
+		}
+		const timer = window.setTimeout(() => setCopiedId(null), 1600);
+		return () => window.clearTimeout(timer);
+	}, [copiedId]);
+
+	useEffect(() => {
+		if (status !== "Downloaded.") {
+			return;
+		}
+		const timer = window.setTimeout(() => setStatus(null), 2000);
+		return () => window.clearTimeout(timer);
+	}, [status]);
 
 	const commitForget = useCallback(async (item: Shown) => {
 		// Peers hold their own copy. An ephemeral item exists nowhere else, so the
@@ -822,15 +850,19 @@ export default function Page() {
 					)}
 				</div>
 			</div>
-			{undo ? (
-				<p className="hint" role="status">
-					Forgotten.{" "}
-					<button type="button" onClick={() => void onUndoForget()}>
-						Undo
-					</button>
-				</p>
+			{undo || status ? (
+				<div className="clip-notices">
+					{undo ? (
+						<p className="hint" role="status">
+							Forgotten.{" "}
+							<button type="button" onClick={() => void onUndoForget()}>
+								Undo
+							</button>
+						</p>
+					) : null}
+					<Status value={status} />
+				</div>
 			) : null}
-			<Status value={status} />
 		</main>
 	);
 }
