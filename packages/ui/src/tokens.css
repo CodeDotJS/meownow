@@ -10,8 +10,13 @@
 	--decay: #b42332;
 	--muted: #4d525c;
 	--gutter: 1.5rem;
-	--radius: 1.15rem;
+	/* One soft radius system. --radius-pill is only for hairline bars, where a
+	   full round is capping a 2px edge rather than making a shape. */
+	--radius-xs: 0.4rem;
 	--radius-sm: 0.75rem;
+	--radius-md: 0.9rem;
+	--radius: 1.15rem;
+	--radius-pill: 99px;
 	--shadow: 0 1px 0 rgb(23 24 28 / 0.04), 0 18px 40px rgb(23 24 28 / 0.07);
 	--shadow-soft: 0 1px 0 rgb(23 24 28 / 0.04), 0 8px 24px rgb(23 24 28 / 0.05);
 	--shadow-lift: 0 1px 0 rgb(23 24 28 / 0.05), 0 22px 48px rgb(23 24 28 / 0.1);

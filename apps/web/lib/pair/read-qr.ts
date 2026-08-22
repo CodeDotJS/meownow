@@ -1,5 +1,4 @@
 import type { PairingQr } from "@meownow/protocol";
-import jsQR from "jsqr";
 import { pairingQrFromRaw } from "./qr";
 
 type Detector = {
@@ -7,6 +6,14 @@ type Detector = {
 };
 
 let detector: Detector | null | undefined;
+let decoder: Promise<typeof import("jsqr").default> | null = null;
+
+// Roughly 45 kB that most people never execute: it is only the fallback for
+// browsers without BarcodeDetector, and only once the camera is running.
+function loadDecoder(): Promise<typeof import("jsqr").default> {
+	decoder ??= import("jsqr").then((mod) => mod.default);
+	return decoder;
+}
 
 function barcodeDetector(): Detector | null {
 	if (detector !== undefined) {
@@ -60,6 +67,7 @@ export async function readPairingQrFromVideo(
 	canvas.height = height;
 	ctx.drawImage(video, 0, 0, width, height);
 	const image = ctx.getImageData(0, 0, width, height);
+	const jsQR = await loadDecoder();
 	const code = jsQR(image.data, image.width, image.height, { inversionAttempts: "attemptBoth" });
 	return code?.data ? pairingQrFromRaw(code.data) : null;
 }

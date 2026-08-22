@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 export const DEMO_LINES = [
 	{ time: "14:32", text: "https://notes.local/week-34" },
-	{ time: "14:31", text: "gate code 4812 — side door" },
+	{ time: "14:31", text: "gate code 4812, side door" },
 	{ time: "09:12", text: "wifi: attic / late-summer" },
 ] as const;
 

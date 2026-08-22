@@ -112,7 +112,7 @@ kbd {
 	padding: 0.14rem 0.4rem;
 	background: var(--wash);
 	border: 1px solid var(--rule);
-	border-radius: 0.4rem;
+	border-radius: var(--radius-xs);
 }
 
 main {
@@ -257,7 +257,7 @@ h1 {
 	padding: 0.2rem 0.55rem;
 	background: var(--select);
 	color: var(--select-ink);
-	border-radius: 99px;
+	border-radius: var(--radius-xs);
 	font-size: 0.75rem;
 	font-weight: 500;
 }
@@ -759,7 +759,7 @@ li {
 	padding: 0.8rem 0.9rem 0.55rem;
 	margin: 0;
 	border-bottom: 0;
-	border-radius: 0.85rem;
+	border-radius: var(--radius-md);
 	transition:
 		background-color 200ms var(--ease),
 		box-shadow 200ms var(--ease);
@@ -781,7 +781,7 @@ li {
 	overflow-wrap: anywhere;
 	font-size: 1.0625rem;
 	line-height: 1.45;
-	border-radius: 0.35rem;
+	border-radius: var(--radius-xs);
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 4;
@@ -831,7 +831,7 @@ li {
 	transform: scaleX(var(--remain, 1));
 	transform-origin: left;
 	pointer-events: none;
-	border-radius: 99px;
+	border-radius: var(--radius-pill);
 }
 
 .landing-log {
@@ -910,7 +910,7 @@ li {
 .skel {
 	display: block;
 	height: 0.85rem;
-	border-radius: 99px;
+	border-radius: var(--radius-pill);
 	background: var(--wash);
 }
 
@@ -947,7 +947,7 @@ li {
 	height: 4px;
 	margin: 0.5rem 0 1rem;
 	background: var(--wash);
-	border-radius: 99px;
+	border-radius: var(--radius-pill);
 	overflow: hidden;
 }
 
