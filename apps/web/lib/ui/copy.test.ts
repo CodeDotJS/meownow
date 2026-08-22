@@ -28,7 +28,7 @@ describe("statusCopy", () => {
 		);
 		expect(statusCopy("wrap_failed")).toBe("Could not send keys to that device.");
 		expect(statusCopy("scan_needs_signin")).toBe(
-			"Sign in on this browser first. Scan is only for a device that already works.",
+			"Sign in on this browser first. Add a device is only for a computer that already works.",
 		);
 	});
 

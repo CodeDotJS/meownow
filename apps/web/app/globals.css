@@ -260,23 +260,6 @@ a.pair-card:focus-visible {
 		0 0 0 2px var(--ink);
 }
 
-.pair-roles {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.35rem;
-	margin: 0 0 1.1rem;
-}
-
-.pair-role {
-	padding: 0.4rem 0.75rem;
-}
-
-.pair-role-line {
-	margin: 0 0 0.85rem;
-	font-size: 0.875rem;
-	color: var(--muted);
-}
-
 .panel {
 	background: var(--surface);
 	border: 1px solid var(--rule);
@@ -401,7 +384,6 @@ button:disabled {
 	transform: none;
 }
 
-.pair-role-line a,
 .hint a,
 .hint-list a {
 	padding: 0;
@@ -1145,18 +1127,6 @@ li {
 	.select {
 		min-height: 2.75rem;
 		padding: 0.7rem 1rem;
-	}
-
-	.pair-roles {
-		width: 100%;
-	}
-
-	.pair-role {
-		flex: 1;
-		min-height: 2.75rem;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
 	}
 
 	.composer {

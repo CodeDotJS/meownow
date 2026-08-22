@@ -84,6 +84,10 @@ export function CreateVaultFlow({ onComplete }: { onComplete: () => void }) {
 							Continue
 						</button>
 					</nav>
+					<p className="hint">
+						To use another phone or laptop, open meownow there and show a code. On this computer tap
+						Add a device.
+					</p>
 				</>
 			) : (
 				<>

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { getJson, postJson } from "@/lib/client/http";
+import { loadVault } from "@/lib/vault/idb";
 import { dropStaleLocalVault } from "@/lib/vault/local";
 import { CommandPalette, type PaletteAction } from "./palette";
 
@@ -16,6 +17,7 @@ type FrameMe = {
 export function AppFrame({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
 	const [me, setMe] = useState<FrameMe | null>(null);
+	const [hasLocal, setHasLocal] = useState(false);
 	const [open, setOpen] = useState(false);
 	const [mod, setMod] = useState("⌘K");
 
@@ -35,6 +37,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			} else {
 				setMe(null);
 			}
+			setHasLocal((await loadVault()) !== null);
 		})();
 	}, [pathname]);
 
@@ -81,22 +84,20 @@ export function AppFrame({ children }: { children: ReactNode }) {
 				hint: "Write down the 12 words",
 				href: "/setup",
 			});
-		}
-		if (me.hasVault) {
-			rows.push(
-				{
-					id: "pair",
-					label: "This browser is new",
-					hint: "Show a code",
-					href: "/pair/show",
-				},
-				{
-					id: "scan",
-					label: "This browser already works",
-					hint: "Type a code or scan",
-					href: "/pair/scan",
-				},
-			);
+		} else if (hasLocal) {
+			rows.push({
+				id: "add-device",
+				label: "Add a device",
+				hint: "Type the code from the new browser",
+				href: "/pair/scan",
+			});
+		} else {
+			rows.push({
+				id: "pair",
+				label: "This browser is new",
+				hint: "Show a code for the working device",
+				href: "/pair/show",
+			});
 		}
 		rows.push({
 			id: "recover",
@@ -125,7 +126,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			},
 		});
 		return rows;
-	}, [me]);
+	}, [me, hasLocal]);
 
 	return (
 		<div className="frame">
@@ -145,15 +146,10 @@ export function AppFrame({ children }: { children: ReactNode }) {
 							Invites
 						</a>
 					) : null}
-					{me?.hasVault ? (
-						<>
-							<a className="chrome-add" href="/pair/show">
-								Pair
-							</a>
-							<a className="chrome-add" href="/pair/scan">
-								Scan
-							</a>
-						</>
+					{me?.hasVault && hasLocal ? (
+						<a className="chrome-add" href="/pair/scan">
+							Add a device
+						</a>
 					) : null}
 					<button type="button" className="chrome-menu" onClick={() => setOpen(true)}>
 						<kbd className="chrome-kbd">{mod}</kbd>

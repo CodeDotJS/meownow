@@ -6,7 +6,7 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { parsePairingQr } from "@/lib/pair/qr";
 import { readPairingQrFromVideo } from "@/lib/pair/read-qr";
-import { PairRoles } from "@/lib/ui/pair-roles";
+import { PairSteps } from "@/lib/ui/pair-steps";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
 import { loadVault } from "@/lib/vault/idb";
@@ -185,7 +185,7 @@ export default function PairScanPage() {
 		return (
 			<main>
 				<Panel>
-					<h1>Scan</h1>
+					<h1>Add a device</h1>
 					<p className="lead">Checking this browser.</p>
 				</Panel>
 			</main>
@@ -198,8 +198,8 @@ export default function PairScanPage() {
 				<Panel>
 					<h1>Sign in on this browser first</h1>
 					<p className="lead">
-						Scan is only for a computer that already has the clipboard. Sign in here, then type the
-						code from the new browser.
+						Add a device is for the computer that already has the clipboard. Sign in here, then type
+						the code from the new browser.
 					</p>
 					<nav className="stack">
 						<a className="select" href="/login?next=/pair/scan">
@@ -226,7 +226,7 @@ export default function PairScanPage() {
 					<h1>This browser is new</h1>
 					<p className="lead">
 						It can sign in, but it has no keys yet. Show a code here. On the computer that already
-						works, tap Scan and type it.
+						works, tap Add a device and type it.
 					</p>
 					<nav className="stack">
 						<a className="select" href="/pair/show">
@@ -241,8 +241,7 @@ export default function PairScanPage() {
 	return (
 		<main>
 			<Panel>
-				<PairRoles current="scan" />
-				<h1>Scan</h1>
+				<h1>Add a device</h1>
 				{fingerprint ? (
 					<div className="fp-sheet">
 						<p className="lead">If the numbers differ, stop.</p>
@@ -254,9 +253,8 @@ export default function PairScanPage() {
 					</div>
 				) : (
 					<>
-						<p className="lead">
-							Type the code from the new computer. On a phone you can scan the QR instead.
-						</p>
+						<p className="lead">Type the code the new browser is showing.</p>
+						<PairSteps side="working" />
 						<form onSubmit={(event) => void onCode(event)}>
 							<label>
 								Code

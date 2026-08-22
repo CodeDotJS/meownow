@@ -14,10 +14,10 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { PairingQrCanvas } from "@/lib/pair/qr-canvas";
-import { PairRoles } from "@/lib/ui/pair-roles";
+import { PairSteps } from "@/lib/ui/pair-steps";
 import { Panel } from "@/lib/ui/panel";
 import { Status } from "@/lib/ui/status";
-import { saveVault } from "@/lib/vault/idb";
+import { loadVault, saveVault } from "@/lib/vault/idb";
 import { wrapFromWire } from "@/lib/vault/wire";
 
 type WrapPayload = {
@@ -37,8 +37,18 @@ export default function PairShowPage() {
 	const [code, setCode] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [copied, setCopied] = useState<"code" | "qr" | null>(null);
+	const [role, setRole] = useState<"loading" | "working" | "new">("loading");
 
 	useEffect(() => {
+		void loadVault().then((stored) => {
+			setRole(stored ? "working" : "new");
+		});
+	}, []);
+
+	useEffect(() => {
+		if (role !== "new") {
+			return;
+		}
 		void (async () => {
 			const pair = await generatePairingKeyPair();
 			const pub = await publicJwk(pair.publicKey);
@@ -54,7 +64,7 @@ export default function PairShowPage() {
 			const qr: PairingQr = { v: 1, id: started.id, publicJwk: asPublicJwk(pub) };
 			setPayload(JSON.stringify(qr));
 		})();
-	}, []);
+	}, [role]);
 
 	useEffect(() => {
 		if (!sessionId || !privateKey || wrap) {
@@ -151,15 +161,41 @@ export default function PairShowPage() {
 		}
 	}
 
+	if (role === "loading") {
+		return (
+			<main>
+				<Panel>
+					<h1>Show a code</h1>
+					<p className="lead">Checking this browser.</p>
+				</Panel>
+			</main>
+		);
+	}
+
+	if (role === "working") {
+		return (
+			<main>
+				<Panel>
+					<h1>This browser already works</h1>
+					<p className="lead">
+						To add a phone or laptop, open meownow there and show a code. Type it here.
+					</p>
+					<nav className="stack">
+						<a className="select" href="/pair/scan">
+							Add a device
+						</a>
+					</nav>
+				</Panel>
+			</main>
+		);
+	}
+
 	return (
 		<main>
 			<Panel>
-				<PairRoles current="show" />
 				<h1>Show a code</h1>
-				<p className="lead">
-					On the computer that already works, sign in, tap Scan, and type this code. On a phone,
-					scan the QR instead.
-				</p>
+				<p className="lead">Keep this screen open. The other computer types the code.</p>
+				<PairSteps side="new" />
 				{code ? (
 					<>
 						<p className="pair-code mono">{formatPairingCode(code)}</p>
@@ -207,7 +243,7 @@ export default function PairShowPage() {
 					</div>
 				) : (
 					<p className="hint" role="status">
-						Waiting for the other device. Camera or the code both work.
+						Waiting for the other computer to tap Add a device and type this code.
 					</p>
 				)}
 				<Status value={status} />

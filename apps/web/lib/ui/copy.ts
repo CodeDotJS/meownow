@@ -45,7 +45,8 @@ const LOCAL: Record<string, string> = {
 	download_failed: "Could not download that file.",
 	recover_failed: "Recovery failed.",
 	camera_denied: "Camera permission was denied.",
-	scan_needs_signin: "Sign in on this browser first. Scan is only for a device that already works.",
+	scan_needs_signin:
+		"Sign in on this browser first. Add a device is only for a computer that already works.",
 	"fingerprint mismatch": "Numbers did not match. Abort.",
 	"No Local peer.": "No peer on this network.",
 };

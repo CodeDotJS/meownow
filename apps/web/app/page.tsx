@@ -541,9 +541,12 @@ export default function Page() {
 			<main>
 				<Panel>
 					<h1>This browser is new</h1>
-					<p className="lead">
-						On the phone or laptop that already works, tap Scan and type the code. Or scan the QR.
-					</p>
+					<p className="lead">Keep this screen open after you show a code.</p>
+					<ol className="steps">
+						<li>This browser shows a code.</li>
+						<li>On the computer that already works, tap Add a device and type it.</li>
+						<li>If the numbers match, continue here.</li>
+					</ol>
 					<nav className="stack">
 						<a className="select" href="/pair/show">
 							Show a code
@@ -651,7 +654,7 @@ export default function Page() {
 										<span className="gutter">{formatGutterTime(item.createdAt, now)}</span>
 										{locked ? (
 											<p className="body">
-												{item.text}. <a href="/pair/show">Pair</a> or{" "}
+												{item.text}. <a href="/pair/show">Show a code</a> or{" "}
 												<a href="/recover">use the 12 words</a>
 											</p>
 										) : (

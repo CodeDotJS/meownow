@@ -35,7 +35,7 @@ export function Landing() {
 							Have an invite? <a href="/join">Join</a>
 						</li>
 						<li>
-							This browser is new. <a href="/pair/show">Show a code</a>
+							Adding this browser? <a href="/pair/show">Show a code</a>
 						</li>
 						<li>
 							Lost every device. <a href="/recover">Use the 12 words</a>
