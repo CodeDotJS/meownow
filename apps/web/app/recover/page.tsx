@@ -15,15 +15,37 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { type FormEvent, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
 import { Panel } from "@/lib/ui/panel";
+import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
 import { Status } from "@/lib/ui/status";
 import { saveVault } from "@/lib/vault/idb";
 import { b64urlToBytes, bytesToB64url, wrapFromWire } from "@/lib/vault/wire";
 
 export default function RecoverPage() {
+	const { ready, me, hasLocal } = useBrowserSession();
 	const [handle, setHandle] = useState("");
 	const [phrase, setPhrase] = useState("");
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+
+	if (!ready) {
+		return (
+			<main>
+				<SessionLoading title="Recover" />
+			</main>
+		);
+	}
+	if (hasLocal) {
+		return (
+			<main>
+				<AlreadyHere
+					title="This browser already works"
+					lead="Recovery is for a browser that has nothing. This one already has the clipboard."
+					actionHref={me ? "/" : "/login"}
+					action={me ? "Back to clipboard" : "Sign in"}
+				/>
+			</main>
+		);
+	}
 
 	async function onSubmit(event: FormEvent) {
 		event.preventDefault();
