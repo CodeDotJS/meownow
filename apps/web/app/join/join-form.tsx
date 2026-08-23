@@ -1,7 +1,8 @@
 "use client";
 
 import { startRegistration } from "@simplewebauthn/browser";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
+import { detectDeviceLabel } from "@/lib/client/device-label";
 import { errorCode, postJson } from "@/lib/client/http";
 import { rememberPasskey } from "@/lib/client/passkey";
 import { parseInviteToken } from "@/lib/ui/invite-url";
@@ -16,7 +17,12 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 	const [displayName, setDisplayName] = useState("");
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [deviceLabel, setDeviceLabel] = useState("");
 	const invited = initialToken.length > 0;
+
+	useEffect(() => {
+		void detectDeviceLabel().then(setDeviceLabel);
+	}, []);
 
 	if (!ready) {
 		return <SessionLoading title="Join" />;
@@ -44,7 +50,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 				token: parseInviteToken(token),
 				handle,
 				displayName: displayName.trim() || handle,
-				deviceLabel: "this device",
+				deviceLabel: deviceLabel || (await detectDeviceLabel()),
 			});
 			if (!optionsRes.ok) {
 				setStatus(errorCode(optionsRes.data));
@@ -112,6 +118,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 						placeholder={handle || "same as username"}
 					/>
 				</label>
+				{deviceLabel ? <p className="field-hint">This browser is {deviceLabel}.</p> : null}
 				<button className="select" type="submit" disabled={busy}>
 					{busy ? "Working…" : "Create a passkey"}
 				</button>
