@@ -17,6 +17,14 @@ export function rememberPasskey(id: string): void {
 	}
 }
 
+export function forgetPasskey(): void {
+	try {
+		window.localStorage.removeItem(PASSKEY_ID_KEY);
+	} catch {
+		// Private mode can block storage.
+	}
+}
+
 export function preferRememberedPasskey<T>(options: T, remembered: string | null): T {
 	if (!remembered) {
 		return options;
@@ -27,8 +35,8 @@ export function preferRememberedPasskey<T>(options: T, remembered: string | null
 	} as T;
 }
 
-export function shouldRetryUsernameless(remembered: string | null, error: string): boolean {
-	return Boolean(remembered) && (error === "unverified" || error === "device_revoked");
+export function shouldForgetPasskey(error: string): boolean {
+	return error === "unverified" || error === "device_revoked";
 }
 
 export async function waitForSession(
