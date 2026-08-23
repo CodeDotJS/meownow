@@ -9,26 +9,7 @@ export type MenuMe = {
 
 export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction[] {
 	if (!me) {
-		if (hasLocal) {
-			return [
-				{ id: "about", label: "About", hint: "What this is", href: "/about" },
-				{
-					id: "login",
-					label: "Sign in",
-					hint: "This browser already has the clipboard",
-					href: "/login",
-				},
-				{
-					id: "pair",
-					label: "Show a code",
-					hint: "New passkey from the computer that still works",
-					href: "/pair/show",
-				},
-			];
-		}
-		return [
-			{ id: "about", label: "About", hint: "What this is", href: "/about" },
-			{ id: "login", label: "Sign in", hint: "Passkey already on this browser", href: "/login" },
+		const onboarding: PaletteAction[] = [
 			{
 				id: "join",
 				label: "Join with an invite",
@@ -37,12 +18,26 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 			},
 			{
 				id: "pair",
-				label: "This browser is new",
-				hint: "Show a code for the working device",
+				label: hasLocal ? "Show a code" : "This browser is new",
+				hint: hasLocal
+					? "New passkey from the computer that still works"
+					: "Show a code for the working device",
 				href: "/pair/show",
 			},
 			{ id: "recover", label: "Lost every device", hint: "Use the 12 words", href: "/recover" },
 			{ id: "enroll", label: "First admin", hint: "Bootstrap the first account", href: "/enroll" },
+		];
+		return [
+			{ id: "about", label: "About", hint: "What this is", href: "/about" },
+			{
+				id: "login",
+				label: "Sign in",
+				hint: hasLocal
+					? "This browser already has the clipboard"
+					: "Passkey already on this browser",
+				href: "/login",
+			},
+			...onboarding,
 		];
 	}
 
@@ -54,6 +49,7 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 				hint: "Write down the 12 words",
 				href: "/setup",
 			},
+			{ id: "account", label: "Account", hint: "Leave meownow", href: "/account" },
 			{ id: "logout", label: "Log out" },
 		];
 	}
@@ -115,6 +111,9 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 		);
 	}
 
-	rows.push({ id: "logout", label: "Log out" });
+	rows.push(
+		{ id: "account", label: "Account", hint: "Leave meownow", href: "/account" },
+		{ id: "logout", label: "Log out" },
+	);
 	return rows;
 }
