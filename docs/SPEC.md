@@ -14,9 +14,11 @@ Getting these settled first, because each one changes the design.
 
 Web Bluetooth only implements the GATT **central** role. A browser can connect *to* a Bluetooth peripheral (a heart-rate monitor, a thermostat). No browser implements the **peripheral** role, so two browsers cannot see each other over Bluetooth. On top of that, Firefox and Safari don't ship Web Bluetooth at all, and iOS has no support in any browser. There is no path from "PWA" to "Bluetooth file transfer between my laptop and my phone."
 
-**What you actually want from Bluetooth** is: fast, works without the internet round-trip, bytes stay local. WebRTC gives you all three. When both devices are on the same Wi-Fi, ICE resolves to **host candidates** and the DataChannel connects directly over the LAN. The signalling handshake goes through a server, but the payload never leaves your network. It is also roughly 50-100x faster than BLE throughput.
+**What you actually want from Bluetooth** is: fast, works without the internet round-trip, bytes stay local. WebRTC gives you all three. When ICE nominates **host candidates**, the DataChannel connects directly over the LAN. The signalling handshake goes through a server, but the payload never leaves your network. It is also roughly 50-100x faster than BLE throughput.
 
-So: **LAN-direct via WebRTC is the "bluetooth mode."** Label it "Local" in the UI and say why it's fast.
+Same SSID is not enough. Many home routers — JioFiber is one — isolate Wi‑Fi clients, so host candidates never meet. STUN then needs NAT hairpin, which those routers usually will not do. There is no TURN (locked, zero-cost). **Local** still means host/host. When that pair never forms, live delivery uses the hub. See §1.5.
+
+So: **LAN-direct via WebRTC is the "bluetooth mode" when ICE actually gets a host pair.** Label that case "Local." Do not tell the user ephemeral requires this Wi‑Fi.
 
 ### Background clipboard monitoring is impossible in a browser
 
@@ -163,9 +165,9 @@ The capability question is subtler than "can they upload." Pasting a screenshot 
 |---|---|---|
 | text, link (≤64 KB) | Postgres, inline ciphertext | No |
 | image, file | R2 | **Yes** |
-| anything, sent P2P only | nowhere — DataChannel, never persisted | **No** |
+| anything, sent live only | nowhere — DataChannel or hub fan-out, never persisted | **No** |
 
-That last row is a genuinely nice resolution. A user without upload rights can still fire an image straight to another online device over WebRTC, because it never touches your storage and therefore costs you nothing. It makes the P2P path meaningful rather than an optimisation, and it makes the permission rule honest: the thing being gated is *your disk*, not their behaviour.
+That last row is a genuinely nice resolution. A user without upload rights can still fire an image to another *live* device, because it never touches your disk and therefore costs you nothing. DataChannel when ICE works; hub fan-out when it does not. The permission rule stays honest: the thing being gated is *your disk*, not their behaviour.
 
 **The upload flow, enforced server-side at every hop:**
 
@@ -349,13 +351,26 @@ Fan-out messages: `item.created`, `item.deleted`, `device.joined`, `device.revok
 
 **Delivery strategy, in order:**
 
-1. **Both devices connected and P2P negotiates** → DataChannel. Instant, LAN-speed, no storage cost.
-2. **Recipient offline, or P2P fails** → server path. Text goes inline to Postgres, blobs to R2. Recipient gets a push notification.
+1. **Both devices connected and P2P negotiates** → DataChannel. Instant, LAN-speed when ICE picks host/host, no storage cost.
+2. **Recipient offline, or P2P fails, and the item is not ephemeral** → server path. Text goes inline to Postgres, blobs to R2. Recipient gets a push notification.
 3. **Text always also persists** to the server unless the user marks the item ephemeral. Persistence is the point; P2P is the fast path, not the only path.
 
-**ICE:** STUN only. No TURN, because TURN means running a relay and paying for bandwidth. Roughly 80-90% of connections succeed on STUN alone; symmetric NAT and some mobile carriers will fail, and those fall through to the server path automatically. Do not surface this as an error.
+**ICE:** STUN only. No TURN, because TURN means running a relay and paying for bandwidth. Symmetric NAT, some mobile carriers, and **client-isolated home Wi‑Fi** fail P2P. Do not add TURN to paper over that. Do not surface ICE failure as an error when a live path still exists.
 
-**Note on P2P over mobile data:** if both devices are on cellular, STUN often fails and you're on the server path. That's expected. The LAN case — which is your actual use case, both devices on home Wi-Fi — is the one that works reliably.
+**Same Wi‑Fi is not a LAN.** Presence on the hub only means both browsers have a WebSocket. "Local" means the nominated ICE pair is host/host. JioFiber and many ISP routers isolate stations: two laptops on the same SSID cannot open a host DataChannel, and hairpin through the public mapping usually fails too. That is expected. The DataChannel is an optimisation, not the definition of "the other device is here."
+
+**Trickle ICE must be queued.** `rtc.ice` can arrive before `setRemoteDescription` finishes. The mesh applies offer/answer/ICE on one per-peer chain and buffers candidates until a remote description exists. Dropping early candidates is why a DataChannel stays closed even when signalling looks fine.
+
+**Ephemeral** means "do not write Postgres or R2." It does not mean "DataChannel or nothing."
+
+1. Seal on the sender. Keep the note on this device.
+2. Try the DataChannel first.
+3. If no open channel, fan the same ciphertext over the hub as `item.created` with `ephemeral: true`. The Durable Object routes it and forgets it. The receiver must keep that flag; a later `GET /api/items` will not list the row, and merge drops anything that is neither pending nor ephemeral.
+4. If the hub socket is down too, the note stays on this device. That is fail closed: never persist to make delivery look like it worked.
+
+The Worker Zod-parses every hub frame and re-serialises `parsed.data`. An optional `ephemeral` field the Worker schema does not know is stripped, the receiver never marks the note, and refresh deletes it. Ship the protocol field and the Worker together.
+
+UI copy is **Live only**, not "this Wi‑Fi." The hint is: skip the store; another device must be live.
 
 ---
 
@@ -538,5 +553,5 @@ Four things I picked a default for. Change them if you disagree:
 
 1. **Personal vault per user**, with optional direct sends between users. The alternative — one shared clipboard all 10 people see — is simpler but changes the crypto substantially. Say now if that's what you meant.
 2. **iOS is a second-class citizen** (no Share Target). The iOS Shortcut workaround is documented but not built in v1.
-3. **STUN only, no TURN.** ~10-20% of P2P attempts silently fall back to the server path.
+3. **STUN only, no TURN.** Isolated home Wi‑Fi and ~10-20% of other networks fail P2P. Persisted items use the server path; ephemeral items use a live hub fan-out, then stay on the sender.
 4. **500 MB per user, 100 MB per file, 7-day blob TTL.** Sized to keep 10 users inside R2's 10 GB.
