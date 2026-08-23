@@ -430,6 +430,14 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 					return "last_admin" as const;
 				}
 			}
+			await tx.update(auditLog).set({ actorId: null }).where(eq(auditLog.actorId, id));
+			await tx.update(items).set({ senderId: null }).where(eq(items.senderId, id));
+			await tx
+				.update(uploadRequests)
+				.set({ decidedBy: null })
+				.where(eq(uploadRequests.decidedBy, id));
+			await tx.update(invites).set({ redeemedBy: null }).where(eq(invites.redeemedBy, id));
+			await tx.delete(invites).where(eq(invites.createdBy, id));
 			await tx.delete(users).where(eq(users.id, id));
 			return "ok" as const;
 		});
