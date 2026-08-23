@@ -12,6 +12,7 @@ import { registerPush } from "@/lib/pwa/register-push";
 import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
 import { Landing } from "@/lib/ui/landing";
+import { CatMark } from "@/lib/ui/marks";
 import { mergeRemoteItems } from "@/lib/ui/merge-items";
 import { Panel } from "@/lib/ui/panel";
 import { PixelThumb } from "@/lib/ui/pixel-avatar";
@@ -93,6 +94,7 @@ export default function Page() {
 	const [now, setNow] = useState(() => Date.now());
 	const [local, setLocal] = useState(false);
 	const [ephemeral, setEphemeral] = useState(false);
+	const [sending, setSending] = useState(false);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [hint, setHint] = useState(false);
 	const [live, setLive] = useState(false);
@@ -107,6 +109,8 @@ export default function Page() {
 	/** Notes this browser wrote that a slower GET must not drop. */
 	const pendingRef = useRef<Set<string>>(new Set());
 	const refreshSeqRef = useRef(0);
+	const forgetWaitRef = useRef(Promise.resolve(true));
+	const sendingRef = useRef(false);
 	const reduceMotion = useReducedMotion();
 	itemsRef.current = items;
 
@@ -329,6 +333,9 @@ export default function Page() {
 
 	const sendPlain = useCallback(
 		async (plain: string) => {
+			if (sendingRef.current) {
+				return;
+			}
 			const stored = await loadVault();
 			const trimmed = plain.trim();
 			if (!stored || !trimmed) {
@@ -339,62 +346,68 @@ export default function Page() {
 				setStatus("item_invalid");
 				return;
 			}
-			const id = crypto.randomUUID();
-			const kind = /^https?:\/\//i.test(trimmed) ? ("link" as const) : ("text" as const);
-			const sealed = await encrypt(stored.vaultKey, bytes, { itemId: id, kind });
-			const meta = await encrypt(stored.vaultKey, new TextEncoder().encode("{}"), {
-				itemId: id,
-				kind,
-			});
-			const expiresAt = new Date(Date.now() + TEXT_TTL_MS).toISOString();
-			const payload = {
-				id,
-				kind,
-				ciphertext: bytesToB64url(sealed.bytes),
-				metaCiphertext: bytesToB64url(meta.bytes),
-				iv: bytesToB64url(sealed.iv),
-				byteSize: sealed.bytes.byteLength,
-				expiresAt,
-			};
-			const createdAt = new Date().toISOString();
-			const localItem: Shown = {
-				id,
-				text: trimmed,
-				createdAt,
-				expiresAt,
-				kind,
-				ephemeral,
-				ciphertext: payload.ciphertext,
-				metaCiphertext: payload.metaCiphertext,
-				iv: payload.iv,
-				byteSize: payload.byteSize,
-			};
-			pendingRef.current.add(id);
-			setStatus(null);
-			setDraft("");
-			setItems((current) => [localItem, ...current.filter((row) => row.id !== id)]);
-			setSelectedId(id);
-			const meshSend = await sendOnMesh(meshRef.current?.links() ?? [], {
-				v: 1,
-				type: "item",
-				ephemeral,
-				item: payload,
-			});
-			if (shouldPersist(ephemeral)) {
-				const res = await postJson("/api/items", payload);
-				if (!res.ok) {
-					pendingRef.current.delete(id);
-					setItems((current) => current.filter((row) => row.id !== id));
-					setDraft(trimmed);
-					setStatus(errorCode(res.data));
+			sendingRef.current = true;
+			setSending(true);
+			try {
+				const id = crypto.randomUUID();
+				const kind = /^https?:\/\//i.test(trimmed) ? ("link" as const) : ("text" as const);
+				const sealed = await encrypt(stored.vaultKey, bytes, { itemId: id, kind });
+				const meta = await encrypt(stored.vaultKey, new TextEncoder().encode("{}"), {
+					itemId: id,
+					kind,
+				});
+				const expiresAt = new Date(Date.now() + TEXT_TTL_MS).toISOString();
+				const payload = {
+					id,
+					kind,
+					ciphertext: bytesToB64url(sealed.bytes),
+					metaCiphertext: bytesToB64url(meta.bytes),
+					iv: bytesToB64url(sealed.iv),
+					byteSize: sealed.bytes.byteLength,
+					expiresAt,
+				};
+				const createdAt = new Date().toISOString();
+				const localItem: Shown = {
+					id,
+					text: trimmed,
+					createdAt,
+					expiresAt,
+					kind,
+					ephemeral,
+					ciphertext: payload.ciphertext,
+					metaCiphertext: payload.metaCiphertext,
+					iv: payload.iv,
+					byteSize: payload.byteSize,
+				};
+				pendingRef.current.add(id);
+				setStatus(null);
+				setDraft("");
+				setItems((current) => [localItem, ...current.filter((row) => row.id !== id)]);
+				setSelectedId(id);
+				const meshSend = await sendOnMesh(meshRef.current?.links() ?? [], {
+					v: 1,
+					type: "item",
+					ephemeral,
+					item: payload,
+				});
+				if (shouldPersist(ephemeral)) {
+					const res = await postJson("/api/items", payload);
+					if (!res.ok) {
+						pendingRef.current.delete(id);
+						setItems((current) => current.filter((row) => row.id !== id));
+						setDraft(trimmed);
+						setStatus(errorCode(res.data));
+					}
+					return;
 				}
-				return;
-			}
-			if (meshSend.delivered === 0) {
-				pendingRef.current.delete(id);
-				setItems((current) => current.filter((row) => row.id !== id));
-				setDraft(trimmed);
-				setStatus("No Local peer.");
+				if (meshSend.delivered === 0) {
+					setStatus(meshSend.failed > 0 ? "dc_send_failed" : "No Local peer.");
+				}
+			} catch {
+				setStatus("request_failed");
+			} finally {
+				sendingRef.current = false;
+				setSending(false);
 			}
 		},
 		[ephemeral],
@@ -488,7 +501,7 @@ export default function Page() {
 		return () => window.clearTimeout(timer);
 	}, [status]);
 
-	const commitForget = useCallback(async (item: Shown) => {
+	const commitForget = useCallback(async (item: Shown): Promise<boolean> => {
 		// Peers hold their own copy. An ephemeral item exists nowhere else, so the
 		// mesh is the only way to revoke it; for a stored item this just beats the
 		// hub's fan-out and still works when the socket is down.
@@ -498,15 +511,17 @@ export default function Page() {
 			id: item.id,
 		});
 		if (item.ephemeral) {
-			return;
+			return true;
 		}
 		const res = await deleteJson(`/api/items/${item.id}`);
 		if (!res.ok) {
 			const failed = errorCode(res.data);
 			if (failed !== "item_invalid" && failed !== "not_found") {
 				setStatus(failed);
+				return false;
 			}
 		}
+		return true;
 	}, []);
 
 	const onForget = useCallback(
@@ -528,7 +543,9 @@ export default function Page() {
 			tombstonesRef.current.set(id, Date.now() + FORGET_TOMBSTONE_MS);
 			// Forget is not deferred: every other device should drop it now, not
 			// after an undo window that only this device knows about.
-			await commitForget(item);
+			const wait = commitForget(item);
+			forgetWaitRef.current = wait;
+			await wait;
 		},
 		[commitForget, preview],
 	);
@@ -539,7 +556,14 @@ export default function Page() {
 			return;
 		}
 		setUndo(null);
+		const removed = await forgetWaitRef.current;
 		tombstonesRef.current.delete(item.id);
+		if (!item.ephemeral && !removed) {
+			setItems((current) =>
+				current.some((row) => row.id === item.id) ? current : [item, ...current],
+			);
+			return;
+		}
 		pendingRef.current.add(item.id);
 		const payload = {
 			id: item.id,
@@ -830,10 +854,7 @@ export default function Page() {
 		<main className="clipboard">
 			<h1 className="file-hidden">Clipboard</h1>
 			<p className="clip-meta">
-				<span>
-					{visible.length === 1 ? "1 note" : `${visible.length} notes`}
-					{ephemeral ? " · this Wi‑Fi only" : ""}
-				</span>
+				<span>{ephemeral ? "This Wi‑Fi only" : ""}</span>
 				<span className={live ? "clip-live is-on" : "clip-live"}>
 					{live ? "Live on your devices" : "Syncing…"}
 				</span>
@@ -853,7 +874,7 @@ export default function Page() {
 						autoCorrect="on"
 						onChange={(e) => setDraft(e.target.value)}
 						onKeyDown={(event) => {
-							if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+							if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
 								event.preventDefault();
 								void onSend();
 							}
@@ -863,8 +884,13 @@ export default function Page() {
 					<div className="composer-foot">
 						{draftLines > 8 ? <p className="field-hint">{draftLines} lines</p> : null}
 						<div className="composer-bar">
-							<button className="select" type="button" onClick={() => void onSend()}>
-								Send
+							<button
+								className="select"
+								type="button"
+								disabled={sending}
+								onClick={() => void onSend()}
+							>
+								{sending ? "Sending" : "Send"}
 							</button>
 							<button
 								type="button"
@@ -899,20 +925,25 @@ export default function Page() {
 						{ephemeral ? (
 							<p className="field-hint">Skip the server. Needs another device on this Wi‑Fi.</p>
 						) : null}
+						<Status value={status} />
 					</div>
 				</div>
-				<div className="tray">
+				<div className={undo || status ? "tray has-notice" : "tray"}>
 					<div className="log-head">
 						<p className="sheet-label">On the clipboard</p>
-						<p className="clip-count">{visible.length}</p>
+						<p className="clip-count">
+							<span className="clip-count-num">{visible.length}</span>
+							<span className="clip-count-word">{visible.length === 1 ? "note" : "notes"}</span>
+						</p>
 					</div>
 					{visible.length === 0 ? (
-						<p className="empty">
-							<span>
+						<div className="empty">
+							<CatMark className="empty-cat" size={72} decorative />
+							<p>
 								Nothing here yet.
 								<span className="empty-how">Send a note and it shows on your other devices.</span>
-							</span>
-						</p>
+							</p>
+						</div>
 					) : (
 						<ul className="log log-sheet">
 							<AnimatePresence initial={false}>
@@ -1015,21 +1046,21 @@ export default function Page() {
 							</AnimatePresence>
 						</ul>
 					)}
+					{undo || status ? (
+						<div className="tray-notice">
+							{undo ? (
+								<p role="status">
+									Forgotten.
+									<button className="tray-undo" type="button" onClick={() => void onUndoForget()}>
+										Undo
+									</button>
+								</p>
+							) : null}
+							<Status value={status} />
+						</div>
+					) : null}
 				</div>
 			</div>
-			{undo || status ? (
-				<div className="clip-notices">
-					{undo ? (
-						<p className="hint" role="status">
-							Forgotten.{" "}
-							<button type="button" onClick={() => void onUndoForget()}>
-								Undo
-							</button>
-						</p>
-					) : null}
-					<Status value={status} />
-				</div>
-			) : null}
 			<FilePreview
 				preview={preview}
 				onClose={() => setPreview(null)}
