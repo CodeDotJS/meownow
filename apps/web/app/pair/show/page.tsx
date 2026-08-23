@@ -13,6 +13,7 @@ import { asPublicJwk, formatPairingCode, type PairingQr } from "@meownow/protoco
 import { startRegistration } from "@simplewebauthn/browser";
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
+import { rememberPasskey } from "@/lib/client/passkey";
 import { PairingQrCanvas } from "@/lib/pair/qr-canvas";
 import { PairSteps } from "@/lib/ui/pair-steps";
 import { Panel } from "@/lib/ui/panel";
@@ -153,6 +154,7 @@ export default function PairShowPage() {
 				setStatus(errorCode(verifyRes.data));
 				return;
 			}
+			rememberPasskey(credential.rawId || credential.id);
 			window.location.href = "/";
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "pair_failed");
