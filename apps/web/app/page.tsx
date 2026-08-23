@@ -10,18 +10,22 @@ import { Mesh } from "@/lib/p2p/mesh";
 import { sendOnMesh, shouldPersist } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
+import { ComposerGlyph } from "@/lib/ui/composer-glyph";
 import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
+import { HoverTip } from "@/lib/ui/hover-tip";
 import { Landing } from "@/lib/ui/landing";
 import { CatMark } from "@/lib/ui/marks";
 import { mergeRemoteItems } from "@/lib/ui/merge-items";
+import { NoteReader, type NoteReaderState } from "@/lib/ui/note-reader";
+import { textNeedsReader } from "@/lib/ui/note-size";
 import { Panel } from "@/lib/ui/panel";
 import { PixelThumb } from "@/lib/ui/pixel-avatar";
 import { OFFLINE_POLL_MS, shouldHttpPoll } from "@/lib/ui/reconcile";
 import { Status } from "@/lib/ui/status";
-import { formatGutterTime, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
+import { formatClockTime, groupByDay, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
+import { hubSend, subscribeHub } from "@/lib/vault/hub-live";
 import { loadVault } from "@/lib/vault/idb";
-import { connectHub } from "@/lib/vault/live";
 import { dropStaleLocalVault } from "@/lib/vault/local";
 import { downloadBlobItem, openBlobPreview, sendBlobFile } from "@/lib/vault/upload-client";
 import { b64urlToBytes, bytesToB64url } from "@/lib/vault/wire";
@@ -102,6 +106,7 @@ export default function Page() {
 	const [copiedId, setCopiedId] = useState<string | null>(null);
 	const [undo, setUndo] = useState<Shown | null>(null);
 	const [preview, setPreview] = useState<FilePreviewState | null>(null);
+	const [note, setNote] = useState<NoteReaderState | null>(null);
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
@@ -236,63 +241,65 @@ export default function Page() {
 		if (!me || !hasLocal) {
 			return;
 		}
-		const session = connectHub((envelope) => {
-			if (envelope.type === "hello") {
-				setLive(true);
-				void refreshItems();
-				meshRef.current?.close();
-				meshRef.current = new Mesh(
-					envelope.deviceId,
-					(msg) => session.send(msg),
-					(dc) => {
-						if (dc.type === "item.deleted") {
-							setItems((current) => current.filter((row) => row.id !== dc.id));
-							setSelectedId((current) => (current === dc.id ? null : current));
-							return;
-						}
-						void openItem({
-							id: dc.item.id,
-							kind: dc.item.kind,
-							ciphertext: dc.item.ciphertext,
-							metaCiphertext: dc.item.metaCiphertext,
-							iv: dc.item.iv,
-							wrappedKey: dc.item.wrappedKey,
-							byteSize: dc.item.byteSize,
-							createdAt: new Date().toISOString(),
-							expiresAt: dc.item.expiresAt,
-						}).then((shown) => {
-							const row = dc.ephemeral ? { ...shown, ephemeral: true } : shown;
-							setItems((current) =>
-								current.some((entry) => entry.id === row.id) ? current : [row, ...current],
-							);
-						});
-					},
-					setLocal,
-				);
-			}
-			if (envelope.type === "presence.changed") {
-				meshRef.current?.handlePresence(envelope.devices);
-			}
-			if (
-				envelope.type === "rtc.offer" ||
-				envelope.type === "rtc.answer" ||
-				envelope.type === "rtc.ice"
-			) {
-				void meshRef.current?.handleSignal(envelope);
-			}
-			if (envelope.type === "item.created") {
-				void openItem(envelope.item).then((shown) => {
-					const row = envelope.ephemeral ? { ...shown, ephemeral: true } : shown;
-					setItems((current) =>
-						current.some((entry) => entry.id === row.id) ? current : [row, ...current],
+		const stopHub = subscribeHub({
+			onLive: setLive,
+			onEnvelope: (envelope) => {
+				if (envelope.type === "hello") {
+					void refreshItems();
+					meshRef.current?.close();
+					meshRef.current = new Mesh(
+						envelope.deviceId,
+						(msg) => hubSend(msg),
+						(dc) => {
+							if (dc.type === "item.deleted") {
+								setItems((current) => current.filter((row) => row.id !== dc.id));
+								setSelectedId((current) => (current === dc.id ? null : current));
+								return;
+							}
+							void openItem({
+								id: dc.item.id,
+								kind: dc.item.kind,
+								ciphertext: dc.item.ciphertext,
+								metaCiphertext: dc.item.metaCiphertext,
+								iv: dc.item.iv,
+								wrappedKey: dc.item.wrappedKey,
+								byteSize: dc.item.byteSize,
+								createdAt: new Date().toISOString(),
+								expiresAt: dc.item.expiresAt,
+							}).then((shown) => {
+								const row = dc.ephemeral ? { ...shown, ephemeral: true } : shown;
+								setItems((current) =>
+									current.some((entry) => entry.id === row.id) ? current : [row, ...current],
+								);
+							});
+						},
+						setLocal,
 					);
-				});
-			}
-			if (envelope.type === "item.deleted") {
-				setItems((current) => current.filter((row) => row.id !== envelope.id));
-			}
-		}, setLive);
-		hubSendRef.current = (msg) => session.send(msg);
+				}
+				if (envelope.type === "presence.changed") {
+					meshRef.current?.handlePresence(envelope.devices);
+				}
+				if (
+					envelope.type === "rtc.offer" ||
+					envelope.type === "rtc.answer" ||
+					envelope.type === "rtc.ice"
+				) {
+					void meshRef.current?.handleSignal(envelope);
+				}
+				if (envelope.type === "item.created") {
+					void openItem(envelope.item).then((shown) => {
+						const row = envelope.ephemeral ? { ...shown, ephemeral: true } : shown;
+						setItems((current) =>
+							current.some((entry) => entry.id === row.id) ? current : [row, ...current],
+						);
+					});
+				}
+				if (envelope.type === "item.deleted") {
+					setItems((current) => current.filter((row) => row.id !== envelope.id));
+				}
+			},
+		});
+		hubSendRef.current = hubSend;
 		function onWake() {
 			if (document.visibilityState === "visible") {
 				void refreshItems();
@@ -301,7 +308,7 @@ export default function Page() {
 		document.addEventListener("visibilitychange", onWake);
 		window.addEventListener("online", onWake);
 		return () => {
-			session.close();
+			stopHub();
 			hubSendRef.current = () => false;
 			meshRef.current?.close();
 			meshRef.current = null;
@@ -549,6 +556,9 @@ export default function Page() {
 			if (preview?.url === item.previewUrl) {
 				setPreview(null);
 			}
+			if (note?.id === id) {
+				setNote(null);
+			}
 			setItems((current) => current.filter((row) => row.id !== id));
 			setSelectedId((current) => (current === id ? null : current));
 			setUndo(restorable(item) ? item : null);
@@ -560,7 +570,7 @@ export default function Page() {
 			forgetWaitRef.current = wait;
 			await wait;
 		},
-		[commitForget, preview],
+		[commitForget, note, preview],
 	);
 
 	const onUndoForget = useCallback(async () => {
@@ -674,9 +684,16 @@ export default function Page() {
 			}
 			dismissHint();
 			if (item.kind === "image" || item.kind === "file") {
+				setNote(null);
 				void openPreview(item);
 				return;
 			}
+			setPreview(null);
+			if (textNeedsReader(item.text)) {
+				setNote({ id: item.id, text: item.text });
+				return;
+			}
+			setNote(null);
 			void onCopy(item.text, item.id);
 		},
 		[dismissHint, onCopy, openPreview],
@@ -693,7 +710,7 @@ export default function Page() {
 			const target = event.target;
 			if (
 				target instanceof HTMLElement &&
-				target.closest("textarea, input, [contenteditable], .palette-layer")
+				target.closest("textarea, input, [contenteditable], .palette-layer, .preview-layer")
 			) {
 				return;
 			}
@@ -866,28 +883,28 @@ export default function Page() {
 	return (
 		<main className="clipboard">
 			<h1 className="file-hidden">Clipboard</h1>
-			<p className="clip-meta">
-				<span>{ephemeral ? "Live only" : ""}</span>
-				<span className={live ? "clip-live is-on" : "clip-live"}>
-					{live ? "Live on your devices" : "Syncing…"}
-				</span>
-			</p>
 			{hint ? (
-				<p className="hint clip-hint">Tap a line to copy. Paste on this page to send.</p>
+				<p className="hint clip-hint">
+					Tap a short note to copy. Open a long one to read it. Paste on this page to send.
+				</p>
 			) : null}
-			<div className="stage">
+			<div className={ephemeral ? "stage is-ghost" : "stage"}>
 				<div className="composer">
 					<p className="sheet-label">{ephemeral ? "Live only" : "New paste"}</p>
 					<textarea
 						aria-label={ephemeral ? "Live only" : "New paste"}
 						value={draft}
 						placeholder="Type or paste"
-						enterKeyHint="send"
+						enterKeyHint="enter"
 						autoComplete="off"
 						autoCorrect="on"
 						onChange={(e) => setDraft(e.target.value)}
 						onKeyDown={(event) => {
-							if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+							if (
+								event.key === "Enter" &&
+								(event.metaKey || event.ctrlKey) &&
+								!event.nativeEvent.isComposing
+							) {
 								event.preventDefault();
 								void onSend();
 							}
@@ -897,22 +914,28 @@ export default function Page() {
 					<div className="composer-foot">
 						{draftLines > 8 ? <p className="field-hint">{draftLines} lines</p> : null}
 						<div className="composer-bar">
-							<button
-								className="select"
-								type="button"
-								disabled={sending}
-								onClick={() => void onSend()}
-							>
-								{sending ? "Sending" : "Send"}
-							</button>
-							<button
-								type="button"
-								className={ephemeral ? "composer-quiet is-on" : "composer-quiet"}
-								aria-pressed={ephemeral}
-								onClick={() => setEphemeral((on) => !on)}
-							>
-								Ephemeral
-							</button>
+							<HoverTip label={sending ? "Sending" : "Send"} place="above">
+								<button
+									className="composer-icon"
+									type="button"
+									disabled={sending}
+									aria-label={sending ? "Sending" : "Send"}
+									onClick={() => void onSend()}
+								>
+									<ComposerGlyph name="send" />
+								</button>
+							</HoverTip>
+							<HoverTip label="Ephemeral" place="above">
+								<button
+									type="button"
+									className={ephemeral ? "composer-icon is-on" : "composer-icon"}
+									aria-pressed={ephemeral}
+									aria-label="Ephemeral"
+									onClick={() => setEphemeral((on) => !on)}
+								>
+									<ComposerGlyph name="ephemeral" pop={ephemeral} />
+								</button>
+							</HoverTip>
 							{me.canUpload ? (
 								<>
 									<input
@@ -924,19 +947,23 @@ export default function Page() {
 											event.target.value = "";
 										}}
 									/>
-									<button
-										type="button"
-										className="composer-quiet"
-										onClick={() => fileRef.current?.click()}
-									>
-										File
-									</button>
+									<HoverTip label="File" place="above">
+										<button
+											type="button"
+											className="composer-icon"
+											aria-label="File"
+											onClick={() => fileRef.current?.click()}
+										>
+											<ComposerGlyph name="file" />
+										</button>
+									</HoverTip>
 								</>
 							) : null}
-							{local ? <span className="mode">Local</span> : null}
 						</div>
 						{ephemeral ? (
-							<p className="field-hint">Skip the store. Needs another device that is live.</p>
+							<p className="field-hint is-center">
+								Skip the store. Needs another device that is live.
+							</p>
 						) : null}
 						<Status value={status} />
 					</div>
@@ -944,10 +971,19 @@ export default function Page() {
 				<div className={undo || status ? "tray has-notice" : "tray"}>
 					<div className="log-head">
 						<p className="sheet-label">On the clipboard</p>
-						<p className="clip-count">
-							<span className="clip-count-num">{visible.length}</span>
-							<span className="clip-count-word">{visible.length === 1 ? "note" : "notes"}</span>
-						</p>
+						<div className="log-head-meta">
+							{local ? (
+								<HoverTip label="Direct on this network" place="below">
+									<button type="button" className="path-chip" aria-label="Direct on this network">
+										LAN
+									</button>
+								</HoverTip>
+							) : null}
+							<p className="clip-count">
+								<span className="clip-count-num">{visible.length}</span>
+								<span className="clip-count-word">{visible.length === 1 ? "note" : "notes"}</span>
+							</p>
+						</div>
 					</div>
 					{visible.length === 0 ? (
 						<div className="empty">
@@ -958,106 +994,142 @@ export default function Page() {
 							</p>
 						</div>
 					) : (
-						<ul className="log log-sheet">
-							<AnimatePresence initial={false}>
-								{visible.map((item) => {
-									const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
-									const warn = ttlWarn(item.expiresAt, now);
-									const selected = item.id === selectedId;
-									const locked = item.text === UNREADABLE;
-									return (
-										<motion.li
-											key={item.id}
-											layout={!reduceMotion}
-											initial={reduceMotion ? false : { opacity: 0, y: -10 }}
-											animate={{ opacity: 1, y: 0 }}
-											exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-											transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-											className={[
-												"log-item",
-												selected ? "is-selected" : "",
-												item.kind === "image" || item.kind === "file" ? "has-file" : "",
-											]
-												.filter(Boolean)
-												.join(" ")}
-										>
-											<span className="gutter">{formatGutterTime(item.createdAt, now)}</span>
-											{locked ? (
-												<p className="body">
-													{item.text}. <a href="/pair/show">Show a code</a> or{" "}
-													<a href="/recover">use the 12 words</a>
-												</p>
-											) : item.kind === "image" || item.kind === "file" ? (
-												<button
-													type="button"
-													className="body file-body"
-													onClick={() => activateItem(item)}
-												>
-													<PixelThumb seed={item.id} label={item.text} />
-													<span className="file-copy">
-														<span className="file-name">{item.text}</span>
-														<span className="file-meta">
-															{item.uploadProgress !== undefined
-																? `Sending ${Math.round(item.uploadProgress * 100)}%`
-																: item.kind === "image"
-																	? "Image"
-																	: "File"}
+						<div className="log log-sheet">
+							{groupByDay(visible, now).map((group) => (
+								<section className="log-day" key={group.key}>
+									<h2 className="log-day-label">
+										<span>{group.title}</span>
+										{group.date ? <span className="log-day-date">{group.date}</span> : null}
+									</h2>
+									<ul className="log-day-items">
+										<AnimatePresence initial={false}>
+											{group.items.map((item) => {
+												const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
+												const warn = ttlWarn(item.expiresAt, now);
+												const selected = item.id === selectedId;
+												const locked = item.text === UNREADABLE;
+												return (
+													<motion.li
+														key={item.id}
+														layout={!reduceMotion}
+														initial={
+															reduceMotion
+																? false
+																: item.ephemeral
+																	? { opacity: 0, y: -16, scale: 0.96 }
+																	: { opacity: 0, y: -10 }
+														}
+														animate={{ opacity: 1, y: 0, scale: 1 }}
+														exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+														transition={{
+															duration: item.ephemeral ? 0.38 : 0.22,
+															ease: [0.22, 1, 0.36, 1],
+														}}
+														className={[
+															"log-item",
+															item.ephemeral ? "is-ghost" : "",
+															selected ? "is-selected" : "",
+															item.kind === "image" || item.kind === "file" ? "has-file" : "",
+														]
+															.filter(Boolean)
+															.join(" ")}
+													>
+														<span className="gutter">{formatClockTime(item.createdAt)}</span>
+														<span className="rail" aria-hidden />
+														{locked ? (
+															<p className="body">
+																{item.text}. <a href="/pair/show">Show a code</a> or{" "}
+																<a href="/recover">use the 12 words</a>
+															</p>
+														) : item.kind === "image" || item.kind === "file" ? (
+															<button
+																type="button"
+																className="body file-body"
+																onClick={() => activateItem(item)}
+															>
+																<PixelThumb seed={item.id} label={item.text} />
+																<span className="file-copy">
+																	<span className="file-name">{item.text}</span>
+																	<span className="file-meta">
+																		{item.uploadProgress !== undefined
+																			? `Sending ${Math.round(item.uploadProgress * 100)}%`
+																			: item.kind === "image"
+																				? "Image"
+																				: "File"}
+																	</span>
+																</span>
+															</button>
+														) : (
+															<button
+																type="button"
+																className="body"
+																onClick={() => activateItem(item)}
+															>
+																{item.text}
+															</button>
+														)}
+														<span className="log-actions">
+															{copiedId === item.id ? <span className="copied">Copied</span> : null}
+															{item.kind !== "image" &&
+															item.kind !== "file" &&
+															textNeedsReader(item.text) ? (
+																<button
+																	type="button"
+																	className="act"
+																	onClick={() => activateItem(item)}
+																>
+																	OPEN
+																</button>
+															) : null}
+															{item.kind === "image" || item.kind === "file" ? (
+																<button
+																	type="button"
+																	className="act"
+																	onClick={() => void openPreview(item)}
+																>
+																	PREVIEW
+																</button>
+															) : null}
+															{item.kind === "image" || item.kind === "file" ? (
+																<button
+																	type="button"
+																	className="act"
+																	disabled={item.uploadProgress !== undefined}
+																	onClick={() => void saveBlob(item)}
+																>
+																	SAVE
+																</button>
+															) : null}
+															<button
+																type="button"
+																className="act"
+																onClick={() => void onForget(item.id)}
+															>
+																FORGET
+															</button>
 														</span>
-													</span>
-												</button>
-											) : (
-												<button type="button" className="body" onClick={() => activateItem(item)}>
-													{item.text}
-												</button>
-											)}
-											<span className="log-actions">
-												{copiedId === item.id ? <span className="copied">Copied</span> : null}
-												{item.kind === "image" || item.kind === "file" ? (
-													<button
-														type="button"
-														className="forget"
-														onClick={() => void openPreview(item)}
-													>
-														Preview
-													</button>
-												) : null}
-												{item.kind === "image" || item.kind === "file" ? (
-													<button
-														type="button"
-														className="forget"
-														disabled={item.uploadProgress !== undefined}
-														onClick={() => void saveBlob(item)}
-													>
-														Save
-													</button>
-												) : null}
-												<button
-													type="button"
-													className="forget"
-													onClick={() => void onForget(item.id)}
-												>
-													Forget
-												</button>
-											</span>
-											<span
-												className={
-													item.uploadProgress !== undefined
-														? "ttl is-upload"
-														: warn
-															? "ttl warn"
-															: "ttl"
-												}
-												style={{
-													["--remain" as string]: String(
-														item.uploadProgress !== undefined ? item.uploadProgress : remain,
-													),
-												}}
-											/>
-										</motion.li>
-									);
-								})}
-							</AnimatePresence>
-						</ul>
+														<span
+															className={
+																item.uploadProgress !== undefined
+																	? "ttl is-upload"
+																	: warn
+																		? "ttl warn"
+																		: "ttl"
+															}
+															style={{
+																["--remain" as string]: String(
+																	item.uploadProgress !== undefined ? item.uploadProgress : remain,
+																),
+															}}
+														/>
+													</motion.li>
+												);
+											})}
+										</AnimatePresence>
+									</ul>
+								</section>
+							))}
+						</div>
 					)}
 					{undo || status ? (
 						<div className="tray-notice">
@@ -1081,6 +1153,16 @@ export default function Page() {
 					const item = itemsRef.current.find((row) => row.previewUrl === preview?.url);
 					if (item) {
 						void saveBlob(item);
+					}
+				}}
+			/>
+			<NoteReader
+				note={note}
+				copied={copiedId === note?.id}
+				onClose={() => setNote(null)}
+				onCopy={() => {
+					if (note) {
+						void onCopy(note.text, note.id);
 					}
 				}}
 			/>
