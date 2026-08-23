@@ -195,6 +195,29 @@ export class AuthService {
 		});
 	}
 
+	async deleteAccount(sessionToken: string | undefined, handle: string): Promise<void> {
+		const ctx = await this.requireSession(sessionToken);
+		if (ctx.user.handle.toLowerCase() !== handle) {
+			throw new AuthError("invalid_body", 400);
+		}
+		const now = this.now();
+		const userId = ctx.user.id;
+		const result = await this.store.removeUser(userId);
+		if (result === "missing") {
+			throw new AuthError("not_found", 404);
+		}
+		if (result === "last_admin") {
+			throw new AuthError("last_admin", 409);
+		}
+		await this.store.insertAudit({
+			actorId: null,
+			action: "user.removed",
+			subjectType: "user",
+			subjectId: userId,
+			now,
+		});
+	}
+
 	async registerOptions(
 		input: RegisterOptionsRequest,
 	): Promise<{ options: unknown; challenge: string }> {
