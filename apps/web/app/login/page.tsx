@@ -2,7 +2,14 @@
 
 import { startAuthentication } from "@simplewebauthn/browser";
 import { useState } from "react";
-import { errorCode, postJson } from "@/lib/client/http";
+import { errorCode, getJson, postJson } from "@/lib/client/http";
+import {
+	preferRememberedPasskey,
+	readRememberedPasskey,
+	rememberPasskey,
+	shouldRetryUsernameless,
+	waitForSession,
+} from "@/lib/client/passkey";
 import { Panel } from "@/lib/ui/panel";
 import { safeNextPath } from "@/lib/ui/safe-next";
 import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
@@ -32,21 +39,22 @@ export default function LoginPage() {
 		setBusy(true);
 		setStatus(null);
 		try {
-			const optionsRes = await postJson("/api/auth/login/options", {});
-			if (!optionsRes.ok) {
-				setStatus(errorCode(optionsRes.data));
+			const remembered = readRememberedPasskey();
+			const first = await authenticatePasskey(remembered);
+			const result =
+				!first.ok && shouldRetryUsernameless(remembered, first.error)
+					? await authenticatePasskey(null)
+					: first;
+			if (!result.ok) {
+				setStatus(result.error === "unauthorized" ? "unverified" : result.error);
 				return;
 			}
-			const payload = optionsRes.data as {
-				options: Parameters<typeof startAuthentication>[0]["optionsJSON"];
-			};
-			const credential = await startAuthentication({ optionsJSON: payload.options });
-			const verifyRes = await postJson("/api/auth/login/verify", { credential });
-			if (!verifyRes.ok) {
-				setStatus(errorCode(verifyRes.data));
-				return;
-			}
-			window.location.href = safeNextPath(new URL(window.location.href).searchParams.get("next"));
+			rememberPasskey(result.credentialId);
+			await waitForSession(
+				async () => (await getJson("/api/auth/me")).ok,
+				(ms) => new Promise((resolve) => window.setTimeout(resolve, ms)),
+			);
+			window.location.assign(safeNextPath(new URL(window.location.href).searchParams.get("next")));
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "passkey_failed");
 		} finally {
@@ -90,4 +98,28 @@ export default function LoginPage() {
 			</Panel>
 		</main>
 	);
+}
+
+type AuthOk = { ok: true; credentialId: string };
+type AuthFail = { ok: false; error: string };
+
+async function authenticatePasskey(remembered: string | null): Promise<AuthOk | AuthFail> {
+	const optionsRes = await postJson("/api/auth/login/options", {});
+	if (!optionsRes.ok) {
+		return { ok: false, error: errorCode(optionsRes.data) };
+	}
+	const payload = optionsRes.data as {
+		options: Parameters<typeof startAuthentication>[0]["optionsJSON"];
+	};
+	await new Promise<void>((resolve) => {
+		window.setTimeout(resolve, 0);
+	});
+	const credential = await startAuthentication({
+		optionsJSON: preferRememberedPasskey(payload.options, remembered),
+	});
+	const verifyRes = await postJson("/api/auth/login/verify", { credential });
+	if (!verifyRes.ok) {
+		return { ok: false, error: errorCode(verifyRes.data) };
+	}
+	return { ok: true, credentialId: credential.rawId || credential.id };
 }
