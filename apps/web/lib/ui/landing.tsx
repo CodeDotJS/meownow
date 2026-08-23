@@ -31,28 +31,22 @@ export function Landing({ hasLocal }: { hasLocal: boolean }) {
 						</a>
 					</nav>
 					{hasLocal ? (
-						<>
-							<p className="hint">This browser already has the clipboard. Sign in to open it.</p>
-							<p className="hint">
-								Can't use a passkey? <a href="/pair/show">Show a code</a>
-							</p>
-						</>
-					) : (
-						<ul className="hint-list">
-							<li>
-								Have an invite? <a href="/join">Join</a>
-							</li>
-							<li>
-								Adding this browser? <a href="/pair/show">Show a code</a>
-							</li>
-							<li>
-								Lost every device. <a href="/recover">Use the 12 words</a>
-							</li>
-							<li>
-								First seat? <a href="/enroll">First admin</a>
-							</li>
-						</ul>
-					)}
+						<p className="hint">This browser already has the clipboard. Sign in to open it.</p>
+					) : null}
+					<ul className="hint-list">
+						<li>
+							Have an invite? <a href="/join">Join</a>
+						</li>
+						<li>
+							Adding this browser? <a href="/pair/show">Show a code</a>
+						</li>
+						<li>
+							Lost every device. <a href="/recover">Use the 12 words</a>
+						</li>
+						<li>
+							First seat? <a href="/enroll">First admin</a>
+						</li>
+					</ul>
 					<InstallHint />
 				</motion.div>
 				<motion.div
