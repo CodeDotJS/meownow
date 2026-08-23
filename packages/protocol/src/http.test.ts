@@ -3,6 +3,8 @@ import {
 	errorEnvelopeSchema,
 	handleSchema,
 	inviteCreateRequestSchema,
+	loginVerifyRequestSchema,
+	publicKeyOptionsResponseSchema,
 	registerOptionsRequestSchema,
 } from "./http";
 
@@ -25,6 +27,30 @@ test("register options require an invite token", () => {
 test("error envelope is a code, not a message", () => {
 	expect(errorEnvelopeSchema.parse({ error: "seats_full" }).error).toBe("seats_full");
 	expect(errorEnvelopeSchema.safeParse({ error: "nope" }).success).toBe(false);
+});
+
+test("login options may echo the sealed challenge", () => {
+	expect(publicKeyOptionsResponseSchema.parse({ options: {}, challenge: "sealed" }).challenge).toBe(
+		"sealed",
+	);
+	expect(publicKeyOptionsResponseSchema.parse({ options: {} }).challenge).toBeUndefined();
+});
+
+test("login verify may send the sealed challenge in the body", () => {
+	const credential = {
+		id: "YQ",
+		rawId: "YQ",
+		type: "public-key" as const,
+		response: {
+			clientDataJSON: "e30",
+			authenticatorData: "e30",
+			signature: "e30",
+		},
+	};
+	expect(loginVerifyRequestSchema.parse({ credential }).challenge).toBeUndefined();
+	expect(loginVerifyRequestSchema.parse({ credential, challenge: "sealed" }).challenge).toBe(
+		"sealed",
+	);
 });
 
 test("invite note is optional and capped", () => {
