@@ -1,5 +1,6 @@
 export {
 	fromBase64Url,
+	normalizeBase64Url,
 	randomToken,
 	sha256,
 	toBase64Url,
