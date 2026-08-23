@@ -61,7 +61,7 @@ export default function UsagePage() {
 							Class A ~{usage.classAEstimate} of {usage.classACeiling}. Class B is not counted.
 						</p>
 						<p className="dir-meta">
-							{usage.seatsClaimed} of {usage.seatsTotal} seats taken
+							{usage.seatsClaimed} {usage.seatsClaimed === 1 ? "person" : "people"}
 						</p>
 						<ul className="dir-list">
 							{usage.users.map((user) => (
