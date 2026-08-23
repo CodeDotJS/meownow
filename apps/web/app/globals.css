@@ -1645,12 +1645,12 @@ li {
 }
 
 .log-day-items .log-item {
-	grid-template-columns: 2.85rem 0.75rem minmax(0, 1fr) auto;
+	grid-template-columns: 3.5rem 0.75rem minmax(0, 1fr) auto;
 	column-gap: 0.4rem;
 }
 
 .log-day-items .log-item .gutter {
-	text-align: right;
+	text-align: center;
 }
 
 .log-day-items .log-item .ttl {
@@ -1834,9 +1834,46 @@ li {
 .log-item .gutter {
 	position: relative;
 	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.4rem;
 	font-size: 0.75rem;
 	color: var(--muted);
 	font-variant-numeric: tabular-nums;
+}
+
+.gutter-time {
+	line-height: 1.2;
+	text-align: center;
+}
+
+.time-mark {
+	display: block;
+	width: 24px;
+	height: 24px;
+	object-fit: contain;
+}
+
+.time-mark.is-copied {
+	border: 0;
+	background: transparent;
+	border-radius: 0;
+	box-shadow: none;
+}
+
+.time-mark-hit {
+	display: inline-flex;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	line-height: 0;
+}
+
+.time-mark-hit:hover,
+.time-mark-hit:focus-visible {
+	background: transparent;
+	color: inherit;
 }
 
 .log-item .body {
@@ -2071,6 +2108,26 @@ li {
 	border-radius: var(--radius-sm);
 }
 
+.note-read-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+.note-read-head .sheet-label {
+	margin: 0;
+}
+
+.note-read-go {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	margin-top: 1rem;
+}
+
 .note-read {
 	margin: 0.75rem 0 0;
 	max-height: min(28rem, 58dvh);
@@ -2086,29 +2143,9 @@ li {
 	overflow-wrap: anywhere;
 }
 
-.log-item.is-selected,
-.log-item:hover,
-.log-item:focus-within {
-	background: var(--wash);
-}
-
-.log-item.is-ghost.is-selected,
-.log-item.is-ghost:hover,
-.log-item.is-ghost:focus-within {
-	background: color-mix(in srgb, var(--ghost) 58%, var(--wash));
-}
-
 .log-item.is-compose:hover,
 .log-item.is-compose:focus-within {
 	background: var(--paper);
-}
-
-.log:hover .log-item.is-selected:not(:hover):not(:focus-within) {
-	background: transparent;
-}
-
-.log:hover .log-item.is-ghost.is-selected:not(:hover):not(:focus-within) {
-	background: var(--ghost);
 }
 
 .sheet-skeleton {
@@ -2164,21 +2201,18 @@ li {
 }
 
 .tray-notice {
-	position: absolute;
-	z-index: 2;
-	right: 0.7rem;
-	bottom: 0.7rem;
-	left: 0.7rem;
+	flex-shrink: 0;
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 0.45rem 0.75rem;
-	padding: 0.55rem 0.7rem;
-	background: var(--surface);
+	gap: 0.35rem 0.65rem;
+	margin: 0.35rem 0.55rem 0.2rem;
+	padding: 0.35rem 0.5rem 0.35rem 0.65rem;
+	background: var(--paper);
 	border: 1px solid var(--rule);
 	border-radius: var(--radius-sm);
-	box-shadow: var(--shadow);
+	pointer-events: none;
 }
 
 .tray-notice p {
@@ -2186,9 +2220,9 @@ li {
 	align-items: center;
 	justify-content: space-between;
 	flex: 1 1 auto;
-	gap: 0.75rem;
+	gap: 0.65rem;
 	margin: 0;
-	font-size: 0.875rem;
+	font-size: 0.8125rem;
 }
 
 .tray-notice .status {
@@ -2198,12 +2232,13 @@ li {
 }
 
 .tray-undo {
-	min-height: 2rem;
-	padding: 0.25rem 0.7rem;
+	pointer-events: auto;
+	min-height: 1.85rem;
+	padding: 0.2rem 0.65rem;
 	background: var(--ink);
 	color: var(--select-ink);
 	border-radius: var(--radius-sm);
-	font-size: 0.8125rem;
+	font-size: 0.75rem;
 	font-weight: 520;
 }
 
@@ -2214,11 +2249,6 @@ li {
 
 .tray-undo:active {
 	transform: scale(0.98);
-}
-
-.tray.has-notice .log-sheet,
-.tray.has-notice .empty {
-	padding-bottom: 4.25rem;
 }
 
 @media (min-width: 960px) {
@@ -2318,6 +2348,7 @@ li {
 	max-width: 36rem;
 	margin: 14vh auto 0;
 	padding: 1.15rem 1.2rem 1.25rem;
+	outline: none;
 	background: var(--surface);
 	border: 1px solid var(--rule);
 	border-radius: var(--radius);
@@ -2326,28 +2357,17 @@ li {
 		inset 0 1px 0 rgb(255 255 255 / 0.85);
 }
 
-.palette label {
-	max-width: none;
-}
-
 .palette-label {
 	display: block;
-}
-
-.palette input {
-	font-size: 1.15rem;
-	background: var(--paper);
-	border: 1px solid var(--rule);
-	padding: 0.6rem 0.75rem;
-}
-
-.palette input:focus {
-	background: var(--surface);
-	border-color: var(--ink);
+	margin: 0 0 0.35rem;
+	font-size: 0.78rem;
+	font-weight: 560;
+	letter-spacing: -0.02em;
+	color: var(--muted);
 }
 
 .palette-list {
-	margin-top: 0.45rem;
+	margin-top: 0.15rem;
 }
 
 .palette-list li {
@@ -2376,11 +2396,6 @@ li {
 	color: var(--muted);
 	font-size: 0.8125rem;
 	text-align: right;
-}
-
-.palette-empty {
-	padding: 0.45rem 0.4rem;
-	color: var(--muted);
 }
 
 .file-hidden {
@@ -2574,6 +2589,20 @@ li {
 		border-bottom: 1px solid var(--rule);
 	}
 
+	.tray-notice {
+		margin: 0.2rem 0.45rem 0.1rem;
+		padding: 0.28rem 0.4rem 0.28rem 0.55rem;
+	}
+
+	.tray-notice p {
+		font-size: 0.78rem;
+	}
+
+	.tray-undo {
+		min-height: 1.75rem;
+		padding: 0.15rem 0.55rem;
+	}
+
 	.pair-code {
 		width: 100%;
 		text-align: center;
@@ -2614,7 +2643,6 @@ li {
 	input,
 	textarea,
 	select,
-	.palette input,
 	.composer textarea,
 	.log-item.is-compose textarea {
 		font-size: 16px;
@@ -2670,8 +2698,12 @@ li {
 		margin: 0;
 	}
 
+	.log-item .gutter {
+		align-items: center;
+	}
+
 	.log-day-items .log-item {
-		grid-template-columns: 2.85rem 0.7rem minmax(0, 1fr);
+		grid-template-columns: 3.35rem 0.7rem minmax(0, 1fr);
 	}
 
 	.landing-log .log-item {
@@ -2711,7 +2743,8 @@ li {
 
 	.log-item .gutter {
 		grid-column: 1;
-		grid-row: 1;
+		grid-row: 1 / span 3;
+		align-self: start;
 	}
 
 	.log-item .log-actions {

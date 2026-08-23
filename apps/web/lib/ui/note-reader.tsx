@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { CatMark } from "./marks";
 import { noteLineCount } from "./note-size";
+import { PixelStamp } from "./pixel-avatar";
 
 export type NoteReaderState = {
 	id: string;
 	text: string;
+	createdAt: string;
 };
 
 export function NoteReader({
@@ -51,13 +54,22 @@ export function NoteReader({
 				aria-modal="true"
 				aria-labelledby="note-read-title"
 			>
-				<p className="sheet-label" id="note-read-title">
-					{lines === 1 ? "Note" : `${lines} lines`}
-				</p>
+				<div className="note-read-head">
+					<p className="sheet-label" id="note-read-title">
+						{lines === 1 ? "Note" : `${lines} lines`}
+					</p>
+					<button type="button" className="time-mark-hit" onClick={onCopy} aria-label="Copy">
+						{copied ? (
+							<CatMark className="time-mark is-copied" size={24} decorative />
+						) : (
+							<PixelStamp seed={note.createdAt} />
+						)}
+					</button>
+				</div>
 				<pre className="note-read">{note.text}</pre>
-				<nav className="stack">
+				<nav className="note-read-go">
 					<button ref={copyRef} type="button" className="select" onClick={onCopy}>
-						{copied ? "Copied" : "Copy"}
+						Copy
 					</button>
 					<button type="button" className="quiet" onClick={onClose}>
 						Close

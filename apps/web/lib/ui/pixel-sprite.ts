@@ -21,27 +21,31 @@ export const PIXEL_PALETTE = [
 export const PIXEL_GRID = 8;
 
 export type PixelSprite = {
-	size: typeof PIXEL_GRID;
+	size: number;
 	cells: number[];
 };
 
-export function pixelSpriteFromSeed(seed: string): PixelSprite {
-	return randomPixelSprite(mulberry32(fnv1a(seed)));
+export function pixelSpriteFromSeed(seed: string, size: number = PIXEL_GRID): PixelSprite {
+	return randomPixelSprite(mulberry32(fnv1a(seed)), size);
 }
 
-export function randomPixelSprite(rng: () => number = Math.random): PixelSprite {
+export function randomPixelSprite(
+	rng: () => number = Math.random,
+	size: number = PIXEL_GRID,
+): PixelSprite {
 	const cells: number[] = [];
 	const paper = 5;
 	const inks = [index(rng), index(rng), index(rng)];
-	for (let y = 0; y < PIXEL_GRID; y += 1) {
-		for (let x = 0; x < PIXEL_GRID / 2; x += 1) {
+	const half = Math.ceil(size / 2);
+	for (let y = 0; y < size; y += 1) {
+		for (let x = 0; x < half; x += 1) {
 			const roll = rng();
 			const color = roll < 0.42 ? paper : (inks[Math.floor(rng() * inks.length)] ?? paper);
-			cells[y * PIXEL_GRID + x] = color;
-			cells[y * PIXEL_GRID + (PIXEL_GRID - 1 - x)] = color;
+			cells[y * size + x] = color;
+			cells[y * size + (size - 1 - x)] = color;
 		}
 	}
-	return { size: PIXEL_GRID, cells };
+	return { size, cells };
 }
 
 function index(rng: () => number): number {

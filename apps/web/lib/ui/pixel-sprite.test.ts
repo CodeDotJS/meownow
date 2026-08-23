@@ -39,4 +39,18 @@ describe("pixelSpriteFromSeed", () => {
 		expect(once.size).toBe(PIXEL_GRID);
 		expect(once.cells).toHaveLength(PIXEL_GRID * PIXEL_GRID);
 	});
+
+	test("builds a stable 4x4 mark from a clock time", () => {
+		const once = pixelSpriteFromSeed("2026-08-24T02:42:11.000Z", 4);
+		const again = pixelSpriteFromSeed("2026-08-24T02:42:11.000Z", 4);
+		const later = pixelSpriteFromSeed("2026-08-24T02:43:11.000Z", 4);
+		expect(once.size).toBe(4);
+		expect(once.cells).toHaveLength(16);
+		expect(once.cells).toEqual(again.cells);
+		expect(once.cells.join(",")).not.toBe(later.cells.join(","));
+		expect(once.cells[0]).toBe(once.cells[3]);
+		expect(once.cells[4]).toBe(once.cells[7]);
+		expect(once.cells[8]).toBe(once.cells[11]);
+		expect(once.cells[12]).toBe(once.cells[15]);
+	});
 });

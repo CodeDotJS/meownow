@@ -20,7 +20,7 @@ import { mergeRemoteItems } from "@/lib/ui/merge-items";
 import { NoteReader, type NoteReaderState } from "@/lib/ui/note-reader";
 import { textNeedsReader } from "@/lib/ui/note-size";
 import { Panel } from "@/lib/ui/panel";
-import { PixelThumb } from "@/lib/ui/pixel-avatar";
+import { PixelStamp, PixelThumb } from "@/lib/ui/pixel-avatar";
 import { OFFLINE_POLL_MS, shouldHttpPoll } from "@/lib/ui/reconcile";
 import { Status } from "@/lib/ui/status";
 import { formatClockTime, groupByDay, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
@@ -88,6 +88,7 @@ function itemTtl(kind: Shown["kind"]): number {
 const UNREADABLE = "This browser cannot read that line";
 const CLIP_HINT_KEY = "meownow.clip-hint";
 const FORGET_TOMBSTONE_MS = 15000;
+const UNDO_NOTICE_MS = 5000;
 
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
@@ -521,6 +522,14 @@ export default function Page() {
 		return () => window.clearTimeout(timer);
 	}, [status]);
 
+	useEffect(() => {
+		if (!undo) {
+			return;
+		}
+		const timer = window.setTimeout(() => setUndo(null), UNDO_NOTICE_MS);
+		return () => window.clearTimeout(timer);
+	}, [undo]);
+
 	const commitForget = useCallback(async (item: Shown): Promise<boolean> => {
 		// Peers hold their own copy. An ephemeral item exists nowhere else, so the
 		// mesh is the only way to revoke it; for a stored item this just beats the
@@ -619,7 +628,18 @@ export default function Page() {
 		);
 	}, [undo]);
 
-	const saveBlob = useCallback(async (item: Shown) => {
+	const downloadNote = useCallback(async (item: Shown) => {
+		if (item.kind === "text" || item.kind === "link") {
+			const href = URL.createObjectURL(new Blob([item.text], { type: "text/plain;charset=utf-8" }));
+			const link = document.createElement("a");
+			link.href = href;
+			link.download = item.kind === "link" ? "link.txt" : "note.txt";
+			link.rel = "noopener";
+			link.click();
+			URL.revokeObjectURL(href);
+			setStatus("Downloaded.");
+			return;
+		}
 		if (item.previewUrl) {
 			const link = document.createElement("a");
 			link.href = item.previewUrl;
@@ -690,7 +710,7 @@ export default function Page() {
 			}
 			setPreview(null);
 			if (textNeedsReader(item.text)) {
-				setNote({ id: item.id, text: item.text });
+				setNote({ id: item.id, text: item.text, createdAt: item.createdAt });
 				return;
 			}
 			setNote(null);
@@ -968,7 +988,7 @@ export default function Page() {
 						<Status value={status} />
 					</div>
 				</div>
-				<div className={undo || status ? "tray has-notice" : "tray"}>
+				<div className="tray">
 					<div className="log-head">
 						<p className="sheet-label">On the clipboard</p>
 						<div className="log-head-meta">
@@ -985,6 +1005,19 @@ export default function Page() {
 							</p>
 						</div>
 					</div>
+					{undo || status ? (
+						<div className="tray-notice">
+							{undo ? (
+								<p role="status">
+									<span>Forgotten.</span>
+									<button className="tray-undo" type="button" onClick={() => void onUndoForget()}>
+										Undo
+									</button>
+								</p>
+							) : null}
+							<Status value={status} />
+						</div>
+					) : null}
 					{visible.length === 0 ? (
 						<div className="empty">
 							<CatMark className="empty-cat" size={72} decorative />
@@ -1034,7 +1067,14 @@ export default function Page() {
 															.filter(Boolean)
 															.join(" ")}
 													>
-														<span className="gutter">{formatClockTime(item.createdAt)}</span>
+														<span className="gutter">
+															<span className="gutter-time">{formatClockTime(item.createdAt)}</span>
+															{locked ? null : copiedId === item.id ? (
+																<CatMark className="time-mark is-copied" size={24} decorative />
+															) : (
+																<PixelStamp seed={item.createdAt} />
+															)}
+														</span>
 														<span className="rail" aria-hidden />
 														{locked ? (
 															<p className="body">
@@ -1069,7 +1109,6 @@ export default function Page() {
 															</button>
 														)}
 														<span className="log-actions">
-															{copiedId === item.id ? <span className="copied">Copied</span> : null}
 															{item.kind !== "image" &&
 															item.kind !== "file" &&
 															textNeedsReader(item.text) ? (
@@ -1088,16 +1127,6 @@ export default function Page() {
 																	onClick={() => void openPreview(item)}
 																>
 																	PREVIEW
-																</button>
-															) : null}
-															{item.kind === "image" || item.kind === "file" ? (
-																<button
-																	type="button"
-																	className="act"
-																	disabled={item.uploadProgress !== undefined}
-																	onClick={() => void saveBlob(item)}
-																>
-																	SAVE
 																</button>
 															) : null}
 															<button
@@ -1131,19 +1160,6 @@ export default function Page() {
 							))}
 						</div>
 					)}
-					{undo || status ? (
-						<div className="tray-notice">
-							{undo ? (
-								<p role="status">
-									Forgotten.
-									<button className="tray-undo" type="button" onClick={() => void onUndoForget()}>
-										Undo
-									</button>
-								</p>
-							) : null}
-							<Status value={status} />
-						</div>
-					) : null}
 				</div>
 			</div>
 			<FilePreview
@@ -1152,7 +1168,7 @@ export default function Page() {
 				onDownload={() => {
 					const item = itemsRef.current.find((row) => row.previewUrl === preview?.url);
 					if (item) {
-						void saveBlob(item);
+						void downloadNote(item);
 					}
 				}}
 			/>
