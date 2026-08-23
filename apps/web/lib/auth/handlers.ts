@@ -1,6 +1,7 @@
 import type { WebEnv } from "@meownow/config/env";
 import { sha256 } from "@meownow/db";
 import {
+	accountDeleteRequestSchema,
 	adminEnrollOptionsRequestSchema,
 	deviceLabelSchema,
 	type ErrorCode,
@@ -143,6 +144,12 @@ export function createHandlers(deps: HandlerDeps) {
 		postLogout: (request: Request) =>
 			mutating(request, deps.env, async () => {
 				await auth.logout(sid(request));
+				return json({ ok: true }, [expireCookie(SESSION_COOKIE), expireCookie(CHALLENGE_COOKIE)]);
+			}),
+		postDeleteAccount: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, accountDeleteRequestSchema);
+				await auth.deleteAccount(sid(request), body.handle);
 				return json({ ok: true }, [expireCookie(SESSION_COOKIE), expireCookie(CHALLENGE_COOKIE)]);
 			}),
 		getMe: (request: Request) =>
