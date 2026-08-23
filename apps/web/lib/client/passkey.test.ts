@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { preferRememberedPasskey, shouldRetryUsernameless, waitForSession } from "./passkey";
+import { preferRememberedPasskey, shouldForgetPasskey, waitForSession } from "./passkey";
 
 describe("preferRememberedPasskey", () => {
 	test("leaves options alone when this browser has no remembered passkey", () => {
@@ -15,12 +15,11 @@ describe("preferRememberedPasskey", () => {
 	});
 });
 
-describe("shouldRetryUsernameless", () => {
-	test("retries only when a remembered passkey was rejected", () => {
-		expect(shouldRetryUsernameless("abc", "unverified")).toBe(true);
-		expect(shouldRetryUsernameless("abc", "device_revoked")).toBe(true);
-		expect(shouldRetryUsernameless("abc", "rate_limited")).toBe(false);
-		expect(shouldRetryUsernameless(null, "unverified")).toBe(false);
+describe("shouldForgetPasskey", () => {
+	test("drops a remembered passkey after a failed assertion, not on rate limits", () => {
+		expect(shouldForgetPasskey("unverified")).toBe(true);
+		expect(shouldForgetPasskey("device_revoked")).toBe(true);
+		expect(shouldForgetPasskey("rate_limited")).toBe(false);
 	});
 });
 
