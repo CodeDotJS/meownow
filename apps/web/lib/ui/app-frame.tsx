@@ -81,6 +81,9 @@ export function AppFrame({ children }: { children: ReactNode }) {
 				</a>
 				<div className="chrome-right">
 					{me ? <span className="chrome-handle">{me.handle}</span> : null}
+					<a className="chrome-add" href="/about">
+						About
+					</a>
 					{me ? null : (
 						<a className="chrome-add" href="/login">
 							Sign in
