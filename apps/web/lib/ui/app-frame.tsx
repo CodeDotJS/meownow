@@ -8,6 +8,7 @@ import { loadVault } from "@/lib/vault/idb";
 import { dropStaleLocalVault } from "@/lib/vault/local";
 import { menuActions } from "./menu";
 import { CommandPalette, type PaletteAction } from "./palette";
+import { PixelAvatar } from "./pixel-avatar";
 
 type FrameMe = {
 	handle: string;
@@ -80,7 +81,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
 					meownow
 				</a>
 				<div className="chrome-right">
-					{me ? <span className="chrome-handle">{me.handle}</span> : null}
+					{me ? (
+						<a className="chrome-me" href="/account">
+							<PixelAvatar label={me.handle} size={22} />
+							<span className="chrome-handle">{me.handle}</span>
+						</a>
+					) : null}
 					<a className="chrome-add" href="/about">
 						About
 					</a>
