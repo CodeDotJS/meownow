@@ -31,6 +31,15 @@ describe("statusCopy", () => {
 		expect(statusCopy("scan_needs_signin")).toBe(
 			"Sign in on this browser first. Add a device is only for a computer that already works.",
 		);
+		expect(statusCopy("ipv6_unreachable")).toBe(
+			"IPv6 could not reach the database. Using IPv4 for now.",
+		);
+		expect(statusCopy("No Local peer.")).toBe(
+			"Stayed on this device. No other device on this Wi‑Fi.",
+		);
+		expect(statusCopy("dc_send_failed")).toBe(
+			"Stayed on this device. Could not send over this Wi‑Fi.",
+		);
 	});
 
 	test("does not dump raw JSON into the status pill", () => {
