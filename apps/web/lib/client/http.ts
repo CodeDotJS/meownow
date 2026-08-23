@@ -1,3 +1,5 @@
+import { readTransportNotice } from "./transport-notice";
+
 const OFFLINE = { ok: false, status: 0, data: { error: "request_failed" } } as const;
 
 export async function postJson(
@@ -15,6 +17,7 @@ export async function postJson(
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify(body),
 		});
+		readTransportNotice(res);
 		return { ok: res.ok, status: res.status, data: await readJson(res) };
 	} catch {
 		return { ...OFFLINE };
@@ -28,6 +31,7 @@ export async function getJson(url: string): Promise<{
 }> {
 	try {
 		const res = await fetch(url, { credentials: "include", cache: "no-store" });
+		readTransportNotice(res);
 		return { ok: res.ok, status: res.status, data: await readJson(res) };
 	} catch {
 		return { ...OFFLINE };
@@ -41,6 +45,7 @@ export async function deleteJson(url: string): Promise<{
 }> {
 	try {
 		const res = await fetch(url, { method: "DELETE", credentials: "include" });
+		readTransportNotice(res);
 		return { ok: res.ok, status: res.status, data: await readJson(res) };
 	} catch {
 		return { ...OFFLINE };
