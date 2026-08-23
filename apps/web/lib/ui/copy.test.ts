@@ -19,6 +19,7 @@ describe("statusCopy", () => {
 	});
 
 	test("maps pairing and passkey failures", () => {
+		expect(statusCopy("unverified")).toBe("That passkey did not work. Try again.");
 		expect(statusCopy("passkey_failed")).toBe("Passkey was cancelled or failed.");
 		expect(statusCopy("camera_denied")).toBe("Camera permission was denied.");
 		expect(statusCopy("fingerprint mismatch")).toBe("Numbers did not match. Abort.");
