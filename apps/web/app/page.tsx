@@ -14,6 +14,7 @@ import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
 import { Landing } from "@/lib/ui/landing";
 import { mergeRemoteItems } from "@/lib/ui/merge-items";
 import { Panel } from "@/lib/ui/panel";
+import { PixelThumb } from "@/lib/ui/pixel-avatar";
 import { OFFLINE_POLL_MS, shouldHttpPoll } from "@/lib/ui/reconcile";
 import { Status } from "@/lib/ui/status";
 import { formatGutterTime, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
@@ -948,11 +949,7 @@ export default function Page() {
 													className="body file-body"
 													onClick={() => activateItem(item)}
 												>
-													{item.previewUrl && item.kind === "image" ? (
-														<img className="file-thumb" src={item.previewUrl} alt="" />
-													) : (
-														<span className="file-thumb is-empty" aria-hidden="true" />
-													)}
+													<PixelThumb seed={item.id} label={item.text} />
 													<span className="file-copy">
 														<span className="file-name">{item.text}</span>
 														<span className="file-meta">
