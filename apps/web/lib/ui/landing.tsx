@@ -23,8 +23,7 @@ export function Landing({ hasLocal }: { hasLocal: boolean }) {
 						Paste there.
 					</h1>
 					<p className="lead">
-						A private clipboard for ten people. If someone sent you this page, ask them for an
-						invite link.
+						A private clipboard. If someone sent you this page, ask them for an invite link.
 					</p>
 					<nav className="stack">
 						<a className="select" href="/login">
