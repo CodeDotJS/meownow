@@ -14,8 +14,8 @@ describe("menuActions", () => {
 		expect(ids).toEqual(["login", "join", "pair", "recover", "enroll"]);
 	});
 
-	test("a browser that already has keys only offers sign in", () => {
-		expect(menuActions(null, true).map((row) => row.id)).toEqual(["login"]);
+	test("a browser that already has keys offers sign in and a new pairing code", () => {
+		expect(menuActions(null, true).map((row) => row.id)).toEqual(["login", "pair"]);
 	});
 
 	test("a working signed-in browser does not offer recover, join, or enroll", () => {
