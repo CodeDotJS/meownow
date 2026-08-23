@@ -1,7 +1,8 @@
 "use client";
 
 import { startRegistration } from "@simplewebauthn/browser";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
+import { detectDeviceLabel } from "@/lib/client/device-label";
 import { errorCode, postJson } from "@/lib/client/http";
 import { rememberPasskey } from "@/lib/client/passkey";
 import { Panel } from "@/lib/ui/panel";
@@ -12,9 +13,13 @@ export default function EnrollPage() {
 	const { ready, me } = useBrowserSession();
 	const [handle, setHandle] = useState("");
 	const [secret, setSecret] = useState("");
-	const [deviceLabel, setDeviceLabel] = useState("this device");
+	const [deviceLabel, setDeviceLabel] = useState("");
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+
+	useEffect(() => {
+		void detectDeviceLabel().then(setDeviceLabel);
+	}, []);
 
 	if (!ready) {
 		return (
@@ -36,10 +41,11 @@ export default function EnrollPage() {
 		setBusy(true);
 		setStatus(null);
 		try {
+			const label = deviceLabel || (await detectDeviceLabel());
 			const optionsRes = await postJson("/api/auth/admin-enroll/options", {
 				handle,
 				secret,
-				deviceLabel,
+				deviceLabel: label,
 			});
 			if (!optionsRes.ok) {
 				setStatus(errorCode(optionsRes.data));
@@ -91,10 +97,7 @@ export default function EnrollPage() {
 							autoComplete="off"
 						/>
 					</label>
-					<label>
-						Device
-						<input value={deviceLabel} onChange={(e) => setDeviceLabel(e.target.value)} required />
-					</label>
+					{deviceLabel ? <p className="field-hint">This browser is {deviceLabel}.</p> : null}
 					<button className="select" type="submit" disabled={busy}>
 						{busy ? "Working…" : "Create a passkey"}
 					</button>
