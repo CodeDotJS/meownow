@@ -12,6 +12,7 @@ import {
 import { asPublicJwk, formatPairingCode, type PairingQr } from "@meownow/protocol";
 import { startRegistration } from "@simplewebauthn/browser";
 import { useEffect, useState } from "react";
+import { detectDeviceLabel } from "@/lib/client/device-label";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { rememberPasskey } from "@/lib/client/passkey";
 import { PairingQrCanvas } from "@/lib/pair/qr-canvas";
@@ -139,7 +140,7 @@ export default function PairShowPage() {
 				identityPub: wrap.identityPub,
 			});
 			const optionsRes = await postJson(`/api/pairing/${sessionId}/register/options`, {
-				deviceLabel: "this device",
+				deviceLabel: await detectDeviceLabel(),
 			});
 			if (!optionsRes.ok) {
 				setStatus(errorCode(optionsRes.data));
