@@ -9,6 +9,7 @@ import {
 } from "@meownow/crypto";
 import { BLOB_TTL_MS, FILE_MAX_BYTES } from "@meownow/protocol";
 import { errorCode, postJson } from "../client/http";
+import { compressBlobPlaintext, decompressBlobPlaintext } from "./blob-compress";
 import { loadVault } from "./idb";
 import { blobUploadProgress } from "./upload-progress";
 import { b64urlToBytes, bytesToB64url, wrapFromWire, wrapToWire } from "./wire";
@@ -49,10 +50,12 @@ export async function sendBlobFile(
 	if (bytes.byteLength > FILE_MAX_BYTES) {
 		return { error: "item_invalid" };
 	}
+	options.onProgress?.(blobUploadProgress("compress"));
+	const packed = compressBlobPlaintext(bytes);
 	const id = options.id ?? crypto.randomUUID();
 	const kind = file.type.startsWith("image/") ? ("image" as const) : ("file" as const);
 	const fileKey = await generateFileKey();
-	const sealed = await encryptChunks(fileKey, bytes, { itemId: id, kind });
+	const sealed = await encryptChunks(fileKey, packed.bytes, { itemId: id, kind });
 	const wrapped = await wrapFileKey(stored.vaultKey, fileKey);
 	options.onProgress?.(blobUploadProgress("encrypt"));
 	const metaPlain = new TextEncoder().encode(
@@ -60,6 +63,7 @@ export async function sendBlobFile(
 			filename: file.name,
 			mime: file.type || "application/octet-stream",
 			size: bytes.byteLength,
+			compression: packed.compression,
 			baseIv: bytesToB64url(sealed.baseIv),
 		}),
 	);
@@ -141,6 +145,7 @@ export async function openBlobPreview(item: {
 			filename?: string;
 			mime?: string;
 			baseIv?: string;
+			compression?: string;
 		};
 		if (!meta.baseIv) {
 			return null;
@@ -158,11 +163,12 @@ export async function openBlobPreview(item: {
 		if (!trailer) {
 			return null;
 		}
-		const plain = await decryptChunks(
+		const packed = await decryptChunks(
 			fileKey,
 			{ baseIv: b64urlToBytes(meta.baseIv), chunks, trailer },
 			{ itemId: item.id, kind: item.kind },
 		);
+		const plain = decompressBlobPlaintext(packed, meta.compression);
 		const mime = meta.mime || "application/octet-stream";
 		const blob = new Blob([toArrayBuffer(plain)], { type: mime });
 		return {
