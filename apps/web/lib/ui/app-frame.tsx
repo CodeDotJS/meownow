@@ -3,9 +3,16 @@
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { getJson, postJson } from "@/lib/client/http";
+import {
+	dismissTransportNotice,
+	subscribeTransportNotice,
+	type TransportNotice,
+} from "@/lib/client/transport-notice";
 import { markStandalone } from "@/lib/pwa/standalone";
 import { loadVault } from "@/lib/vault/idb";
 import { dropStaleLocalVault } from "@/lib/vault/local";
+import { statusCopy } from "./copy";
+import { CatMark } from "./marks";
 import { menuActions } from "./menu";
 import { CommandPalette, type PaletteAction } from "./palette";
 import { PixelAvatar } from "./pixel-avatar";
@@ -23,6 +30,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	const [hasLocal, setHasLocal] = useState(false);
 	const [open, setOpen] = useState(false);
 	const [mod, setMod] = useState("⌘K");
+	const [notice, setNotice] = useState<TransportNotice | null>(null);
 
 	useEffect(() => {
 		const mac = /Mac|iPhone|iPad/.test(navigator.platform) || navigator.userAgent.includes("Mac");
@@ -44,6 +52,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			setHasLocal((await loadVault()) !== null);
 		})();
 	}, [pathname]);
+
+	useEffect(() => subscribeTransportNotice(setNotice), []);
 
 	useEffect(() => {
 		function onKey(event: KeyboardEvent) {
@@ -78,6 +88,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 		<div className="frame">
 			<header className="chrome">
 				<a href="/" className="chrome-brand">
+					<CatMark className="chrome-cat" size={22} decorative />
 					meownow
 				</a>
 				<div className="chrome-right">
@@ -112,6 +123,14 @@ export function AppFrame({ children }: { children: ReactNode }) {
 					</button>
 				</div>
 			</header>
+			{notice ? (
+				<div className="frame-notice" role="status">
+					<p>{statusCopy(notice)}</p>
+					<button type="button" onClick={() => dismissTransportNotice(notice)}>
+						Dismiss
+					</button>
+				</div>
+			) : null}
 			{children}
 			<CommandPalette open={open} onClose={() => setOpen(false)} actions={actions} />
 		</div>
