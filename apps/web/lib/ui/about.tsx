@@ -1,70 +1,73 @@
 "use client";
 
-import { useReducedMotion } from "motion/react";
-import { useEffect, useRef } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { ABOUT_FAQ, ABOUT_FAQ_COL, ABOUT_FAQ_TITLE, ABOUT_FLOW } from "./about-copy";
 import { playAboutMotion } from "./about-motion";
-import { PixelSpriteSvg } from "./pixel-mark";
-import { pixelSpriteFromSeed } from "./pixel-sprite";
+import { HoverTip } from "./hover-tip";
 import { SiteFooter } from "./site-footer";
 
-const FLOW = [
-	{
-		id: "flow-seal",
-		state: "plain",
-		title: "This browser seals it",
-		body: "WebCrypto AES-256-GCM, in this page, before a byte leaves. Filename, type, and preview go in the same envelope. The key stays on your devices.",
-	},
-	{
-		id: "flow-courier",
-		state: "sealed",
-		title: "The courier sees ciphertext",
-		body: "Servers learn owner, size, time, and kind. Not the text, the name, or the picture. A breach there still cannot read the clipboard.",
-	},
-	{
-		id: "flow-path",
-		state: "sealed",
-		title: "Across, still sealed",
-		body: "Same network: the payload stays on the LAN. Otherwise only sealed chunks go to the file store. Nothing readable is handed to a server.",
-	},
-	{
-		id: "flow-open",
-		state: "open",
-		title: "The other browser opens it",
-		body: "Decrypt happens there, in that page. Then the note expires. A handoff, not an archive.",
-	},
-] as const;
+const FAQ_EASE = [0.22, 1, 0.36, 1] as const;
+const FAQ_MS = 220;
+const FAQ_STAGGER = 0.028;
 
-const JOIN = [
-	{
-		id: "about-in",
-		title: "How you get in",
-		body: "Someone already here sends an invite link. No public signup. No password. Without a link, ask them.",
-	},
-	{
-		id: "about-passkey",
-		title: "Signing in",
-		body: "A passkey — Face ID, Touch ID, or the lock on this phone. Nothing to type. Nothing to reset.",
-	},
-	{
-		id: "about-pair",
-		title: "Another device",
-		body: "The new browser shows a short code. The one that works types it. Both sides check a six-digit fingerprint so nothing in the middle can pretend to be you.",
-	},
-	{
-		id: "about-words",
-		title: "If every device is gone",
-		body: "Setup shows twelve words once. Those words unlock the clipboard on a new browser. Keep them off this device.",
-	},
-	{
-		id: "about-ttl",
-		title: "How long things stay",
-		body: "Notes expire. Files do not live here forever. A handoff, not an archive.",
-	},
-] as const;
+function faqFromHash(): string | null {
+	const id = window.location.hash.replace("#", "");
+	return ABOUT_FAQ.some((row) => row.id === id) ? id : null;
+}
+
+function FaqRow({
+	row,
+	isOpen,
+	delay,
+	reduce,
+	onOpenChange,
+}: {
+	row: (typeof ABOUT_FAQ)[number];
+	isOpen: boolean;
+	delay: number;
+	reduce: boolean;
+	onOpenChange: (id: string, next: boolean) => void;
+}) {
+	return (
+		<div className={isOpen ? "about-faq-item is-open" : "about-faq-item"} id={row.id}>
+			<button
+				type="button"
+				className="about-faq-ask"
+				aria-expanded={isOpen}
+				aria-controls={`${row.id}-a`}
+				onClick={() => {
+					onOpenChange(row.id, !isOpen);
+				}}
+			>
+				{row.q}
+			</button>
+			<motion.div
+				className="about-faq-body"
+				id={`${row.id}-a`}
+				initial={false}
+				animate={isOpen ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
+				transition={{
+					duration: reduce ? 0 : FAQ_MS / 1000,
+					delay: reduce ? 0 : delay,
+					ease: FAQ_EASE,
+				}}
+				aria-hidden={!isOpen}
+			>
+				<p>{row.a}</p>
+			</motion.div>
+		</div>
+	);
+}
 
 export function About() {
-	const reduce = useReducedMotion();
+	const reduceMotion = useReducedMotion();
+	const reduce = Boolean(reduceMotion);
 	const rootRef = useRef<HTMLElement>(null);
+	const bulkTimer = useRef<number>(0);
+	const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
+	const [bulk, setBulk] = useState(false);
+	const anyOpen = open.size > 0;
 
 	useEffect(() => {
 		const root = rootRef.current;
@@ -78,6 +81,53 @@ export function About() {
 			return () => undefined;
 		}
 	}, [reduce]);
+
+	useEffect(() => {
+		function applyHash(): void {
+			const id = faqFromHash();
+			if (!id) {
+				return;
+			}
+			setOpen((current) => new Set(current).add(id));
+		}
+		applyHash();
+		window.addEventListener("hashchange", applyHash);
+		return () => {
+			window.removeEventListener("hashchange", applyHash);
+		};
+	}, []);
+
+	function setItemOpen(id: string, next: boolean): void {
+		setOpen((current) => {
+			const copy = new Set(current);
+			if (next) {
+				copy.add(id);
+			} else {
+				copy.delete(id);
+			}
+			return copy;
+		});
+	}
+
+	function toggleAll(): void {
+		window.clearTimeout(bulkTimer.current);
+		if (!reduce) {
+			setBulk(true);
+			bulkTimer.current = window.setTimeout(
+				() => {
+					setBulk(false);
+				},
+				FAQ_MS + (ABOUT_FAQ_COL - 1) * FAQ_STAGGER * 1000 + 40,
+			);
+		}
+		setOpen(anyOpen ? new Set() : new Set(ABOUT_FAQ.map((row) => row.id)));
+	}
+
+	useEffect(() => {
+		return () => {
+			window.clearTimeout(bulkTimer.current);
+		};
+	}, []);
 
 	return (
 		<>
@@ -104,7 +154,7 @@ export function About() {
 							<span className="about-slip-open">opened</span>
 						</div>
 						<ol className="about-stations">
-							{FLOW.map((step) => (
+							{ABOUT_FLOW.map((step) => (
 								<li className="about-station" data-state={step.state} key={step.id}>
 									<span className="about-node" aria-hidden />
 									<h2>{step.title}</h2>
@@ -115,21 +165,61 @@ export function About() {
 					</div>
 				</section>
 
-				<ol className="about-join">
-					{JOIN.map((step) => (
-						<li className="about-join-step about-fade" id={step.id} key={step.id}>
-							<PixelSpriteSvg
-								className="about-mark"
-								sprite={pixelSpriteFromSeed(step.id)}
-								label={step.title}
-								size={28}
-								decorative
-							/>
-							<h2>{step.title}</h2>
-							<p>{step.body}</p>
-						</li>
-					))}
-				</ol>
+				<div className="about-break about-fade">
+					<h2 className="about-break-title" id="about-faq-title" aria-label={ABOUT_FAQ_TITLE}>
+						<span className="about-scramble" data-scramble={ABOUT_FAQ_TITLE} aria-hidden>
+							{ABOUT_FAQ_TITLE}
+						</span>
+					</h2>
+					<span className="about-break-rule" aria-hidden />
+				</div>
+
+				<section className="about-faq about-fade" aria-labelledby="about-faq-title">
+					<div className="about-faq-head">
+						<p className="about-flow-kicker">Invite, keys, Live only, and how long a note lasts.</p>
+						<HoverTip label={anyOpen ? "Close all" : "Open all"} place="below">
+							<button
+								type="button"
+								className={anyOpen ? "about-faq-toggle is-on" : "about-faq-toggle"}
+								aria-label={anyOpen ? "Close all questions" : "Open all questions"}
+								aria-pressed={anyOpen}
+								onClick={toggleAll}
+							>
+								<span className="about-faq-toggle-glyph" aria-hidden>
+									<AnimatePresence initial={false} mode="wait">
+										<motion.span
+											key={anyOpen ? "shut" : "open"}
+											initial={reduce ? false : { opacity: 0, scale: 0.72, rotate: -14 }}
+											animate={{ opacity: 1, scale: 1, rotate: 0 }}
+											exit={reduce ? undefined : { opacity: 0, scale: 0.72, rotate: 14 }}
+											transition={{ duration: reduce ? 0 : 0.18, ease: FAQ_EASE }}
+										>
+											{anyOpen ? "📕" : "📖"}
+										</motion.span>
+									</AnimatePresence>
+								</span>
+							</button>
+						</HoverTip>
+					</div>
+					<div className="about-faq-cols">
+						{[ABOUT_FAQ.slice(0, ABOUT_FAQ_COL), ABOUT_FAQ.slice(ABOUT_FAQ_COL)].map(
+							(col, index) => (
+								<div className="about-faq-col" key={index === 0 ? "faq-left" : "faq-right"}>
+									{col.map((row, rowIndex) => (
+										<FaqRow
+											key={row.id}
+											row={row}
+											isOpen={open.has(row.id)}
+											delay={bulk ? rowIndex * FAQ_STAGGER : 0}
+											reduce={reduce}
+											onOpenChange={setItemOpen}
+										/>
+									))}
+								</div>
+							),
+						)}
+					</div>
+				</section>
 			</main>
 			<SiteFooter />
 		</>
