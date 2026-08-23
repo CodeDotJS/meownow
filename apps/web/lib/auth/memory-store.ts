@@ -10,20 +10,21 @@ import type {
 	VaultRecord,
 	VaultStore,
 } from "../vault/store";
-import type {
-	AdminEnrollCommit,
-	AdminEnrollCommitResult,
-	AuditEntry,
-	AuthStore,
-	DeviceRow,
-	DeviceWithUser,
-	InviteRow,
-	LoginCommit,
-	RegistrationCommit,
-	RegistrationCommitResult,
-	SessionContext,
-	SessionRow,
-	UserRow,
+import {
+	type AdminEnrollCommit,
+	type AdminEnrollCommitResult,
+	type AuditEntry,
+	AuthError,
+	type AuthStore,
+	type DeviceRow,
+	type DeviceWithUser,
+	type InviteRow,
+	type LoginCommit,
+	type RegistrationCommit,
+	type RegistrationCommitResult,
+	type SessionContext,
+	type SessionRow,
+	type UserRow,
 } from "./store";
 
 type SeatRow = { seatNo: number; userId: string | null; claimedAt: Date | null };
@@ -429,6 +430,13 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 	}
 
 	async createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void> {
+		const existing = this.items.find((row) => row.id === item.id);
+		if (existing) {
+			if (existing.ownerId !== ownerId) {
+				throw new AuthError("forbidden", 403);
+			}
+			return;
+		}
 		this.items.push({ ...item, ownerId, createdAt: now });
 	}
 
