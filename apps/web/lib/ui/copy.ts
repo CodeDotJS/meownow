@@ -49,8 +49,8 @@ const LOCAL: Record<string, string> = {
 	scan_needs_signin:
 		"Sign in on this browser first. Add a device is only for a computer that already works.",
 	"fingerprint mismatch": "Numbers did not match. Abort.",
-	"No Local peer.": "Stayed on this device. No other device on this Wi‑Fi.",
-	dc_send_failed: "Stayed on this device. Could not send over this Wi‑Fi.",
+	"No Local peer.": "Stayed on this device. No other live device.",
+	dc_send_failed: "Stayed on this device. Could not send live.",
 };
 
 export function statusCopy(status: string): string {
