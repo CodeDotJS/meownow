@@ -1,10 +1,11 @@
 "use client";
 
 import { decrypt, encrypt } from "@meownow/crypto";
-import { BLOB_TTL_MS, TEXT_PLAIN_MAX_BYTES, TEXT_TTL_MS } from "@meownow/protocol";
+import { BLOB_TTL_MS, TEXT_PLAIN_MAX_BYTES, TEXT_TTL_MS, type WsEnvelope } from "@meownow/protocol";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteJson, errorCode, getJson, postJson } from "@/lib/client/http";
+import { ephemeralLivePath } from "@/lib/p2p/ephemeral";
 import { Mesh } from "@/lib/p2p/mesh";
 import { sendOnMesh, shouldPersist } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
@@ -111,6 +112,7 @@ export default function Page() {
 	const refreshSeqRef = useRef(0);
 	const forgetWaitRef = useRef(Promise.resolve(true));
 	const sendingRef = useRef(false);
+	const hubSendRef = useRef<(envelope: WsEnvelope) => boolean>(() => false);
 	const reduceMotion = useReducedMotion();
 	itemsRef.current = items;
 
@@ -280,8 +282,9 @@ export default function Page() {
 			}
 			if (envelope.type === "item.created") {
 				void openItem(envelope.item).then((shown) => {
+					const row = envelope.ephemeral ? { ...shown, ephemeral: true } : shown;
 					setItems((current) =>
-						current.some((row) => row.id === shown.id) ? current : [shown, ...current],
+						current.some((entry) => entry.id === row.id) ? current : [row, ...current],
 					);
 				});
 			}
@@ -289,6 +292,7 @@ export default function Page() {
 				setItems((current) => current.filter((row) => row.id !== envelope.id));
 			}
 		}, setLive);
+		hubSendRef.current = (msg) => session.send(msg);
 		function onWake() {
 			if (document.visibilityState === "visible") {
 				void refreshItems();
@@ -298,6 +302,7 @@ export default function Page() {
 		window.addEventListener("online", onWake);
 		return () => {
 			session.close();
+			hubSendRef.current = () => false;
 			meshRef.current?.close();
 			meshRef.current = null;
 			setLive(false);
@@ -400,7 +405,15 @@ export default function Page() {
 					}
 					return;
 				}
-				if (meshSend.delivered === 0) {
+				const hubSent =
+					meshSend.delivered === 0 &&
+					hubSendRef.current({
+						v: 1,
+						type: "item.created",
+						ephemeral: true,
+						item: { ...payload, createdAt },
+					});
+				if (ephemeralLivePath({ meshDelivered: meshSend.delivered, hubSent }) === "none") {
 					setStatus(meshSend.failed > 0 ? "dc_send_failed" : "No Local peer.");
 				}
 			} catch {
@@ -854,7 +867,7 @@ export default function Page() {
 		<main className="clipboard">
 			<h1 className="file-hidden">Clipboard</h1>
 			<p className="clip-meta">
-				<span>{ephemeral ? "This Wi‑Fi only" : ""}</span>
+				<span>{ephemeral ? "Live only" : ""}</span>
 				<span className={live ? "clip-live is-on" : "clip-live"}>
 					{live ? "Live on your devices" : "Syncing…"}
 				</span>
@@ -864,9 +877,9 @@ export default function Page() {
 			) : null}
 			<div className="stage">
 				<div className="composer">
-					<p className="sheet-label">{ephemeral ? "This Wi‑Fi only" : "New paste"}</p>
+					<p className="sheet-label">{ephemeral ? "Live only" : "New paste"}</p>
 					<textarea
-						aria-label={ephemeral ? "This Wi‑Fi only" : "New paste"}
+						aria-label={ephemeral ? "Live only" : "New paste"}
 						value={draft}
 						placeholder="Type or paste"
 						enterKeyHint="send"
@@ -923,7 +936,7 @@ export default function Page() {
 							{local ? <span className="mode">Local</span> : null}
 						</div>
 						{ephemeral ? (
-							<p className="field-hint">Skip the server. Needs another device on this Wi‑Fi.</p>
+							<p className="field-hint">Skip the store. Needs another device that is live.</p>
 						) : null}
 						<Status value={status} />
 					</div>
