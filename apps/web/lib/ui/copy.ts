@@ -35,7 +35,8 @@ const PROTOCOL: Record<ErrorCode, string> = {
 };
 
 const LOCAL: Record<string, string> = {
-	request_failed: "Request failed.",
+	request_failed: "Could not reach the server. Try again.",
+	ipv6_unreachable: "IPv6 could not reach the database. Using IPv4 for now.",
 	passkey_failed: "Passkey was cancelled or failed.",
 	vault_failed: "Could not finish setup on this device.",
 	vault_upload_failed: "Could not finish setup. Try again.",
@@ -48,7 +49,8 @@ const LOCAL: Record<string, string> = {
 	scan_needs_signin:
 		"Sign in on this browser first. Add a device is only for a computer that already works.",
 	"fingerprint mismatch": "Numbers did not match. Abort.",
-	"No Local peer.": "No peer on this network.",
+	"No Local peer.": "Stayed on this device. No other device on this Wi‑Fi.",
+	dc_send_failed: "Stayed on this device. Could not send over this Wi‑Fi.",
 };
 
 export function statusCopy(status: string): string {
