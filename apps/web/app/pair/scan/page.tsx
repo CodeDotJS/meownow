@@ -16,6 +16,7 @@ export default function PairScanPage() {
 	const [raw, setRaw] = useState("");
 	const [code, setCode] = useState("");
 	const [scanning, setScanning] = useState(false);
+	const [pasteOpen, setPasteOpen] = useState(false);
 	const [fingerprint, setFingerprint] = useState<string | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -71,6 +72,10 @@ export default function PairScanPage() {
 				streamRef.current = stream;
 				const video = videoRef.current;
 				if (!video) {
+					for (const track of stream.getTracks()) {
+						track.stop();
+					}
+					streamRef.current = null;
 					return;
 				}
 				video.srcObject = stream;
@@ -276,9 +281,11 @@ export default function PairScanPage() {
 								{busy ? "Working…" : "Use code"}
 							</button>
 						</form>
-						<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
+						{scanning ? (
+							<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
+						) : null}
 						<canvas ref={canvasRef} className="file-hidden" aria-hidden />
-						<nav className="stack">
+						<div className="pair-more">
 							<button
 								type="button"
 								className="quiet"
@@ -287,21 +294,31 @@ export default function PairScanPage() {
 							>
 								{scanning ? "Stop camera" : "Scan QR"}
 							</button>
-						</nav>
-						<form onSubmit={(event) => void onPrepare(event)}>
-							<label>
-								Paste QR text
-								<textarea
-									className="mono"
-									value={raw}
-									onChange={(e) => setRaw(e.target.value)}
-									rows={4}
-								/>
-							</label>
-							<button className="select" type="submit" disabled={busy}>
-								Use QR text
+							<button
+								type="button"
+								className="quiet"
+								onClick={() => setPasteOpen((open) => !open)}
+								disabled={busy}
+							>
+								{pasteOpen ? "Hide QR text" : "Paste QR text"}
 							</button>
-						</form>
+						</div>
+						{pasteOpen ? (
+							<form onSubmit={(event) => void onPrepare(event)}>
+								<label>
+									QR text
+									<textarea
+										className="mono"
+										value={raw}
+										onChange={(e) => setRaw(e.target.value)}
+										rows={4}
+									/>
+								</label>
+								<button className="select" type="submit" disabled={busy}>
+									Use QR text
+								</button>
+							</form>
+						) : null}
 					</>
 				)}
 				<Status value={status} />

@@ -1170,6 +1170,14 @@ button:disabled {
 	text-transform: uppercase;
 }
 
+.pair-more {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.15rem;
+	margin-top: 1.15rem;
+}
+
 .phrase {
 	font-family: var(--font-mono), ui-monospace, monospace;
 	line-height: 1.85;
@@ -2539,12 +2547,26 @@ li {
 		font-size: clamp(2.15rem, 11vw, 3rem);
 	}
 
+	html:has(.clipboard),
+	html:has(.clipboard) body {
+		height: 100%;
+		overflow: hidden;
+		overscroll-behavior: none;
+	}
+
+	.frame:has(.clipboard) {
+		height: 100dvh;
+		max-height: 100dvh;
+		overflow: hidden;
+	}
+
 	.clipboard {
 		flex: 1 1 auto;
 		width: 100%;
 		max-width: 100%;
 		max-height: none;
 		min-height: 0;
+		overflow: hidden;
 		padding-bottom: 0;
 	}
 
@@ -2556,6 +2578,8 @@ li {
 	.stage {
 		width: 100%;
 		max-width: 100%;
+		min-height: 0;
+		flex: 1 1 auto;
 	}
 
 	.log-head {
