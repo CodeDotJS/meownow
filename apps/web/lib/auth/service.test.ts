@@ -163,19 +163,14 @@ test("expired, revoked, and redeemed invites are rejected", async () => {
 	).rejects.toMatchObject({ code: "invite_redeemed" });
 });
 
-test("eleventh signup cannot claim a seat", async () => {
+test("an eleventh invite still creates a member", async () => {
 	const store = new MemoryAuthStore();
 	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
 	const { sessionToken } = await enrollAdmin(auth);
-	for (let i = 1; i <= 9; i += 1) {
+	for (let i = 1; i <= 10; i += 1) {
 		await signupMember(auth, sessionToken, `u${i}`);
 	}
-	expect(store.seats.every((seat) => seat.userId !== null)).toBe(true);
-	await expect(signupMember(auth, sessionToken, "u10")).rejects.toMatchObject({
-		code: "seats_full",
-		status: 409,
-	});
-	expect(store.users.size).toBe(10);
+	expect(store.users.size).toBe(11);
 });
 
 test("member cannot issue invites", async () => {
@@ -354,17 +349,17 @@ test("member cannot list users, audit, or remove anyone", async () => {
 	});
 });
 
-test("removing a member frees the seat; the last admin cannot be removed", async () => {
+test("removing a member deletes them; the last admin cannot be removed", async () => {
 	const store = new MemoryAuthStore();
 	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
 	const admin = await enrollAdmin(auth);
 	await signupMember(auth, admin.sessionToken, "ada");
-	expect(store.seats.filter((seat) => seat.userId !== null)).toHaveLength(2);
+	expect(store.users.size).toBe(2);
 	const ada = [...store.users.values()].find((row) => row.handle === "ada");
 	expect(ada).toBeDefined();
 	await auth.removeUser(admin.sessionToken, ada?.id ?? "");
 	expect(store.users.has(ada?.id ?? "")).toBe(false);
-	expect(store.seats.filter((seat) => seat.userId !== null)).toHaveLength(1);
+	expect(store.users.size).toBe(1);
 	const adminUser = [...store.users.values()].find((row) => row.role === "admin");
 	await expect(auth.removeUser(admin.sessionToken, adminUser?.id ?? "")).rejects.toMatchObject({
 		code: "last_admin",
