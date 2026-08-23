@@ -113,7 +113,7 @@ export default function InvitesPage() {
 							<li key={invite.id}>
 								<div className="dir-head">
 									<span className="dir-name">{invite.note || "Invite"}</span>
-									<button type="button" onClick={() => void onRevoke(invite.id)}>
+									<button type="button" className="quiet" onClick={() => void onRevoke(invite.id)}>
 										Revoke
 									</button>
 								</div>
