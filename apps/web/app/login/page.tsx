@@ -136,30 +136,21 @@ export default function LoginPage() {
 					This only unlocks a passkey already saved on this browser. A passkey from
 					meownow.vercel.app will not appear here.
 				</p>
-				{hasLocal ? (
-					<>
-						<p className="hint">This browser already has the clipboard.</p>
-						<p className="hint">
-							Can't use a passkey? <a href="/pair/show">Show a code</a> on this phone, then type it
-							on the computer that is still signed in.
-						</p>
-					</>
-				) : (
-					<ul className="hint-list">
-						<li>
-							New here? You need an <a href="/join">invite link</a>
-						</li>
-						<li>
-							Adding this browser? <a href="/pair/show">Show a code</a>
-						</li>
-						<li>
-							Lost every device. <a href="/recover">Use the 12 words</a>
-						</li>
-						<li>
-							First seat? <a href="/enroll">First admin</a>
-						</li>
-					</ul>
-				)}
+				{hasLocal ? <p className="hint">This browser already has the clipboard.</p> : null}
+				<ul className="hint-list">
+					<li>
+						New here? You need an <a href="/join">invite link</a>
+					</li>
+					<li>
+						Adding this browser? <a href="/pair/show">Show a code</a>
+					</li>
+					<li>
+						Lost every device. <a href="/recover">Use the 12 words</a>
+					</li>
+					<li>
+						First seat? <a href="/enroll">First admin</a>
+					</li>
+				</ul>
 			</Panel>
 		</main>
 	);
