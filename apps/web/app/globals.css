@@ -205,6 +205,19 @@ h1 {
 	line-height: 1.55;
 }
 
+.about h2 {
+	margin: 1.85rem 0 0;
+	font-size: 1.02rem;
+	font-weight: 560;
+	letter-spacing: -0.03em;
+}
+
+.about p {
+	margin: 0.45rem 0 0;
+	color: var(--muted);
+	line-height: 1.55;
+}
+
 .hint {
 	margin: 1.5rem 0 0;
 	font-size: 0.875rem;
