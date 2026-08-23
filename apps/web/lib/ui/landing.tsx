@@ -32,7 +32,12 @@ export function Landing({ hasLocal }: { hasLocal: boolean }) {
 						</a>
 					</nav>
 					{hasLocal ? (
-						<p className="hint">This browser already has the clipboard. Sign in to open it.</p>
+						<>
+							<p className="hint">This browser already has the clipboard. Sign in to open it.</p>
+							<p className="hint">
+								Can't use a passkey? <a href="/pair/show">Show a code</a>
+							</p>
+						</>
 					) : (
 						<ul className="hint-list">
 							<li>
