@@ -12,7 +12,14 @@ const withSerwist = withSerwistInit({
 	disable: process.env.NODE_ENV === "development",
 	additionalPrecacheEntries: [
 		{ url: "/", revision },
+		{ url: "/about", revision },
 		{ url: "/~offline", revision },
+		{ url: "/marks/cat.svg", revision },
+		{ url: "/marks/litter.svg", revision },
+		{ url: "/icons/icon-192.png", revision },
+		{ url: "/icons/icon-512.png", revision },
+		{ url: "/icons/icon-512-maskable.png", revision },
+		{ url: "/icons/apple-touch-icon.png", revision },
 	],
 });
 

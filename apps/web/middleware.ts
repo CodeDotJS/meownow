@@ -31,7 +31,7 @@ function cameraPolicy(pathname: string): string {
 export const config = {
 	matcher: [
 		{
-			source: "/((?!api|_next/static|_next/image|sw.js|icons/).*)",
+			source: "/((?!api|_next/static|_next/image|sw.js|icons/|marks/|favicon.ico).*)",
 			missing: [
 				{ type: "header", key: "next-router-prefetch" },
 				{ type: "header", key: "purpose", value: "prefetch" },

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Martian_Mono, Outfit } from "next/font/google";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
+import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
 import { AppFrame } from "@/lib/ui/app-frame";
 import "./globals.css";
 
@@ -18,32 +19,39 @@ const martianMono = Martian_Mono({
 });
 
 export const metadata: Metadata = {
+	metadataBase: new URL(SITE_URL),
 	applicationName: "meownow",
-	title: "meownow",
-	description: "Copy on one device. Paste on the next.",
+	title: {
+		default: "meownow",
+		template: "%s · meownow",
+	},
+	description: SITE_DESCRIPTION,
 	appleWebApp: {
 		capable: true,
-		statusBarStyle: "black-translucent",
+		statusBarStyle: "default",
 		title: "meownow",
 	},
 	formatDetection: { telephone: false },
 	icons: {
 		icon: [
-			{ url: "/icons/icon-192.png", sizes: "192x192" },
-			{ url: "/icons/icon-512.png", sizes: "512x512" },
+			{ url: "/marks/cat.svg", type: "image/svg+xml" },
+			{ url: "/favicon.ico", sizes: "32x32" },
+			{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+			{ url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
 		],
 		apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180" },
 	},
 	openGraph: {
 		title: "meownow",
-		description: "Copy on one device. Paste on the next.",
+		description: SITE_DESCRIPTION,
 		siteName: "meownow",
 		type: "website",
+		locale: "en",
 	},
 	twitter: {
 		card: "summary_large_image",
 		title: "meownow",
-		description: "Copy on one device. Paste on the next.",
+		description: SITE_DESCRIPTION,
 	},
 };
 

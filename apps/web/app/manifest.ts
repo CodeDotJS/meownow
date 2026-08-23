@@ -1,9 +1,11 @@
+import { SITE_DESCRIPTION } from "@/lib/site";
+
 export default function manifest() {
 	return {
 		id: "/",
 		name: "meownow",
 		short_name: "meownow",
-		description: "Copy on one device. Paste on the next.",
+		description: SITE_DESCRIPTION,
 		start_url: "/",
 		scope: "/",
 		display: "standalone",
@@ -27,7 +29,7 @@ export default function manifest() {
 				purpose: "any",
 			},
 			{
-				src: "/icons/icon-512.png",
+				src: "/icons/icon-512-maskable.png",
 				sizes: "512x512",
 				type: "image/png",
 				purpose: "maskable",

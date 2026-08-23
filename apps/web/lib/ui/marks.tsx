@@ -22,6 +22,23 @@ export function CatMark({
 	);
 }
 
+export function LitterMark({
+	className,
+	size = 160,
+	label = "litter box",
+	decorative = false,
+}: MarkProps) {
+	return (
+		<img
+			className={className}
+			src="/marks/litter.svg"
+			width={size}
+			height={size}
+			alt={decorative ? "" : label}
+		/>
+	);
+}
+
 export function EyeMark({
 	className,
 	size = 28,
