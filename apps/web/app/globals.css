@@ -1103,14 +1103,9 @@ li {
 	width: 2.75rem;
 	height: 2.75rem;
 	flex-shrink: 0;
-	object-fit: cover;
 	border: 1px solid var(--rule);
 	border-radius: var(--radius-xs);
 	background: var(--wash);
-}
-
-.file-thumb.is-empty {
-	box-shadow: inset 0 0 0 1px var(--rule);
 }
 
 .file-copy {
