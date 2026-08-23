@@ -181,12 +181,6 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		if (await this.handleTaken(input.handle)) {
 			return "handle_taken";
 		}
-		const seat = this.seats
-			.filter((row) => row.userId === null)
-			.sort((a, b) => a.seatNo - b.seatNo)[0];
-		if (!seat) {
-			return "seats_full";
-		}
 		this.users.set(input.userId, {
 			id: input.userId,
 			handle: input.handle,
@@ -198,8 +192,6 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			storageUsedBytes: 0,
 			suspendedAt: null,
 		});
-		seat.userId = input.userId;
-		seat.claimedAt = input.now;
 		this.addDevice(input.userId, input.device);
 		invite.redeemedBy = input.userId;
 		invite.redeemedAt = input.now;
@@ -275,7 +267,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			}));
 		return {
 			users,
-			seatsClaimed: this.seats.filter((seat) => seat.userId !== null).length,
+			seatsClaimed: users.length,
 		};
 	}
 
