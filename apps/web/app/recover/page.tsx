@@ -14,6 +14,7 @@ import { asPublicJwk } from "@meownow/protocol";
 import { startRegistration } from "@simplewebauthn/browser";
 import { type FormEvent, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
+import { rememberPasskey } from "@/lib/client/passkey";
 import { Panel } from "@/lib/ui/panel";
 import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
 import { Status } from "@/lib/ui/status";
@@ -111,6 +112,7 @@ export default function RecoverPage() {
 				setStatus(errorCode(verifyRes.data));
 				return;
 			}
+			rememberPasskey(credential.rawId || credential.id);
 			window.location.href = "/";
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "recover_failed");
