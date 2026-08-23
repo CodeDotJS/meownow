@@ -1,5 +1,6 @@
 import { type DcEnvelope, dcEnvelopeSchema, type WsEnvelope } from "@meownow/protocol";
 import { isHostCandidate, isLanPair, STUN_URLS } from "./lan";
+import { planRtcSignal } from "./mesh-signal";
 import type { PeerLink } from "./send";
 
 export class Mesh {
@@ -12,6 +13,8 @@ export class Mesh {
 			hostRemote: boolean;
 		}
 	>();
+	private readonly starting = new Set<string>();
+	private readonly chain = new Map<string, Promise<void>>();
 	private lan = false;
 
 	constructor(
@@ -24,8 +27,9 @@ export class Mesh {
 	handlePresence(devices: string[]): void {
 		const others = devices.filter((id) => id && id !== this.selfId);
 		for (const id of others) {
-			if (!this.peers.has(id) && this.selfId < id) {
-				void this.offer(id);
+			if (!this.peers.has(id) && !this.starting.has(id) && this.selfId < id) {
+				this.starting.add(id);
+				this.enqueue(id, () => this.offer(id));
 			}
 		}
 		for (const id of this.peers.keys()) {
@@ -37,14 +41,11 @@ export class Mesh {
 
 	async handleSignal(envelope: WsEnvelope): Promise<void> {
 		if (envelope.type === "rtc.offer") {
-			await this.acceptOffer(envelope.from, envelope.sdp);
+			await this.enqueue(envelope.from, () => this.acceptOffer(envelope.from, envelope.sdp));
 			return;
 		}
 		if (envelope.type === "rtc.answer") {
-			const peer = this.peers.get(envelope.from);
-			if (peer) {
-				await peer.pc.setRemoteDescription({ type: "answer", sdp: envelope.sdp });
-			}
+			await this.enqueue(envelope.from, () => this.acceptAnswer(envelope.from, envelope.sdp));
 			return;
 		}
 		if (envelope.type === "rtc.ice") {
@@ -53,11 +54,15 @@ export class Mesh {
 				if (isHostCandidate(envelope.candidate)) {
 					peer.hostRemote = true;
 				}
-				await peer.pc.addIceCandidate({
-					candidate: envelope.candidate,
-					sdpMid: envelope.sdpMid,
-					sdpMLineIndex: envelope.sdpMLineIndex,
-				});
+				try {
+					await peer.pc.addIceCandidate({
+						candidate: envelope.candidate,
+						sdpMid: envelope.sdpMid,
+						sdpMLineIndex: envelope.sdpMLineIndex,
+					});
+				} catch {
+					return;
+				}
 				await this.refreshLan();
 			}
 		}
@@ -122,18 +127,34 @@ export class Mesh {
 		return pc;
 	}
 
+	private enqueue(peerId: string, op: () => Promise<void>): Promise<void> {
+		const next = (this.chain.get(peerId) ?? Promise.resolve())
+			.catch(() => undefined)
+			.then(op)
+			.catch(() => undefined);
+		this.chain.set(peerId, next);
+		return next;
+	}
+
 	private async offer(peerId: string): Promise<void> {
-		const pc = this.createPc(peerId);
-		const record = this.peers.get(peerId);
-		if (record) {
-			this.wire(record, pc.createDataChannel("meownow"));
+		try {
+			if (this.peers.has(peerId)) {
+				return;
+			}
+			const pc = this.createPc(peerId);
+			const record = this.peers.get(peerId);
+			if (record) {
+				this.wire(record, pc.createDataChannel("meownow"));
+			}
+			const offer = await pc.createOffer();
+			await pc.setLocalDescription(offer);
+			if (!offer.sdp) {
+				return;
+			}
+			this.signal({ v: 1, type: "rtc.offer", from: this.selfId, to: peerId, sdp: offer.sdp });
+		} finally {
+			this.starting.delete(peerId);
 		}
-		const offer = await pc.createOffer();
-		await pc.setLocalDescription(offer);
-		if (!offer.sdp) {
-			return;
-		}
-		this.signal({ v: 1, type: "rtc.offer", from: this.selfId, to: peerId, sdp: offer.sdp });
 	}
 
 	private async acceptOffer(peerId: string, sdp: string): Promise<void> {
@@ -141,13 +162,34 @@ export class Mesh {
 		if (!pc) {
 			pc = this.createPc(peerId);
 		}
+		const sameRemote = pc.remoteDescription?.type === "offer" && pc.remoteDescription.sdp === sdp;
+		if (planRtcSignal(pc.signalingState, "offer", sameRemote) !== "apply-offer") {
+			return;
+		}
 		await pc.setRemoteDescription({ type: "offer", sdp });
+		if (pc.signalingState !== "have-remote-offer") {
+			return;
+		}
 		const answer = await pc.createAnswer();
+		if (pc.signalingState !== "have-remote-offer") {
+			return;
+		}
 		await pc.setLocalDescription(answer);
 		if (!answer.sdp) {
 			return;
 		}
 		this.signal({ v: 1, type: "rtc.answer", from: this.selfId, to: peerId, sdp: answer.sdp });
+	}
+
+	private async acceptAnswer(peerId: string, sdp: string): Promise<void> {
+		const peer = this.peers.get(peerId);
+		if (!peer) {
+			return;
+		}
+		if (planRtcSignal(peer.pc.signalingState, "answer") !== "apply-answer") {
+			return;
+		}
+		await peer.pc.setRemoteDescription({ type: "answer", sdp });
 	}
 
 	private wire(record: { channel: RTCDataChannel | null }, channel: RTCDataChannel): void {
@@ -205,6 +247,7 @@ export class Mesh {
 	}
 
 	private closePeer(id: string): void {
+		this.starting.delete(id);
 		const peer = this.peers.get(id);
 		peer?.channel?.close();
 		peer?.pc.close();
