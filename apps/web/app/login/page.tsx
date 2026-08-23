@@ -3,14 +3,7 @@
 import { startAuthentication } from "@simplewebauthn/browser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
-import {
-	forgetPasskey,
-	preferRememberedPasskey,
-	readRememberedPasskey,
-	rememberPasskey,
-	shouldForgetPasskey,
-	waitForSession,
-} from "@/lib/client/passkey";
+import { forgetPasskey, waitForSession } from "@/lib/client/passkey";
 import { Panel } from "@/lib/ui/panel";
 import { safeNextPath } from "@/lib/ui/safe-next";
 import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
@@ -60,6 +53,10 @@ export default function LoginPage() {
 	}, []);
 
 	useEffect(() => {
+		forgetPasskey();
+	}, []);
+
+	useEffect(() => {
 		if (!ready || me) {
 			return;
 		}
@@ -93,9 +90,8 @@ export default function LoginPage() {
 			}
 			preparedRef.current = null;
 			setPrepared(false);
-			const remembered = readRememberedPasskey();
 			const credential = await startAuthentication({
-				optionsJSON: preferRememberedPasskey(readyChallenge.options, remembered),
+				optionsJSON: readyChallenge.options,
 			});
 			const verifyRes = await postJson("/api/auth/login/verify", {
 				credential,
@@ -104,13 +100,9 @@ export default function LoginPage() {
 			void loadChallenge();
 			if (!verifyRes.ok) {
 				const failed = errorCode(verifyRes.data);
-				if (shouldForgetPasskey(failed)) {
-					forgetPasskey();
-				}
 				setStatus(failed === "unauthorized" ? "unverified" : failed);
 				return;
 			}
-			rememberPasskey(credential.rawId || credential.id);
 			await waitForSession(
 				async () => (await getJson("/api/auth/me")).ok,
 				(ms) => new Promise((resolve) => window.setTimeout(resolve, ms)),
@@ -145,7 +137,13 @@ export default function LoginPage() {
 					meownow.vercel.app will not appear here.
 				</p>
 				{hasLocal ? (
-					<p className="hint">This browser already has the clipboard.</p>
+					<>
+						<p className="hint">This browser already has the clipboard.</p>
+						<p className="hint">
+							Can't use a passkey? <a href="/pair/show">Show a code</a> on this phone, then type it
+							on the computer that is still signed in.
+						</p>
+					</>
 				) : (
 					<ul className="hint-list">
 						<li>
