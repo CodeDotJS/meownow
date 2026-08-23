@@ -107,7 +107,7 @@ export default function AccountPage() {
 							required
 						/>
 					</label>
-					<button type="submit" disabled={busy || confirm !== handle}>
+					<button className="select" type="submit" disabled={busy || confirm !== handle}>
 						{busy ? "Working…" : "Delete account"}
 					</button>
 					<Status value={status} />
