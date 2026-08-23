@@ -10,9 +10,24 @@ import {
 import { BLOB_TTL_MS, FILE_MAX_BYTES } from "@meownow/protocol";
 import { errorCode, postJson } from "../client/http";
 import { loadVault } from "./idb";
+import { blobUploadProgress } from "./upload-progress";
 import { b64urlToBytes, bytesToB64url, wrapFromWire, wrapToWire } from "./wire";
 
-export async function sendBlobFile(file: File): Promise<
+export type SendBlobOptions = {
+	id?: string;
+	onProgress?: (fraction: number) => void;
+};
+
+export type OpenedBlob = {
+	url: string;
+	filename: string;
+	mime: string;
+};
+
+export async function sendBlobFile(
+	file: File,
+	options: SendBlobOptions = {},
+): Promise<
 	| {
 			id: string;
 			text: string;
@@ -29,15 +44,17 @@ export async function sendBlobFile(file: File): Promise<
 	if (!stored) {
 		return { error: "vault_missing" };
 	}
+	options.onProgress?.(blobUploadProgress("read"));
 	const bytes = await readForUpload(file);
 	if (bytes.byteLength > FILE_MAX_BYTES) {
 		return { error: "item_invalid" };
 	}
-	const id = crypto.randomUUID();
+	const id = options.id ?? crypto.randomUUID();
 	const kind = file.type.startsWith("image/") ? ("image" as const) : ("file" as const);
 	const fileKey = await generateFileKey();
 	const sealed = await encryptChunks(fileKey, bytes, { itemId: id, kind });
 	const wrapped = await wrapFileKey(stored.vaultKey, fileKey);
+	options.onProgress?.(blobUploadProgress("encrypt"));
 	const metaPlain = new TextEncoder().encode(
 		JSON.stringify({
 			filename: file.name,
@@ -56,6 +73,7 @@ export async function sendBlobFile(file: File): Promise<
 	}
 	const { blobId, uploadUrl } = intent.data as { blobId: string; uploadUrl: string };
 	const hash = await sha256Concat([...sealed.chunks, sealed.trailer]);
+	const parts = sealed.chunks.length + 1;
 	for (let i = 0; i < sealed.chunks.length; i += 1) {
 		const chunk = sealed.chunks[i];
 		if (!chunk) {
@@ -65,11 +83,13 @@ export async function sendBlobFile(file: File): Promise<
 		if (put) {
 			return { error: put };
 		}
+		options.onProgress?.(blobUploadProgress("chunk", i, parts));
 	}
 	const trailerPut = await putChunk(uploadUrl, blobId, "trailer", sealed.trailer);
 	if (trailerPut) {
 		return { error: trailerPut };
 	}
+	options.onProgress?.(blobUploadProgress("chunk", parts - 1, parts));
 	const expiresAt = new Date(Date.now() + BLOB_TTL_MS).toISOString();
 	const commit = await postJson("/api/uploads/commit", {
 		blobId,
@@ -86,6 +106,7 @@ export async function sendBlobFile(file: File): Promise<
 	if (!commit.ok) {
 		return { error: errorCode(commit.data) };
 	}
+	options.onProgress?.(blobUploadProgress("commit"));
 	return {
 		id,
 		text: file.name,
@@ -98,18 +119,18 @@ export async function sendBlobFile(file: File): Promise<
 	};
 }
 
-export async function downloadBlobItem(item: {
+export async function openBlobPreview(item: {
 	id: string;
 	kind: "image" | "file";
 	blobId: string;
 	iv: string;
 	metaCiphertext: string;
 	wrappedKey: { iv: string; bytes: string };
-}): Promise<boolean> {
+}): Promise<OpenedBlob | null> {
 	try {
 		const stored = await loadVault();
 		if (!stored) {
-			return false;
+			return null;
 		}
 		const metaBytes = await decrypt(
 			stored.vaultKey,
@@ -118,10 +139,11 @@ export async function downloadBlobItem(item: {
 		);
 		const meta = JSON.parse(new TextDecoder().decode(metaBytes)) as {
 			filename?: string;
+			mime?: string;
 			baseIv?: string;
 		};
 		if (!meta.baseIv) {
-			return false;
+			return null;
 		}
 		const fileKey = await unwrapFileKey(stored.vaultKey, wrapFromWire(item.wrappedKey));
 		const chunks: Uint8Array[] = [];
@@ -134,25 +156,44 @@ export async function downloadBlobItem(item: {
 		}
 		const trailer = await getChunk(item.blobId, "trailer");
 		if (!trailer) {
-			return false;
+			return null;
 		}
 		const plain = await decryptChunks(
 			fileKey,
 			{ baseIv: b64urlToBytes(meta.baseIv), chunks, trailer },
 			{ itemId: item.id, kind: item.kind },
 		);
-		const blob = new Blob([toArrayBuffer(plain)]);
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement("a");
-		link.href = url;
-		link.download = meta.filename || "download";
-		link.rel = "noopener";
-		link.click();
-		URL.revokeObjectURL(url);
-		return true;
+		const mime = meta.mime || "application/octet-stream";
+		const blob = new Blob([toArrayBuffer(plain)], { type: mime });
+		return {
+			url: URL.createObjectURL(blob),
+			filename: meta.filename || "download",
+			mime,
+		};
 	} catch {
+		return null;
+	}
+}
+
+export async function downloadBlobItem(item: {
+	id: string;
+	kind: "image" | "file";
+	blobId: string;
+	iv: string;
+	metaCiphertext: string;
+	wrappedKey: { iv: string; bytes: string };
+}): Promise<boolean> {
+	const opened = await openBlobPreview(item);
+	if (!opened) {
 		return false;
 	}
+	const link = document.createElement("a");
+	link.href = opened.url;
+	link.download = opened.filename;
+	link.rel = "noopener";
+	link.click();
+	URL.revokeObjectURL(opened.url);
+	return true;
 }
 
 async function putChunk(
@@ -166,17 +207,20 @@ async function putChunk(
 		return errorCode(ticket.data);
 	}
 	const { token } = ticket.data as { token: string };
-	const res = await fetch(`${uploadUrl}?chunk=${encodeURIComponent(chunk)}`, {
-		method: "PUT",
-		headers: {
-			authorization: `Bearer ${token}`,
-			"content-length": String(bytes.byteLength),
-			"content-type": "application/octet-stream",
-		},
-		body: toArrayBuffer(bytes),
-	});
-	if (!res.ok) {
-		return "item_invalid";
+	try {
+		const res = await fetch(`${uploadUrl}?chunk=${encodeURIComponent(chunk)}`, {
+			method: "PUT",
+			headers: {
+				authorization: `Bearer ${token}`,
+				"content-type": "application/octet-stream",
+			},
+			body: toArrayBuffer(bytes),
+		});
+		if (!res.ok) {
+			return "item_invalid";
+		}
+	} catch {
+		return "request_failed";
 	}
 	return null;
 }
@@ -187,13 +231,17 @@ async function getChunk(blobId: string, chunk: string): Promise<Uint8Array | nul
 		return null;
 	}
 	const { token, url } = ticket.data as { token: string; url: string };
-	const res = await fetch(`${url}?chunk=${encodeURIComponent(chunk)}`, {
-		headers: { authorization: `Bearer ${token}` },
-	});
-	if (!res.ok) {
+	try {
+		const res = await fetch(`${url}?chunk=${encodeURIComponent(chunk)}`, {
+			headers: { authorization: `Bearer ${token}` },
+		});
+		if (!res.ok) {
+			return null;
+		}
+		return new Uint8Array(await res.arrayBuffer());
+	} catch {
 		return null;
 	}
-	return new Uint8Array(await res.arrayBuffer());
 }
 
 async function readForUpload(file: File): Promise<Uint8Array> {
