@@ -22,13 +22,13 @@ export async function handleRequest(request: Request, env: EdgeEnv): Promise<Res
 		return limit(request, env);
 	}
 	if (url.pathname === "/upload") {
-		return upload(request, env);
+		return withBrowserCors(request, env, () => upload(request, env));
 	}
 	if (request.method === "GET" && url.pathname === "/stat") {
 		return stat(request, env);
 	}
-	if (request.method === "GET" && url.pathname === "/dl") {
-		return download(request, env);
+	if (url.pathname === "/dl") {
+		return withBrowserCors(request, env, () => download(request, env));
 	}
 	return new Response("not found", { status: 404 });
 }
@@ -108,6 +108,39 @@ async function limit(request: Request, env: EdgeEnv): Promise<Response> {
 			body: JSON.stringify(raw),
 		}),
 	);
+}
+
+async function withBrowserCors(
+	request: Request,
+	env: EdgeEnv,
+	next: () => Promise<Response>,
+): Promise<Response> {
+	const origin = request.headers.get("origin");
+	if (request.method === "OPTIONS") {
+		if (!origin || !originAllowed(origin, env)) {
+			return new Response(null, { status: 403 });
+		}
+		return new Response(null, { status: 204, headers: corsHeaders(origin) });
+	}
+	const response = await next();
+	if (!origin || !originAllowed(origin, env)) {
+		return response;
+	}
+	const headers = new Headers(response.headers);
+	for (const [key, value] of Object.entries(corsHeaders(origin))) {
+		headers.set(key, value);
+	}
+	return new Response(response.body, { status: response.status, headers });
+}
+
+function corsHeaders(origin: string): Record<string, string> {
+	return {
+		"access-control-allow-origin": origin,
+		"access-control-allow-methods": "GET, PUT, OPTIONS",
+		"access-control-allow-headers": "authorization, content-type",
+		"access-control-max-age": "600",
+		vary: "Origin",
+	};
 }
 
 async function upload(request: Request, env: EdgeEnv): Promise<Response> {
