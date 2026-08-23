@@ -462,7 +462,7 @@ Each milestone is independently shippable and independently testable.
 |---|---|---|
 | 0 | Monorepo, CI, env schema, Drizzle + migrations + seed, deploy skeleton to Vercel and Workers | Both deploy green from `main` |
 | 1 | `packages/crypto` alone, with an exhaustive test suite | Every primitive tested incl. tamper-detection and truncation-detection |
-| 2 | Auth: invites, passkeys, seats, sessions, admin bootstrap | 11th signup provably impossible |
+| 2 | Auth: invites, passkeys, sessions, admin bootstrap | Unused invite is the only way in |
 | 3 | Vault: generation, QR device pairing with fingerprint confirmation, recovery phrase | Second device joins and reads item created on first |
 | 4 | Text/link items: create, encrypt, store, WS fan-out, TTL, decrypt, copy | Two browsers stay in sync live |
 | 5 | PWA: manifest, Serwist, Share Target, shortcuts, offline shell, Web Push | Android share sheet lands content in meownow |
