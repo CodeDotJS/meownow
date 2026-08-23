@@ -192,6 +192,7 @@ export default function PairShowPage() {
 						<p className="pair-code mono">{formatPairingCode(code)}</p>
 						<button
 							type="button"
+							className="quiet"
 							onClick={() => {
 								void navigator.clipboard.writeText(formatPairingCode(code)).then(
 									() => setCopied("code"),
@@ -209,6 +210,7 @@ export default function PairShowPage() {
 				{payload ? (
 					<button
 						type="button"
+						className="quiet"
 						onClick={() => {
 							void navigator.clipboard.writeText(payload).then(
 								() => setCopied("qr"),
