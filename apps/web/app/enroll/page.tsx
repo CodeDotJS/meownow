@@ -67,7 +67,7 @@ export default function EnrollPage() {
 		<main>
 			<Panel>
 				<h1>First admin</h1>
-				<p className="lead">Creates the first seat and a passkey. No password.</p>
+				<p className="lead">Creates the first account and a passkey. No password.</p>
 				<form onSubmit={onSubmit}>
 					<label>
 						Username
