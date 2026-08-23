@@ -5,6 +5,7 @@ import {
 	inviteExpiresAt,
 	inviteState,
 	nextSessionExpiry,
+	normalizeBase64Url,
 	randomToken,
 	sha256,
 	toBase64Url,
@@ -20,7 +21,13 @@ import type {
 import { SEAT_CEILING } from "@meownow/protocol";
 import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } from "../challenge";
 import { rpFromAppUrl } from "../env";
-import { AuthError, type AuthStore, type SessionContext, type UserRow } from "./store";
+import {
+	AuthError,
+	type AuthStore,
+	type DeviceWithUser,
+	type SessionContext,
+	type UserRow,
+} from "./store";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "./webauthn";
 import { defaultWebAuthn, toTransports, type WebAuthnPort } from "./webauthn";
 
@@ -391,9 +398,9 @@ export class AuthService {
 		sealed: string | undefined,
 	): Promise<{ handle: string; sessionToken: string }> {
 		const payload = this.requireChallenge(sealed, "login");
-		const device = await this.store.getDeviceByCredentialId(fromBase64Url(credential.id));
+		const device = await this.deviceForAssertion(credential);
 		if (!device) {
-			throw new AuthError("unauthorized", 401);
+			throw new AuthError("unverified", 401);
 		}
 		if (device.revokedAt) {
 			throw new AuthError("device_revoked", 403);
@@ -495,6 +502,27 @@ export class AuthService {
 			throw new AuthError("forbidden", 403);
 		}
 		return ctx.user;
+	}
+
+	private async deviceForAssertion(
+		credential: AuthenticationResponseJSON,
+	): Promise<DeviceWithUser | null> {
+		const seen = new Set<string>();
+		for (const value of [credential.rawId, credential.id]) {
+			if (!value) {
+				continue;
+			}
+			const key = normalizeBase64Url(value);
+			if (!key || seen.has(key)) {
+				continue;
+			}
+			seen.add(key);
+			const device = await this.store.getDeviceByCredentialId(fromBase64Url(value));
+			if (device) {
+				return device;
+			}
+		}
+		return null;
 	}
 
 	private requireChallenge(
