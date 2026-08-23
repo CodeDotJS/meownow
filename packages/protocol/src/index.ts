@@ -41,6 +41,8 @@ export type {
 	RegisterVerifyRequest,
 } from "./http";
 export {
+	accountDeleteRequestSchema,
+	accountDeleteResponseSchema,
 	adminEnrollOptionsRequestSchema,
 	deviceLabelSchema,
 	displayNameSchema,
