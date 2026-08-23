@@ -388,6 +388,44 @@ test("revoking a device kills its session", async () => {
 	expect(store.audit.some((row) => row.action === "device.revoked")).toBe(true);
 });
 
+test("login verify accepts the sealed challenge in the body when the cookie is missing", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	await enrollAdmin(auth);
+	const device = [...store.devices.values()][0];
+	if (!device) {
+		throw new Error("missing device");
+	}
+	const handlers = createHandlers({ env, store, webauthn });
+	const optionsRes = await handlers.postLoginOptions(
+		new Request("https://meownow.example/api/auth/login/options", {
+			method: "POST",
+			headers: { origin: env.APP_URL, "content-type": "application/json" },
+			body: "{}",
+		}),
+	);
+	expect(optionsRes.status).toBe(200);
+	const payload = (await optionsRes.json()) as { challenge: string };
+	expect(payload.challenge.length).toBeGreaterThan(8);
+	const verifyRes = await handlers.postLoginVerify(
+		new Request("https://meownow.example/api/auth/login/verify", {
+			method: "POST",
+			headers: { origin: env.APP_URL, "content-type": "application/json" },
+			body: JSON.stringify({
+				credential: {
+					...dummyAssertion,
+					id: device.credentialId.toString("base64url"),
+					rawId: device.credentialId.toString("base64url"),
+				},
+				challenge: payload.challenge,
+			}),
+		}),
+	);
+	expect(verifyRes.status).toBe(200);
+	expect(await verifyRes.json()).toMatchObject({ ok: true, handle: "rishi" });
+});
+
 test("auth options are rate-limited per IP", async () => {
 	const handlers = createHandlers({
 		env,
