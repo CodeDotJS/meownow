@@ -8,7 +8,7 @@ import {
 import { getJson } from "../client/http";
 
 export type HubSession = {
-	send: (envelope: WsEnvelope) => void;
+	send: (envelope: WsEnvelope) => boolean;
 	close: () => void;
 };
 
@@ -102,7 +102,9 @@ export function connectHub(
 		send(envelope) {
 			if (socket?.readyState === WebSocket.OPEN) {
 				socket.send(JSON.stringify(envelope));
+				return true;
 			}
+			return false;
 		},
 		close() {
 			closed = true;
