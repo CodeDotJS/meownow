@@ -1,3 +1,5 @@
+const OFFLINE = { ok: false, status: 0, data: { error: "request_failed" } } as const;
+
 export async function postJson(
 	url: string,
 	body: unknown,
@@ -6,19 +8,17 @@ export async function postJson(
 	status: number;
 	data: unknown;
 }> {
-	const res = await fetch(url, {
-		method: "POST",
-		credentials: "include",
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify(body),
-	});
-	let data: unknown = null;
 	try {
-		data = await res.json();
+		const res = await fetch(url, {
+			method: "POST",
+			credentials: "include",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		return { ok: res.ok, status: res.status, data: await readJson(res) };
 	} catch {
-		data = null;
+		return { ...OFFLINE };
 	}
-	return { ok: res.ok, status: res.status, data };
 }
 
 export async function getJson(url: string): Promise<{
@@ -26,14 +26,12 @@ export async function getJson(url: string): Promise<{
 	status: number;
 	data: unknown;
 }> {
-	const res = await fetch(url, { credentials: "include", cache: "no-store" });
-	let data: unknown = null;
 	try {
-		data = await res.json();
+		const res = await fetch(url, { credentials: "include", cache: "no-store" });
+		return { ok: res.ok, status: res.status, data: await readJson(res) };
 	} catch {
-		data = null;
+		return { ...OFFLINE };
 	}
-	return { ok: res.ok, status: res.status, data };
 }
 
 export async function deleteJson(url: string): Promise<{
@@ -41,14 +39,12 @@ export async function deleteJson(url: string): Promise<{
 	status: number;
 	data: unknown;
 }> {
-	const res = await fetch(url, { method: "DELETE", credentials: "include" });
-	let data: unknown = null;
 	try {
-		data = await res.json();
+		const res = await fetch(url, { method: "DELETE", credentials: "include" });
+		return { ok: res.ok, status: res.status, data: await readJson(res) };
 	} catch {
-		data = null;
+		return { ...OFFLINE };
 	}
-	return { ok: res.ok, status: res.status, data };
 }
 
 export function errorCode(data: unknown): string {
@@ -56,4 +52,12 @@ export function errorCode(data: unknown): string {
 		return data.error;
 	}
 	return "request_failed";
+}
+
+async function readJson(res: Response): Promise<unknown> {
+	try {
+		return await res.json();
+	} catch {
+		return null;
+	}
 }
