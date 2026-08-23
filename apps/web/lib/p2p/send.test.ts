@@ -33,10 +33,35 @@ test("datachannel path delivers without a server POST and beats a delayed server
 	const dcMs = performance.now() - dcStart;
 	expect(dc.delivered).toBe(1);
 	expect(dc.local).toBe(true);
+	expect(dc.failed).toBe(0);
 	expect(received).toHaveLength(1);
 
 	const serverStart = performance.now();
 	await new Promise((resolve) => setTimeout(resolve, 25));
 	const serverMs = performance.now() - serverStart;
 	expect(dcMs).toBeLessThan(serverMs);
+});
+
+test("sendOnMesh keeps going when one peer rejects a large payload", async () => {
+	const received: unknown[] = [];
+	const result = await sendOnMesh(
+		[
+			{
+				send: () => {
+					throw new Error("Could not send data");
+				},
+				local: true,
+			},
+			{
+				send: (envelope) => {
+					received.push(envelope);
+				},
+				local: false,
+			},
+		],
+		{ v: 1, type: "item", ephemeral: true, item },
+	);
+	expect(result.delivered).toBe(1);
+	expect(result.failed).toBe(1);
+	expect(received).toHaveLength(1);
 });
