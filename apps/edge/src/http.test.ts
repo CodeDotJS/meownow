@@ -162,6 +162,65 @@ test("websocket connect from an unknown origin is denied", async () => {
 	expect(response.status).toBe(403);
 });
 
+test("upload OPTIONS from an allowed origin is a CORS preflight", async () => {
+	const response = await handleRequest(
+		new Request("https://edge.meownow.test/upload?chunk=0", {
+			method: "OPTIONS",
+			headers: {
+				origin: app,
+				"access-control-request-method": "PUT",
+				"access-control-request-headers": "authorization, content-type",
+			},
+		}),
+		env([]),
+	);
+	expect(response.status).toBe(204);
+	expect(response.headers.get("access-control-allow-origin")).toBe(app);
+	expect(response.headers.get("access-control-allow-methods")).toMatch(/PUT/);
+	expect(response.headers.get("access-control-allow-headers")).toMatch(/authorization/i);
+	expect(await response.arrayBuffer()).toEqual(new ArrayBuffer(0));
+});
+
+test("upload OPTIONS from an unknown origin is denied", async () => {
+	const response = await handleRequest(
+		new Request("https://edge.meownow.test/upload?chunk=0", {
+			method: "OPTIONS",
+			headers: { origin: "https://evil.example" },
+		}),
+		env([]),
+	);
+	expect(response.status).toBe(403);
+	expect(response.headers.get("access-control-allow-origin")).toBeNull();
+});
+
+test("upload PUT echoes CORS so the browser can read the status", async () => {
+	const keys = await generateCapabilityKeyPair();
+	const blobs = Object.assign(memoryR2(), { publicJwk: keys.publicJwk });
+	const jwt = await mintCapabilityToken(keys.privateJwk, {
+		v: 1,
+		purpose: "upload",
+		userId,
+		key: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+		maxBytes: 1024,
+		blobId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+		exp: Math.floor(Date.now() / 1000) + 60,
+	});
+	const response = await handleRequest(
+		new Request("https://edge.meownow.test/upload?chunk=0", {
+			method: "PUT",
+			headers: {
+				origin: app,
+				authorization: `Bearer ${jwt}`,
+				"content-length": "3",
+			},
+			body: new Uint8Array([9, 8, 7]),
+		}),
+		env([], blobs),
+	);
+	expect(response.status).toBe(204);
+	expect(response.headers.get("access-control-allow-origin")).toBe(app);
+});
+
 test("upload without a capability token never writes to R2", async () => {
 	const blobs = memoryR2();
 	const response = await handleRequest(
