@@ -46,7 +46,9 @@ Vercel never writes to R2. It checks `can_upload` and remaining quota, inserts a
 
 ## P2P (milestone 7)
 
-WebRTC DataChannels carry ciphertext only; Zod rejects a `plaintext` field on the DC envelope. Signalling (`rtc.offer` / `rtc.answer` / `rtc.ice`) is unicast through the Durable Object and must present the sender's `deviceId` from the socket attachment. ICE is STUN-only — no TURN, so some networks fall back to the server path without an error. **Local** means the nominated ICE pair is host/host. Ephemeral items skip Postgres and R2; if no peer is connected they fail closed.
+WebRTC DataChannels carry ciphertext only; Zod rejects a `plaintext` field on the DC envelope. Signalling (`rtc.offer` / `rtc.answer` / `rtc.ice`) is unicast through the Durable Object and must present the sender's `deviceId` from the socket attachment. ICE is STUN-only — no TURN. Client-isolated Wi‑Fi (JioFiber and similar) and missing NAT hairpin mean host/host often never forms; that is not a threat, it is the network. **Local** still means the nominated ICE pair is host/host. Trickle ICE is queued until `setRemoteDescription` so early candidates are not dropped.
+
+Ephemeral items skip Postgres and R2. Fail closed means do not persist, not "DataChannel or discard." If no channel is open, the sender fans the same ciphertext over the hub as `item.created` with `ephemeral: true`. The Durable Object sees the same sealed fields it already sees for a stored note and does not keep the row. The Worker must parse that flag; stripping it makes the receiver drop the note on the next GET. If the hub is down too, the note stays on the sending device.
 
 ## Admin (milestone 8)
 
