@@ -204,6 +204,31 @@ test("admin enroll is invite-less, secret-gated, and single-use", async () => {
 	await expect(enrollAdmin(auth)).rejects.toMatchObject({ code: "admin_enrolled" });
 });
 
+test("login matches a device by rawId when the browser id is messy", async () => {
+	const store = new MemoryAuthStore();
+	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
+	await enrollAdmin(auth);
+	const device = [...store.devices.values()][0];
+	if (!device) {
+		throw new Error("missing device");
+	}
+	const rawId = device.credentialId.toString("base64url");
+	const { challenge } = await auth.loginOptions();
+	const result = await auth.loginVerify({ ...dummyAssertion, id: "not-this-id", rawId }, challenge);
+	expect(result.handle).toBe("rishi");
+	expect(result.sessionToken.length).toBeGreaterThan(16);
+});
+
+test("unknown passkey is unverified, not a missing session", async () => {
+	const store = new MemoryAuthStore();
+	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
+	await enrollAdmin(auth);
+	const { challenge } = await auth.loginOptions();
+	await expect(
+		auth.loginVerify({ ...dummyAssertion, id: "unknown", rawId: "unknown" }, challenge),
+	).rejects.toMatchObject({ code: "unverified", status: 401 });
+});
+
 test("revoked device cannot log in", async () => {
 	const store = new MemoryAuthStore();
 	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
