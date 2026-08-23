@@ -110,7 +110,7 @@ export default function AdminPage() {
 										</div>
 									</div>
 									{user.role === "member" ? (
-										<button type="button" onClick={() => void remove(user.id)}>
+										<button type="button" className="quiet" onClick={() => void remove(user.id)}>
 											Remove
 										</button>
 									) : null}
@@ -120,7 +120,11 @@ export default function AdminPage() {
 										{live.map((device) => (
 											<li key={device.id}>
 												<span>{device.label}</span>
-												<button type="button" onClick={() => void revoke(device.id)}>
+												<button
+													type="button"
+													className="quiet"
+													onClick={() => void revoke(device.id)}
+												>
 													Revoke
 												</button>
 											</li>
