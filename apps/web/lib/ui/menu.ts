@@ -11,6 +11,7 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 	if (!me) {
 		if (hasLocal) {
 			return [
+				{ id: "about", label: "About", hint: "What this is", href: "/about" },
 				{
 					id: "login",
 					label: "Sign in",
@@ -26,6 +27,7 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 			];
 		}
 		return [
+			{ id: "about", label: "About", hint: "What this is", href: "/about" },
 			{ id: "login", label: "Sign in", hint: "Passkey already on this browser", href: "/login" },
 			{
 				id: "join",
@@ -40,7 +42,7 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 				href: "/pair/show",
 			},
 			{ id: "recover", label: "Lost every device", hint: "Use the 12 words", href: "/recover" },
-			{ id: "enroll", label: "First admin", hint: "Bootstrap the first seat", href: "/enroll" },
+			{ id: "enroll", label: "First admin", hint: "Bootstrap the first account", href: "/enroll" },
 		];
 	}
 
@@ -86,7 +88,11 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 				},
 			];
 
-	const rows: PaletteAction[] = [{ id: "home", label: "Clipboard", href: "/" }, ...pairing];
+	const rows: PaletteAction[] = [
+		{ id: "home", label: "Clipboard", href: "/" },
+		{ id: "about", label: "About", hint: "What this is", href: "/about" },
+		...pairing,
+	];
 
 	if (!hasLocal) {
 		rows.push({
@@ -103,7 +109,7 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 
 	if (me.role === "admin") {
 		rows.push(
-			{ id: "admin", label: "People", hint: "Seats and devices", href: "/admin" },
+			{ id: "admin", label: "People", hint: "People and devices", href: "/admin" },
 			{ id: "invites", label: "Invites", hint: "Send a join link", href: "/invites" },
 			{ id: "requests", label: "Requests", hint: "Grant file space", href: "/requests" },
 		);
