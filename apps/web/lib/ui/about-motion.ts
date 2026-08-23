@@ -1,4 +1,5 @@
 import { createTimeline, stagger, utils } from "animejs";
+import { playScramble } from "./about-scramble";
 
 const SLIP_STATES = ["plain", "sealed", "sealed", "open"] as const;
 const HOLD_MS = 1100;
@@ -64,7 +65,10 @@ export function playAboutMotion(root: HTMLElement): () => void {
 	const flow = root.querySelector(".about-flow");
 	const stations = root.querySelectorAll(".about-station");
 	const nodes = root.querySelectorAll(".about-node");
-	const rest = root.querySelectorAll(".about-fade");
+	const rest = root.querySelectorAll(".about-fade:not(.about-break):not(.about-faq)");
+	const breakEl = root.querySelector(".about-break");
+	const faq = root.querySelector(".about-faq");
+	const cipher = root.querySelector(".about-scramble");
 	const slip = root.querySelector(".about-slip");
 	if (!flow || lede.length === 0 || !(slip instanceof HTMLElement)) {
 		return () => undefined;
@@ -74,6 +78,7 @@ export function playAboutMotion(root: HTMLElement): () => void {
 		(node): node is HTMLElement => node instanceof HTMLElement,
 	);
 	let stopSlip = playSlip(slip, stationEls);
+	let stopCipher: () => void = () => undefined;
 
 	const tl = createTimeline({
 		defaults: { ease: "out(3)" },
@@ -127,6 +132,34 @@ export function playAboutMotion(root: HTMLElement): () => void {
 		},
 		520,
 	);
+	if (breakEl) {
+		tl.add(
+			breakEl,
+			{
+				opacity: [0, 1],
+				translateY: [12, 0],
+				duration: 420,
+				onBegin: () => {
+					if (cipher instanceof HTMLElement) {
+						stopCipher();
+						stopCipher = playScramble(cipher, cipher.dataset.scramble ?? cipher.textContent ?? "");
+					}
+				},
+			},
+			640,
+		);
+	}
+	if (faq) {
+		tl.add(
+			faq,
+			{
+				opacity: [0, 1],
+				translateY: [10, 0],
+				duration: 420,
+			},
+			820,
+		);
+	}
 
 	const onResize = () => {
 		stopSlip();
@@ -137,6 +170,7 @@ export function playAboutMotion(root: HTMLElement): () => void {
 	return () => {
 		window.removeEventListener("resize", onResize);
 		stopSlip();
+		stopCipher();
 		tl.revert();
 	};
 }
