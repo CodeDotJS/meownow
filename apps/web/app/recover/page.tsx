@@ -13,6 +13,7 @@ import {
 import { asPublicJwk } from "@meownow/protocol";
 import { startRegistration } from "@simplewebauthn/browser";
 import { type FormEvent, useState } from "react";
+import { detectDeviceLabel } from "@/lib/client/device-label";
 import { errorCode, postJson } from "@/lib/client/http";
 import { rememberPasskey } from "@/lib/client/passkey";
 import { Panel } from "@/lib/ui/panel";
@@ -97,7 +98,7 @@ export default function RecoverPage() {
 			const optionsRes = await postJson("/api/recovery/register/options", {
 				handle,
 				verifier: bytesToB64url(await recoveryVerifier(mnemonic, salt)),
-				deviceLabel: "this device",
+				deviceLabel: await detectDeviceLabel(),
 			});
 			if (!optionsRes.ok) {
 				setStatus(errorCode(optionsRes.data));
