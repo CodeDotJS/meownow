@@ -1,6 +1,6 @@
 # Runbook
 
-Operational steps for a ten-seat vault. Do not log secrets, tokens, recovery phrases, or plaintext.
+Operational steps for an invite-only clipboard. Do not log secrets, tokens, recovery phrases, or plaintext.
 
 ## Revoke a device
 
