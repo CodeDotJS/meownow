@@ -79,11 +79,11 @@ export default function AdminPage() {
 		<main>
 			<Panel>
 				<h1>People</h1>
-				<p className="lead">Who has a seat, and which browsers they use.</p>
+				<p className="lead">Who is here, and which browsers they use.</p>
 				<AdminNav />
 				{seats ? (
 					<p className="dir-meta seats-meta">
-						{seats.claimed} of {seats.total} seats taken
+						{seats.claimed} {seats.claimed === 1 ? "person" : "people"}
 					</p>
 				) : null}
 				<Status value={status} />
