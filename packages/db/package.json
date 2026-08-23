@@ -19,6 +19,7 @@
 		"@meownow/config": "workspace:*",
 		"@neondatabase/serverless": "1.1.0",
 		"drizzle-orm": "0.45.2",
+		"undici": "7.29.0",
 		"ws": "8.21.3"
 	},
 	"devDependencies": {
