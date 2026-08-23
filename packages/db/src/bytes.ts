@@ -12,8 +12,12 @@ export function toBase64Url(data: Buffer): string {
 	return data.toString("base64url");
 }
 
+export function normalizeBase64Url(value: string): string {
+	return value.trim().replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
 export function fromBase64Url(value: string): Buffer {
-	return Buffer.from(value, "base64url");
+	return Buffer.from(normalizeBase64Url(value), "base64url");
 }
 
 export function uuidToBytes(id: string): Uint8Array {
