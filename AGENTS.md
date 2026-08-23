@@ -1,6 +1,6 @@
 # meownow
 
-A private, invite-only, end-to-end encrypted cross-device clipboard for exactly 10 people. You copy something on one device and paste it on another. Text, links, images, files.
+A private, invite-only, end-to-end encrypted cross-device clipboard. You copy something on one device and paste it on another. Text, links, images, files.
 
 Full specification: `docs/SPEC.md`. It is authoritative. Read the relevant section before implementing. There is no `meownow-spec.md` in the repo root; if a prompt refers to that name, it means this file.
 
@@ -15,7 +15,7 @@ pnpm test             # vitest
 pnpm test:e2e         # playwright
 pnpm db:generate      # drizzle-kit generate
 pnpm db:migrate       # apply migrations
-pnpm db:seed          # 10 seats + admin bootstrap
+pnpm db:seed          # admin bootstrap
 ```
 
 CI runs typecheck, lint, test, and a Drizzle schema-drift check on every push.
@@ -42,7 +42,7 @@ Storage: Neon Postgres for metadata and small ciphertext. Cloudflare R2 for blob
 
 - **The server is untrusted.** It must never see plaintext content, filenames, MIME types, or previews. If an approach requires plaintext server-side, stop and flag it.
 - **All authorization is server-side.** UI gating is convenience, never enforcement. A user without `can_upload` must be unable to write a byte to R2 even with a hand-crafted request.
-- **The 10-user cap** is enforced by the `seats` table via `FOR UPDATE SKIP LOCKED`. Never by `COUNT(*)`.
+- **Membership is invite-only.** There is no public signup and no numeric seat cap. An unused invite is the only way in. Flag free-tier cost if invites grow past a small group.
 - **No passwords.** Passkeys plus a recovery phrase. Never add a fallback.
 - **Zero recurring cost.** Everything stays inside free tiers. Flag anything that would exceed one before building it.
 
