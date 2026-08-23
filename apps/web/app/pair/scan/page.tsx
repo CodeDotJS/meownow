@@ -279,7 +279,12 @@ export default function PairScanPage() {
 						<video ref={videoRef} className="qr-scan" autoPlay muted playsInline />
 						<canvas ref={canvasRef} className="file-hidden" aria-hidden />
 						<nav className="stack">
-							<button type="button" onClick={() => setScanning((on) => !on)} disabled={busy}>
+							<button
+								type="button"
+								className="quiet"
+								onClick={() => setScanning((on) => !on)}
+								disabled={busy}
+							>
 								{scanning ? "Stop camera" : "Scan QR"}
 							</button>
 						</nav>
@@ -293,7 +298,7 @@ export default function PairScanPage() {
 									rows={4}
 								/>
 							</label>
-							<button type="submit" disabled={busy}>
+							<button className="select" type="submit" disabled={busy}>
 								Use QR text
 							</button>
 						</form>
