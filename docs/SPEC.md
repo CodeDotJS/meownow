@@ -92,7 +92,7 @@ You are already on Cloudflare for R2, so this adds zero vendors.
 
 ## 1.3 Security model
 
-**Threat model, stated plainly.** The adversary is: (a) anyone who is not one of your 10 people, (b) a compromise of Vercel/Neon/R2 or of your own admin account, (c) a link leaked out of the app. Not in scope: a fully compromised client device, or you as admin misbehaving at the metadata layer.
+**Threat model, stated plainly.** The adversary is: (a) anyone without a valid invite or session, (b) a compromise of Vercel/Neon/R2 or of your own admin account, (c) a link leaked out of the app. Not in scope: a fully compromised client device, or you as admin misbehaving at the metadata layer.
 
 **Design principle:** the server is a dumb, untrusted courier. It must be able to route, expire, and bill your content without being able to read it.
 
@@ -143,39 +143,17 @@ Trust-on-first-use, with a **key fingerprint shown in the UI** so people can ver
 
 **Passkeys (WebAuthn), discoverable credentials.** This is the answer to "simple and secure" — it is simultaneously the simplest login (one Face ID tap, no username typed) and the strongest (phishing-resistant, origin-bound, nothing to leak from your DB). Use `@simplewebauthn/server` + `/browser`.
 
-- Signup: redeem invite → create passkey → generate vault → show recovery phrase → claim a seat.
+- Signup: redeem invite → create passkey → generate vault → show recovery phrase.
 - Login: usernameless. Browser offers the resident credential; one tap.
 - Every passkey is a **device row**. Revoking a device is a real operation with real consequences.
 - Session: `httpOnly; Secure; SameSite=Lax; Path=/` cookie holding an opaque 256-bit token (not a JWT — you want instant revocation). Rotate on privilege change. 30-day sliding expiry, hard 90-day cap.
 - **No password fallback, ever.** A password reset flow is a bypass of everything above. Recovery phrase covers the lost-device case.
 
-### Invite-only, hard cap of 10
+### Invite-only
 
-Two separate mechanisms, because they enforce different things.
+**Invites** are the only membership gate. 32 random bytes, base64url, shown once. Only `sha256(token)` is stored — treat it like a password. Single use, 72-hour expiry, optionally bound to a label. Admin-generated. Revocable. There is no public signup and no numeric user cap. A valid invite creates a member. Flag free-tier cost if the invite list grows past a small group.
 
-**Invites:** 32 random bytes, base64url, shown once. Only `sha256(token)` is stored — treat it like a password. Single use, 72-hour expiry, optionally bound to a label. Admin-generated. Revocable.
-
-**The cap:** enforce it structurally, not with a `COUNT(*)` check that races.
-
-```sql
-create table seats (
-  seat_no    smallint primary key check (seat_no between 1 and 10),
-  user_id    uuid unique references users(id) on delete set null,
-  claimed_at timestamptz
-);
--- pre-seed exactly 10 rows at migration time
-```
-
-Claiming a seat is one atomic statement:
-
-```sql
-update seats set user_id = $1, claimed_at = now()
-where seat_no = (select seat_no from seats where user_id is null
-                 order by seat_no limit 1 for update skip locked)
-returning seat_no;
-```
-
-Zero rows returned means full. No race, no application-level counter to drift, and removing a user frees a seat by construction. The eleventh user is impossible by schema, not by convention.
+The `seats` table remains in the schema from the original ten-person design. New signups do not claim a seat. Do not reintroduce a cap with `COUNT(*)`.
 
 ### Upload gating
 
@@ -470,7 +448,7 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state. First-run copy names the next action in plain language. Do not say “vault” on a screen a guest has to complete.
 
-**First-run.** One visible next action. The signed-out hero has one filled CTA: Continue with passkey. Join, recover, pairing, and first-admin enroll are hints on the home, not equal filled buttons. Guest Menu lists those onboarding paths with a one-line hint. A signed-in working browser's Menu is the product: clipboard, both pairing roles, admin People / Invites / Requests, log out. Admin screens share one nav. Invites list only open links — never a revoked id. Recover is not on that Menu — this browser is already a device. Recover stays on the guest Menu and on the new-browser screen, where the other device may be gone. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only the next filled action when the account already has keys and this browser does not. An empty browser only offers Show a code. Recovery is the lost-every-device path. Pairing has two roles: the new browser shows a code, the working browser types it under Add a device. `/pair` presents both as cards and tags the one this browser should start with. Never hide the other role. A browser that guesses wrong must be one click from the right screen, never bounced with a refusal, and Menu lists both pairing roles. Invites are sent as a `/join?t=` URL, not a bare token.
+**First-run.** One visible next action. The signed-out chrome is About, then Sign in, then Menu. The signed-out hero has one filled CTA: Continue with passkey. Join, recover, pairing, and first-admin enroll are hints on the home, not equal filled buttons. Guest Menu lists those onboarding paths with a one-line hint. A signed-in working browser's Menu is the product: clipboard, both pairing roles, admin People / Invites / Requests, log out. Admin screens share one nav. Invites list only open links — never a revoked id. Recover is not on that Menu — this browser is already a device. Recover stays on the guest Menu and on the new-browser screen, where the other device may be gone. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only the next filled action when the account already has keys and this browser does not. An empty browser only offers Show a code. Recovery is the lost-every-device path. Pairing has two roles: the new browser shows a code, the working browser types it under Add a device. `/pair` presents both as cards and tags the one this browser should start with. Never hide the other role. A browser that guesses wrong must be one click from the right screen, never bounced with a refusal, and Menu lists both pairing roles. Invites are sent as a `/join?t=` URL, not a bare token.
 
 **Forbidden:** Inter, purple-to-pink soup, dark auto-theme, glow, mesh, conic border, emoji buttons, unread shadcn, implying the server can read paste contents.
 
@@ -503,13 +481,13 @@ Paste this into Claude Code, alongside this document, to start the repo.
 
 ---
 
-You are the technical lead on **meownow**, a private, invite-only, end-to-end encrypted cross-device clipboard for exactly 10 people. Treat `meownow-spec.md` in the repo root as the authoritative specification. Read it fully before writing any code.
+You are the technical lead on **meownow**, a private, invite-only, end-to-end encrypted cross-device clipboard. Treat `meownow-spec.md` in the repo root as the authoritative specification. Read it fully before writing any code.
 
 ## Non-negotiables
 
 1. **The server is untrusted.** It must never be able to read item content, filenames, MIME types, or previews. If a design choice would require plaintext server-side, the design choice is wrong. Flag it and propose an alternative rather than weakening the model.
 2. **Every permission check happens server-side.** UI gating is a convenience, never an enforcement point. Specifically: a user without `can_upload` must be unable to write a byte to R2 even with a hand-crafted request.
-3. **The 10-user cap is enforced by the `seats` table**, via the atomic `FOR UPDATE SKIP LOCKED` claim in the spec. Never by a `COUNT(*)` check.
+3. **Membership is invite-only.** There is no public signup and no numeric seat cap. Never reintroduce a cap with `COUNT(*)`.
 4. **Zero recurring cost.** Every feature stays inside the free tiers listed in §1.6. If a proposal would exceed one, say so before building it.
 5. **TypeScript strict**, `noUncheckedIndexedAccess`, no `any`, no non-null assertions outside tests. Every external boundary is Zod-parsed: HTTP bodies, WebSocket frames, DataChannel messages, and `process.env`.
 6. **No passwords.** Passkeys plus a recovery phrase. Do not add a password fallback under any circumstance.
