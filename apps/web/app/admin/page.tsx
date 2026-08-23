@@ -5,6 +5,7 @@ import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { AdminNav } from "@/lib/ui/admin-nav";
 import { formatBytes } from "@/lib/ui/bytes";
 import { Panel } from "@/lib/ui/panel";
+import { PixelAvatar } from "@/lib/ui/pixel-avatar";
 import { Status } from "@/lib/ui/status";
 
 type Device = {
@@ -94,15 +95,19 @@ export default function AdminPage() {
 						return (
 							<li key={user.id}>
 								<div className="dir-head">
-									<div>
-										<p className="dir-name">{user.handle}</p>
-										<p className="dir-meta">
-											{user.displayName}
-											{user.role === "admin" ? " · admin" : ""}
-											{user.canUpload ? " · files" : ""}
-											{" · "}
-											{formatBytes(user.storageUsedBytes)} of {formatBytes(user.storageQuotaBytes)}
-										</p>
+									<div className="dir-who">
+										<PixelAvatar label={user.handle} size={36} />
+										<div>
+											<p className="dir-name">{user.handle}</p>
+											<p className="dir-meta">
+												{user.displayName}
+												{user.role === "admin" ? " · admin" : ""}
+												{user.canUpload ? " · files" : ""}
+												{" · "}
+												{formatBytes(user.storageUsedBytes)} of{" "}
+												{formatBytes(user.storageQuotaBytes)}
+											</p>
+										</div>
 									</div>
 									{user.role === "member" ? (
 										<button type="button" onClick={() => void remove(user.id)}>
