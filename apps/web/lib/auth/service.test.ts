@@ -317,6 +317,23 @@ test("push subscribe without a session cookie is denied", async () => {
 	expect(await res.json()).toEqual({ error: "unauthorized" });
 });
 
+test("delete account without a session is denied at the handler", async () => {
+	const handlers = createHandlers({
+		env,
+		store: new MemoryAuthStore(),
+		webauthn: mockWebAuthn(),
+	});
+	const res = await handlers.postDeleteAccount(
+		new Request("https://meownow.example/api/auth/account/delete", {
+			method: "POST",
+			headers: { origin: env.APP_URL, "content-type": "application/json" },
+			body: JSON.stringify({ handle: "ada" }),
+		}),
+	);
+	expect(res.status).toBe(401);
+	expect(await res.json()).toEqual({ error: "unauthorized" });
+});
+
 test("upload intent without a session is denied", async () => {
 	const handlers = createHandlers({
 		env: { ...env, EDGE_URL: "https://edge.example", CAPABILITY_TOKEN_PRIVATE_KEY: "x" },
@@ -362,6 +379,33 @@ test("removing a member deletes them; the last admin cannot be removed", async (
 	expect(store.users.size).toBe(1);
 	const adminUser = [...store.users.values()].find((row) => row.role === "admin");
 	await expect(auth.removeUser(admin.sessionToken, adminUser?.id ?? "")).rejects.toMatchObject({
+		code: "last_admin",
+		status: 409,
+	});
+});
+
+test("a member can delete their own account; the last admin cannot", async () => {
+	const store = new MemoryAuthStore();
+	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
+	const admin = await enrollAdmin(auth);
+	const member = await signupMember(auth, admin.sessionToken, "ada");
+	await expect(auth.deleteAccount(undefined, "ada")).rejects.toMatchObject({
+		code: "unauthorized",
+		status: 401,
+	});
+	await expect(auth.deleteAccount(member.result.sessionToken, "rishi")).rejects.toMatchObject({
+		code: "invalid_body",
+		status: 400,
+	});
+	await auth.deleteAccount(member.result.sessionToken, "ada");
+	expect([...store.users.values()].some((row) => row.handle === "ada")).toBe(false);
+	await expect(auth.me(member.result.sessionToken)).rejects.toMatchObject({
+		code: "unauthorized",
+	});
+	expect(store.audit.some((row) => row.action === "user.removed" && row.actorId === null)).toBe(
+		true,
+	);
+	await expect(auth.deleteAccount(admin.sessionToken, "rishi")).rejects.toMatchObject({
 		code: "last_admin",
 		status: 409,
 	});
