@@ -86,10 +86,18 @@ export default function RequestsPage() {
 								<div className="dir-head">
 									<span className="dir-name">{row.handle}</span>
 									<span className="dir-actions">
-										<button type="button" onClick={() => void decide(row.id, "approved")}>
+										<button
+											type="button"
+											className="select"
+											onClick={() => void decide(row.id, "approved")}
+										>
 											Approve
 										</button>
-										<button type="button" onClick={() => void decide(row.id, "denied")}>
+										<button
+											type="button"
+											className="quiet"
+											onClick={() => void decide(row.id, "denied")}
+										>
 											Deny
 										</button>
 									</span>
