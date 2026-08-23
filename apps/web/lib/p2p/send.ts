@@ -8,21 +8,26 @@ export type PeerLink = {
 export async function sendOnMesh(
 	peers: PeerLink[],
 	envelope: DcEnvelope,
-): Promise<{ delivered: number; local: boolean }> {
+): Promise<{ delivered: number; local: boolean; failed: number }> {
 	const parsed = dcEnvelopeSchema.safeParse(envelope);
 	if (!parsed.success) {
-		return { delivered: 0, local: false };
+		return { delivered: 0, local: false, failed: 0 };
 	}
 	let delivered = 0;
+	let failed = 0;
 	let local = false;
 	for (const peer of peers) {
-		peer.send(parsed.data);
-		delivered += 1;
-		if (peer.local) {
-			local = true;
+		try {
+			peer.send(parsed.data);
+			delivered += 1;
+			if (peer.local) {
+				local = true;
+			}
+		} catch {
+			failed += 1;
 		}
 	}
-	return { delivered, local };
+	return { delivered, local, failed };
 }
 
 export function shouldPersist(ephemeral: boolean): boolean {
