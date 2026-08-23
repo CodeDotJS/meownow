@@ -149,6 +149,14 @@ export const logoutResponseSchema = z.object({
 	ok: z.literal(true),
 });
 
+export const accountDeleteRequestSchema = z.object({
+	handle: handleSchema,
+});
+
+export const accountDeleteResponseSchema = z.object({
+	ok: z.literal(true),
+});
+
 export const publicKeyOptionsResponseSchema = z.object({
 	options: z.unknown(),
 	challenge: z.string().min(1).optional(),
