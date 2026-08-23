@@ -1,4 +1,5 @@
 import { type DcEnvelope, dcEnvelopeSchema, type WsEnvelope } from "@meownow/protocol";
+import { IceBuffer } from "./ice-buffer";
 import { isHostCandidate, isLanPair, STUN_URLS } from "./lan";
 import { planRtcSignal } from "./mesh-signal";
 import type { PeerLink } from "./send";
@@ -15,6 +16,7 @@ export class Mesh {
 	>();
 	private readonly starting = new Set<string>();
 	private readonly chain = new Map<string, Promise<void>>();
+	private readonly ice = new IceBuffer();
 	private lan = false;
 
 	constructor(
@@ -49,22 +51,13 @@ export class Mesh {
 			return;
 		}
 		if (envelope.type === "rtc.ice") {
-			const peer = this.peers.get(envelope.from);
-			if (peer && envelope.candidate) {
-				if (isHostCandidate(envelope.candidate)) {
-					peer.hostRemote = true;
-				}
-				try {
-					await peer.pc.addIceCandidate({
-						candidate: envelope.candidate,
-						sdpMid: envelope.sdpMid,
-						sdpMLineIndex: envelope.sdpMLineIndex,
-					});
-				} catch {
-					return;
-				}
-				await this.refreshLan();
-			}
+			await this.enqueue(envelope.from, () =>
+				this.applyIce(envelope.from, {
+					candidate: envelope.candidate,
+					sdpMid: envelope.sdpMid,
+					sdpMLineIndex: envelope.sdpMLineIndex,
+				}),
+			);
 		}
 	}
 
@@ -167,6 +160,7 @@ export class Mesh {
 			return;
 		}
 		await pc.setRemoteDescription({ type: "offer", sdp });
+		await this.flushIce(peerId);
 		if (pc.signalingState !== "have-remote-offer") {
 			return;
 		}
@@ -190,6 +184,7 @@ export class Mesh {
 			return;
 		}
 		await peer.pc.setRemoteDescription({ type: "answer", sdp });
+		await this.flushIce(peerId);
 	}
 
 	private wire(record: { channel: RTCDataChannel | null }, channel: RTCDataChannel): void {
@@ -246,8 +241,38 @@ export class Mesh {
 		}
 	}
 
+	private async applyIce(
+		peerId: string,
+		candidate: { candidate: string; sdpMid: string | null; sdpMLineIndex: number | null },
+	): Promise<void> {
+		if (!candidate.candidate) {
+			return;
+		}
+		const peer = this.peers.get(peerId);
+		if (!peer?.pc.remoteDescription) {
+			this.ice.push(peerId, candidate);
+			return;
+		}
+		if (isHostCandidate(candidate.candidate)) {
+			peer.hostRemote = true;
+		}
+		try {
+			await peer.pc.addIceCandidate(candidate);
+		} catch {
+			return;
+		}
+		await this.refreshLan();
+	}
+
+	private async flushIce(peerId: string): Promise<void> {
+		for (const candidate of this.ice.take(peerId)) {
+			await this.applyIce(peerId, candidate);
+		}
+	}
+
 	private closePeer(id: string): void {
 		this.starting.delete(id);
+		this.ice.clear(id);
 		const peer = this.peers.get(id);
 		peer?.channel?.close();
 		peer?.pc.close();
