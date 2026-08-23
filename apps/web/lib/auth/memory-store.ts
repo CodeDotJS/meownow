@@ -320,6 +320,21 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		this.items = this.items.filter((item) => item.ownerId !== id);
 		this.blobs = this.blobs.filter((blob) => blob.ownerId !== id);
 		this.uploadRequests = this.uploadRequests.filter((row) => row.userId !== id);
+		for (const row of this.uploadRequests) {
+			if (row.decidedBy === id) {
+				row.decidedBy = null;
+			}
+		}
+		for (const [inviteId, invite] of this.invites) {
+			if (invite.createdBy === id) {
+				this.invites.delete(inviteId);
+				continue;
+			}
+			if (invite.redeemedBy === id) {
+				invite.redeemedBy = null;
+			}
+		}
+		this.audit = this.audit.map((row) => (row.actorId === id ? { ...row, actorId: null } : row));
 		for (const seat of this.seats) {
 			if (seat.userId === id) {
 				seat.userId = null;
