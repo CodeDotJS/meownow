@@ -14,7 +14,8 @@
 			"!**/.turbo",
 			"!**/.wrangler",
 			"!**/dist",
-			"!**/packages/db/migrations"
+			"!**/packages/db/migrations",
+			"!**/apps/web/public/marks"
 		]
 	},
 	"formatter": {
