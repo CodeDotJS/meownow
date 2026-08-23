@@ -2,7 +2,6 @@ import {
 	type AppDatabase,
 	auditLog,
 	blobs,
-	claimSeat,
 	createDb,
 	createHttpDb,
 	createPool,
@@ -13,7 +12,6 @@ import {
 	items,
 	pairingSessions,
 	pushSubscriptions,
-	seats,
 	sessions,
 	uploadRequests,
 	users,
@@ -25,7 +23,7 @@ import {
 	pairingWrapRequestSchema,
 	type WrappedKeyWire,
 } from "@meownow/protocol";
-import { and, desc, eq, inArray, isNotNull, isNull, ne, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, type SQL, sql } from "drizzle-orm";
 import { planPrune } from "../vault/prune";
 import type {
 	BlobRow,
@@ -250,55 +248,44 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 	}
 
 	async completeRegistration(input: RegistrationCommit): Promise<RegistrationCommitResult> {
-		try {
-			return await this.withTx(async (tx) => {
-				const inviteRows = await tx
-					.select()
-					.from(invites)
-					.where(eq(invites.tokenHash, input.inviteTokenHash))
-					.limit(1);
-				const invite = inviteRows[0];
-				if (!invite || inviteState(invite, input.now) !== "ok") {
-					return "invite_invalid" as const;
-				}
-				const existing = await tx
-					.select({ id: users.id })
-					.from(users)
-					.where(eq(users.handle, input.handle))
-					.limit(1);
-				if (existing[0]) {
-					return "handle_taken" as const;
-				}
-				await tx.insert(users).values({
-					id: input.userId,
-					handle: input.handle,
-					displayName: input.displayName,
-					role: "member",
-				});
-				const seatNo = await claimSeat(tx, input.userId);
-				if (seatNo === null) {
-					throw new SeatFullRollback();
-				}
-				await insertDevice(tx, input.userId, input.device);
-				await tx
-					.update(invites)
-					.set({ redeemedBy: input.userId, redeemedAt: input.now })
-					.where(eq(invites.id, invite.id));
-				await tx.insert(sessions).values({
-					tokenHash: input.session.tokenHash,
-					deviceId: input.device.id,
-					expiresAt: input.session.expiresAt,
-					createdAt: input.now,
-					lastUsed: input.now,
-				});
-				return "ok" as const;
-			});
-		} catch (err) {
-			if (err instanceof SeatFullRollback) {
-				return "seats_full";
+		return this.withTx(async (tx) => {
+			const inviteRows = await tx
+				.select()
+				.from(invites)
+				.where(eq(invites.tokenHash, input.inviteTokenHash))
+				.limit(1);
+			const invite = inviteRows[0];
+			if (!invite || inviteState(invite, input.now) !== "ok") {
+				return "invite_invalid" as const;
 			}
-			throw err;
-		}
+			const existing = await tx
+				.select({ id: users.id })
+				.from(users)
+				.where(eq(users.handle, input.handle))
+				.limit(1);
+			if (existing[0]) {
+				return "handle_taken" as const;
+			}
+			await tx.insert(users).values({
+				id: input.userId,
+				handle: input.handle,
+				displayName: input.displayName,
+				role: "member",
+			});
+			await insertDevice(tx, input.userId, input.device);
+			await tx
+				.update(invites)
+				.set({ redeemedBy: input.userId, redeemedAt: input.now })
+				.where(eq(invites.id, invite.id));
+			await tx.insert(sessions).values({
+				tokenHash: input.session.tokenHash,
+				deviceId: input.device.id,
+				expiresAt: input.session.expiresAt,
+				createdAt: input.now,
+				lastUsed: input.now,
+			});
+			return "ok" as const;
+		});
 	}
 
 	async completeAdminEnroll(input: AdminEnrollCommit): Promise<AdminEnrollCommitResult> {
@@ -376,10 +363,6 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		return this.withDb(async (db) => {
 			const userRows = await db.select().from(users);
 			const deviceRows = await db.select().from(devices);
-			const claimed = await db
-				.select({ seatNo: seats.seatNo })
-				.from(seats)
-				.where(isNotNull(seats.userId));
 			return {
 				users: userRows
 					.map((row) => ({
@@ -396,7 +379,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 							})),
 					}))
 					.sort((a, b) => a.handle.localeCompare(b.handle)),
-				seatsClaimed: claimed.length,
+				seatsClaimed: userRows.length,
 			};
 		});
 	}
@@ -964,13 +947,6 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 			}
 			return { keepR2Keys: plan.keepR2Keys, deleteR2Keys: plan.deleteR2Keys };
 		});
-	}
-}
-
-class SeatFullRollback extends Error {
-	constructor() {
-		super("seats_full");
-		this.name = "SeatFullRollback";
 	}
 }
 
