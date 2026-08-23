@@ -17,6 +17,12 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 					hint: "This browser already has the clipboard",
 					href: "/login",
 				},
+				{
+					id: "pair",
+					label: "Show a code",
+					hint: "New passkey from the computer that still works",
+					href: "/pair/show",
+				},
 			];
 		}
 		return [
