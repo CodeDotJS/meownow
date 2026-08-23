@@ -2,9 +2,6 @@ import {
 	type AppDatabase,
 	auditLog,
 	blobs,
-	createDb,
-	createHttpDb,
-	createPool,
 	devices,
 	type HttpDatabase,
 	inviteState,
@@ -15,6 +12,8 @@ import {
 	sessions,
 	uploadRequests,
 	users,
+	withDb,
+	withTx,
 } from "@meownow/db";
 import {
 	type ItemCreateRequest,
@@ -33,18 +32,19 @@ import type {
 	VaultRecord,
 	VaultStore,
 } from "../vault/store";
-import type {
-	AdminEnrollCommit,
-	AdminEnrollCommitResult,
-	AuditEntry,
-	AuthStore,
-	DeviceWithUser,
-	InviteRow,
-	LoginCommit,
-	RegistrationCommit,
-	RegistrationCommitResult,
-	SessionContext,
-	UserRow,
+import {
+	type AdminEnrollCommit,
+	type AdminEnrollCommitResult,
+	type AuditEntry,
+	AuthError,
+	type AuthStore,
+	type DeviceWithUser,
+	type InviteRow,
+	type LoginCommit,
+	type RegistrationCommit,
+	type RegistrationCommitResult,
+	type SessionContext,
+	type UserRow,
 } from "./store";
 
 type DbTx = Parameters<Parameters<AppDatabase["transaction"]>[0]>[0];
@@ -81,17 +81,11 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 	constructor(private readonly connectionString: string) {}
 
 	private async withDb<T>(fn: (db: HttpDatabase) => Promise<T>): Promise<T> {
-		return fn(createHttpDb(this.connectionString));
+		return withDb(this.connectionString, fn);
 	}
 
 	private async withTx<T>(fn: (tx: DbTx) => Promise<T>): Promise<T> {
-		const pool = createPool(this.connectionString);
-		const db = createDb(pool);
-		try {
-			return await db.transaction(fn);
-		} finally {
-			await pool.end();
-		}
+		return withTx(this.connectionString, fn);
 	}
 
 	async getInviteByTokenHash(hash: Buffer): Promise<InviteRow | null> {
@@ -571,17 +565,32 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 
 	async createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void> {
 		await this.withDb(async (db) => {
-			await db.insert(items).values({
-				id: item.id,
-				ownerId,
-				kind: item.kind,
-				ciphertext: Buffer.from(item.ciphertext, "base64url"),
-				metaCiphertext: Buffer.from(item.metaCiphertext, "base64url"),
-				iv: Buffer.from(item.iv, "base64url"),
-				byteSize: item.byteSize,
-				expiresAt: new Date(item.expiresAt),
-				createdAt: now,
-			});
+			const inserted = await db
+				.insert(items)
+				.values({
+					id: item.id,
+					ownerId,
+					kind: item.kind,
+					ciphertext: Buffer.from(item.ciphertext, "base64url"),
+					metaCiphertext: Buffer.from(item.metaCiphertext, "base64url"),
+					iv: Buffer.from(item.iv, "base64url"),
+					byteSize: item.byteSize,
+					expiresAt: new Date(item.expiresAt),
+					createdAt: now,
+				})
+				.onConflictDoNothing({ target: items.id })
+				.returning({ id: items.id });
+			if (inserted.length > 0) {
+				return;
+			}
+			const [existing] = await db
+				.select({ ownerId: items.ownerId })
+				.from(items)
+				.where(eq(items.id, item.id))
+				.limit(1);
+			if (existing && existing.ownerId !== ownerId) {
+				throw new AuthError("forbidden", 403);
+			}
 		});
 	}
 
