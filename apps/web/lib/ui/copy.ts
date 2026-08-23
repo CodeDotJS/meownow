@@ -9,7 +9,7 @@ const PROTOCOL: Record<ErrorCode, string> = {
 	invite_revoked: "That invite was revoked.",
 	invite_redeemed: "That invite was already used.",
 	handle_taken: "That username is taken.",
-	seats_full: "All ten seats are taken.",
+	seats_full: "That invite could not be used.",
 	unauthorized: "Sign in first.",
 	forbidden: "Not allowed.",
 	unverified: "That passkey did not work. Try again.",
