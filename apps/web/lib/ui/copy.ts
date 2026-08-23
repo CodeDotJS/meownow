@@ -30,7 +30,7 @@ const PROTOCOL: Record<ErrorCode, string> = {
 	quota_exceeded: "Storage quota is full.",
 	request_pending: "A request is already pending.",
 	not_found: "Not found.",
-	last_admin: "Cannot remove the last admin.",
+	last_admin: "The last admin cannot be removed.",
 	rate_limited: "Too many attempts. Wait and retry.",
 };
 
