@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { PIXEL_GRID, PIXEL_PALETTE, randomPixelSprite } from "./pixel-sprite";
+import { PIXEL_GRID, PIXEL_PALETTE, pixelSpriteFromSeed, randomPixelSprite } from "./pixel-sprite";
 
 describe("randomPixelSprite", () => {
 	test("is an 8x8 4-bit grid with left-right symmetry", () => {
@@ -26,5 +26,17 @@ describe("randomPixelSprite", () => {
 		const a = randomPixelSprite(() => 0.11);
 		const b = randomPixelSprite(() => 0.73);
 		expect(a.cells.join(",")).not.toBe(b.cells.join(","));
+	});
+});
+
+describe("pixelSpriteFromSeed", () => {
+	test("is stable for the same seed and different across seeds", () => {
+		const once = pixelSpriteFromSeed("item-a");
+		const again = pixelSpriteFromSeed("item-a");
+		const other = pixelSpriteFromSeed("item-b");
+		expect(once.cells).toEqual(again.cells);
+		expect(once.cells.join(",")).not.toBe(other.cells.join(","));
+		expect(once.size).toBe(PIXEL_GRID);
+		expect(once.cells).toHaveLength(PIXEL_GRID * PIXEL_GRID);
 	});
 });
