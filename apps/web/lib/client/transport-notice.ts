@@ -4,9 +4,13 @@ export type TransportNotice = "ipv6_unreachable";
 const DISMISS_KEY = "meownow.dismissed.ipv6_unreachable";
 
 const listeners = new Set<(notice: TransportNotice | null) => void>();
+const dismissed = new Set<TransportNotice>();
 let current: TransportNotice | null = null;
 
 function isDismissed(notice: TransportNotice): boolean {
+	if (dismissed.has(notice)) {
+		return true;
+	}
 	try {
 		return sessionStorage.getItem(DISMISS_KEY) === notice;
 	} catch {
@@ -29,6 +33,7 @@ export function publishTransportNotice(notice: TransportNotice): void {
 }
 
 export function dismissTransportNotice(notice: TransportNotice): void {
+	dismissed.add(notice);
 	try {
 		sessionStorage.setItem(DISMISS_KEY, notice);
 	} catch {
@@ -58,6 +63,7 @@ export function readTransportNotice(res: Response): void {
 
 export function resetTransportNoticeForTests(): void {
 	current = null;
+	dismissed.clear();
 	listeners.clear();
 	try {
 		sessionStorage.removeItem(DISMISS_KEY);
