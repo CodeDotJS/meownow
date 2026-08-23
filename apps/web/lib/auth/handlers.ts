@@ -126,7 +126,9 @@ export function createHandlers(deps: HandlerDeps) {
 			mutating(request, deps.env, async () => {
 				await requireAuthLimit(limits, request);
 				const result = await auth.loginOptions();
-				return json({ options: result.options }, [challengeSet(result.challenge)]);
+				return json({ options: result.options, challenge: result.challenge }, [
+					challengeSet(result.challenge),
+				]);
 			}),
 		postLoginVerify: (request: Request) =>
 			mutating(request, deps.env, async () => {
@@ -134,7 +136,7 @@ export function createHandlers(deps: HandlerDeps) {
 				const body = await readBody(request, loginVerifyRequestSchema);
 				const result = await auth.loginVerify(
 					toAuthenticationResponse(body.credential),
-					wn(request),
+					body.challenge ?? wn(request),
 				);
 				return signedIn(result.handle, result.sessionToken);
 			}),
