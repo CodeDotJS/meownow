@@ -9,6 +9,7 @@ import {
 } from "./transport-notice";
 
 afterEach(() => {
+	vi.unstubAllGlobals();
 	resetTransportNoticeForTests();
 });
 
@@ -21,6 +22,29 @@ test("readTransportNotice publishes ipv6_unreachable from the response header", 
 		new Response(null, { headers: { [TRANSPORT_NOTICE_HEADER]: "ipv6_unreachable" } }),
 	);
 	expect(seen).toEqual([null, "ipv6_unreachable"]);
+	stop();
+});
+
+test("dismissed notices stay hidden when sessionStorage is unavailable", () => {
+	const seen: Array<string | null> = [];
+	const stop = subscribeTransportNotice((notice) => {
+		seen.push(notice);
+	});
+	vi.stubGlobal("sessionStorage", {
+		getItem: () => {
+			throw new Error("blocked");
+		},
+		setItem: () => {
+			throw new Error("blocked");
+		},
+		removeItem: () => {
+			throw new Error("blocked");
+		},
+	});
+	publishTransportNotice("ipv6_unreachable");
+	dismissTransportNotice("ipv6_unreachable");
+	publishTransportNotice("ipv6_unreachable");
+	expect(seen).toEqual([null, "ipv6_unreachable", null]);
 	stop();
 });
 
