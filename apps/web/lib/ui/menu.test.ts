@@ -14,13 +14,20 @@ describe("menuActions", () => {
 		expect(ids).toEqual(["about", "login", "join", "pair", "recover", "enroll"]);
 	});
 
-	test("a browser that already has keys offers sign in and a new pairing code", () => {
-		expect(menuActions(null, true).map((row) => row.id)).toEqual(["about", "login", "pair"]);
+	test("a browser that already has keys still lists recover and first admin", () => {
+		expect(menuActions(null, true).map((row) => row.id)).toEqual([
+			"about",
+			"login",
+			"join",
+			"pair",
+			"recover",
+			"enroll",
+		]);
 	});
 
 	test("a working signed-in browser does not offer recover, join, or enroll", () => {
 		const ids = menuActions(member, true).map((row) => row.id);
-		expect(ids).toEqual(["home", "about", "add-device", "pair", "logout"]);
+		expect(ids).toEqual(["home", "about", "add-device", "pair", "account", "logout"]);
 		expect(ids).not.toContain("recover");
 		expect(ids).not.toContain("join");
 		expect(ids).not.toContain("enroll");
@@ -32,6 +39,7 @@ describe("menuActions", () => {
 		expect(ids[1]).toBe("about");
 		expect(ids).toContain("pair");
 		expect(ids).toContain("recover");
+		expect(ids).toContain("account");
 		expect(ids).not.toContain("join");
 		expect(ids).not.toContain("enroll");
 	});
@@ -46,6 +54,7 @@ describe("menuActions", () => {
 			"admin",
 			"invites",
 			"requests",
+			"account",
 			"logout",
 		]);
 		expect(ids).not.toContain("audit");
@@ -55,6 +64,7 @@ describe("menuActions", () => {
 	test("setup is the only path before the 12 words exist", () => {
 		expect(menuActions({ ...member, hasVault: false }, false).map((row) => row.id)).toEqual([
 			"setup",
+			"account",
 			"logout",
 		]);
 	});
