@@ -2444,13 +2444,22 @@ li {
 		position: sticky;
 		top: 0;
 		z-index: 30;
-		gap: 0.3rem;
+		min-width: 0;
+		gap: 0.2rem;
 		margin: calc(0.45rem + env(safe-area-inset-top)) 0 0;
-		padding: 0.3rem 0.3rem 0.3rem 0.7rem;
+		padding: 0.25rem 0.2rem 0.25rem 0.55rem;
 	}
 
-	.chrome-desk {
-		display: none;
+	.chrome-brand {
+		min-width: 0;
+		padding: 0 0.2rem;
+	}
+
+	.chrome-right {
+		min-width: 0;
+		flex: 1 1 auto;
+		justify-content: flex-end;
+		gap: 0;
 	}
 
 	.chrome-handle {
@@ -2458,17 +2467,29 @@ li {
 	}
 
 	.chrome-me {
-		padding: 0.2rem;
+		padding: 0.15rem;
 	}
 
 	.chrome-add,
 	.chrome-menu {
-		min-height: 2.75rem;
+		min-height: 2.45rem;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0.45rem 0.7rem;
-		font-size: 0.9rem;
+		padding: 0.3rem 0.5rem;
+		font-size: 0.8125rem;
+	}
+
+	.chrome-add.chrome-desk {
+		display: none;
+	}
+
+	.chrome-wide {
+		display: none;
+	}
+
+	.chrome-narrow {
+		display: inline;
 	}
 
 	.chrome-kbd {
@@ -2505,9 +2526,26 @@ li {
 
 	.clipboard {
 		flex: 1 1 auto;
+		width: 100%;
+		max-width: 100%;
 		max-height: none;
 		min-height: 0;
 		padding-bottom: 0;
+	}
+
+	.clip-hint {
+		max-width: none;
+		text-wrap: pretty;
+	}
+
+	.stage {
+		width: 100%;
+		max-width: 100%;
+	}
+
+	.log-head {
+		gap: 0.45rem;
+		padding: 0.5rem 0.6rem 0.1rem;
 	}
 
 	.stage .composer {
@@ -2787,12 +2825,8 @@ li {
 }
 
 @media (max-width: 420px) {
-	.chrome-wide {
-		display: none;
-	}
-
-	.chrome-narrow {
-		display: inline;
+	.chrome-brand {
+		font-size: 0.95rem;
 	}
 }
 
