@@ -621,6 +621,37 @@ test("createItem is denied when the send bucket is empty", async () => {
 	).rejects.toMatchObject({ code: "rate_limited", status: 429 });
 });
 
+test("createItem with the same id is a no-op so Undo after a failed Forget does not 500", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn });
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const user = [...store.users.values()][0];
+	if (user) {
+		user.hasVault = true;
+	}
+	const payload = {
+		id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+		kind: "text" as const,
+		ciphertext: "YQ",
+		metaCiphertext: "YQ",
+		iv: "YQ",
+		byteSize: 1,
+		expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+	};
+	await vaultApi.createItem(enrolled.sessionToken, payload);
+	await expect(vaultApi.createItem(enrolled.sessionToken, payload)).resolves.toMatchObject({
+		id: payload.id,
+	});
+	expect(store.items.filter((row) => row.id === payload.id)).toHaveLength(1);
+});
+
 test("prune removes expired items and stale pending blobs", async () => {
 	const store = new MemoryAuthStore();
 	const now = new Date("2026-08-22T04:00:00.000Z");
