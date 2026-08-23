@@ -1,5 +1,5 @@
 import type { WebEnv } from "@meownow/config/env";
-import { sha256 } from "@meownow/db";
+import { neonTransportNotice, sha256 } from "@meownow/db";
 import {
 	accountDeleteRequestSchema,
 	adminEnrollOptionsRequestSchema,
@@ -366,6 +366,10 @@ function json(data: unknown, cookies: string[] = [], status = 200): Response {
 		"content-type": "application/json",
 		"cache-control": "no-store",
 	});
+	const notice = neonTransportNotice();
+	if (notice) {
+		headers.set("x-meownow-notice", notice);
+	}
 	for (const cookie of cookies) {
 		headers.append("Set-Cookie", cookie);
 	}
