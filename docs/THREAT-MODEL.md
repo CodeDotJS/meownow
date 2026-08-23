@@ -1,6 +1,6 @@
 # Threat model
 
-Adversary: anyone outside the 10 seats; a compromise of Vercel, Neon, or R2; a leaked link. Out of scope: a fully compromised client device, or an admin misbehaving at the metadata layer.
+Adversary: anyone without a valid invite or session; a compromise of Vercel, Neon, or R2; a leaked link. Out of scope: a fully compromised client device, or an admin misbehaving at the metadata layer.
 
 Design principle: the server is an untrusted courier. It can route, expire, and account for content without reading it.
 
@@ -18,7 +18,7 @@ The server sees: owner, size, timestamps, kind, opaque ciphertext, wrapped keys,
 
 Passkeys are origin-bound discoverable credentials. There is no password. Invite tokens are 32 random bytes shown once; only `sha256(token)` is stored. Sessions are opaque 256-bit cookies (`httpOnly; Secure; SameSite=Lax; Path=/`), hashed at rest, sliding 30 days, hard-capped at 90. Mutating routes require both SameSite and a matching `Origin`.
 
-The 10-seat cap is a `FOR UPDATE SKIP LOCKED` claim, not a `COUNT(*)`. Zero rows means full.
+Membership is invite-only. There is no numeric seat cap. An unused, unexpired, unrevoked invite is the only way to create a member.
 
 The seeded admin has no passkey. First enroll is invite-less and gated by `ADMIN_ENROLL_SECRET`. Anyone who knows that secret can bind the first admin device; after a device exists the route is closed.
 
@@ -50,7 +50,7 @@ WebRTC DataChannels carry ciphertext only; Zod rejects a `plaintext` field on th
 
 ## Admin (milestone 8)
 
-Directory, audit, and usage are admin-only. A member session is `403 forbidden` even with a hand-crafted `/api/admin/*` request. The dashboard shows metadata: handles, quota, device labels, audit actions. It does not show plaintext, filenames, or MIME types. Device revoke sets `revoked_at` and deletes sessions; `device.revoked` is fanned out as an id only. User remove frees the seat (`ON DELETE SET NULL`). R2 objects for a removed user are not deleted here — that is the milestone 9 sweep. Class B ops are not counted without Worker telemetry.
+Directory, audit, and usage are admin-only. A member session is `403 forbidden` even with a hand-crafted `/api/admin/*` request. The dashboard shows metadata: handles, quota, device labels, audit actions. It does not show plaintext, filenames, or MIME types. Device revoke sets `revoked_at` and deletes sessions; `device.revoked` is fanned out as an id only. User remove deletes the Neon rows (`ON DELETE CASCADE` / `SET NULL`). R2 objects for a removed user are not deleted here — that is the milestone 9 sweep. Class B ops are not counted without Worker telemetry.
 
 ## Hardening (milestone 9)
 
