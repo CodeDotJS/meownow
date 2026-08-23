@@ -10,6 +10,7 @@ import { sendOnMesh, shouldPersist } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
 import { CreateVaultFlow } from "@/lib/ui/create-vault";
+import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
 import { Landing } from "@/lib/ui/landing";
 import { mergeRemoteItems } from "@/lib/ui/merge-items";
 import { Panel } from "@/lib/ui/panel";
@@ -19,7 +20,7 @@ import { formatGutterTime, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time"
 import { loadVault } from "@/lib/vault/idb";
 import { connectHub } from "@/lib/vault/live";
 import { dropStaleLocalVault } from "@/lib/vault/local";
-import { downloadBlobItem, sendBlobFile } from "@/lib/vault/upload-client";
+import { downloadBlobItem, openBlobPreview, sendBlobFile } from "@/lib/vault/upload-client";
 import { b64urlToBytes, bytesToB64url } from "@/lib/vault/wire";
 
 type Me = {
@@ -59,6 +60,9 @@ type Shown = {
 	byteSize?: number;
 	/** Never persisted server-side, so a refresh must not treat its absence as a delete. */
 	ephemeral?: boolean;
+	/** Object URL drawn in this browser only. */
+	previewUrl?: string;
+	uploadProgress?: number;
 };
 
 /** Blob ciphertext lives in R2 and is not held here, so only text can come back. */
@@ -93,6 +97,7 @@ export default function Page() {
 	const [live, setLive] = useState(false);
 	const [copiedId, setCopiedId] = useState<string | null>(null);
 	const [undo, setUndo] = useState<Shown | null>(null);
+	const [preview, setPreview] = useState<FilePreviewState | null>(null);
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
@@ -206,6 +211,9 @@ export default function Page() {
 			mergeRemoteItems(current, opened, {
 				tombstones: tombstones.keys(),
 				pending: pendingRef.current,
+			}).map((row) => {
+				const prev = current.find((item) => item.id === row.id);
+				return prev?.previewUrl ? { ...row, previewUrl: prev.previewUrl } : row;
 			}),
 		);
 	}, [openItem]);
@@ -438,6 +446,16 @@ export default function Page() {
 		setHint(sessionStorage.getItem(CLIP_HINT_KEY) !== "1");
 	}, []);
 
+	useEffect(() => {
+		return () => {
+			for (const row of itemsRef.current) {
+				if (row.previewUrl) {
+					URL.revokeObjectURL(row.previewUrl);
+				}
+			}
+		};
+	}, []);
+
 	const onCopy = useCallback(
 		async (text: string, id?: string) => {
 			dismissHint();
@@ -496,6 +514,12 @@ export default function Page() {
 			if (!item) {
 				return;
 			}
+			if (item.previewUrl) {
+				URL.revokeObjectURL(item.previewUrl);
+			}
+			if (preview?.url === item.previewUrl) {
+				setPreview(null);
+			}
 			setItems((current) => current.filter((row) => row.id !== id));
 			setSelectedId((current) => (current === id ? null : current));
 			setUndo(restorable(item) ? item : null);
@@ -505,7 +529,7 @@ export default function Page() {
 			// after an undo window that only this device knows about.
 			await commitForget(item);
 		},
-		[commitForget],
+		[commitForget, preview],
 	);
 
 	const onUndoForget = useCallback(async () => {
@@ -547,6 +571,63 @@ export default function Page() {
 		);
 	}, [undo]);
 
+	const saveBlob = useCallback(async (item: Shown) => {
+		if (item.previewUrl) {
+			const link = document.createElement("a");
+			link.href = item.previewUrl;
+			link.download = item.text || "download";
+			link.rel = "noopener";
+			link.click();
+			setStatus("Downloaded.");
+			return;
+		}
+		if (item.blobId && item.wrappedKey && item.iv && item.metaCiphertext) {
+			const ok = await downloadBlobItem({
+				id: item.id,
+				kind: item.kind === "image" ? "image" : "file",
+				blobId: item.blobId,
+				iv: item.iv,
+				metaCiphertext: item.metaCiphertext,
+				wrappedKey: item.wrappedKey,
+			});
+			setStatus(ok ? "Downloaded." : "download_failed");
+			return;
+		}
+		setStatus("download_failed");
+	}, []);
+
+	const openPreview = useCallback(async (item: Shown) => {
+		if (item.previewUrl) {
+			setPreview({
+				url: item.previewUrl,
+				filename: item.text,
+				kind: item.kind === "image" ? "image" : "file",
+			});
+			return;
+		}
+		if (!item.blobId || !item.wrappedKey || !item.iv || !item.metaCiphertext) {
+			setStatus("download_failed");
+			return;
+		}
+		const opened = await openBlobPreview({
+			id: item.id,
+			kind: item.kind === "image" ? "image" : "file",
+			blobId: item.blobId,
+			iv: item.iv,
+			metaCiphertext: item.metaCiphertext,
+			wrappedKey: item.wrappedKey,
+		});
+		if (!opened) {
+			setStatus("download_failed");
+			return;
+		}
+		const kind = opened.mime.startsWith("image/") ? ("image" as const) : ("file" as const);
+		setItems((current) =>
+			current.map((row) => (row.id === item.id ? { ...row, previewUrl: opened.url } : row)),
+		);
+		setPreview({ url: opened.url, filename: opened.filename, kind });
+	}, []);
+
 	const activateItem = useCallback(
 		(item: Shown) => {
 			setSelectedId(item.id);
@@ -555,25 +636,12 @@ export default function Page() {
 			}
 			dismissHint();
 			if (item.kind === "image" || item.kind === "file") {
-				if (item.blobId && item.wrappedKey && item.iv && item.metaCiphertext) {
-					void downloadBlobItem({
-						id: item.id,
-						kind: item.kind,
-						blobId: item.blobId,
-						iv: item.iv,
-						metaCiphertext: item.metaCiphertext,
-						wrappedKey: item.wrappedKey,
-					}).then((ok) => {
-						setStatus(ok ? "Downloaded." : "download_failed");
-					});
-					return;
-				}
-				setStatus("download_failed");
+				void openPreview(item);
 				return;
 			}
 			void onCopy(item.text, item.id);
 		},
-		[dismissHint, onCopy],
+		[dismissHint, onCopy, openPreview],
 	);
 
 	useEffect(() => {
@@ -641,17 +709,64 @@ export default function Page() {
 			return;
 		}
 		dismissHint();
-		const result = await sendBlobFile(file);
+		const id = crypto.randomUUID();
+		const kind = file.type.startsWith("image/") ? ("image" as const) : ("file" as const);
+		const previewUrl =
+			kind === "image" && file.type !== "image/svg+xml" ? URL.createObjectURL(file) : undefined;
+		const createdAt = new Date().toISOString();
+		const expiresAt = new Date(Date.now() + BLOB_TTL_MS).toISOString();
+		pendingRef.current.add(id);
+		setStatus(null);
+		setItems((current) => [
+			{
+				id,
+				text: file.name,
+				kind,
+				previewUrl,
+				uploadProgress: 0.04,
+				createdAt,
+				expiresAt,
+			},
+			...current.filter((row) => row.id !== id),
+		]);
+		setSelectedId(id);
+		const result = await sendBlobFile(file, {
+			id,
+			onProgress: (fraction) => {
+				setItems((current) =>
+					current.map((row) => (row.id === id ? { ...row, uploadProgress: fraction } : row)),
+				);
+			},
+		});
 		if ("error" in result) {
+			pendingRef.current.delete(id);
+			setItems((current) => current.filter((row) => row.id !== id));
+			if (previewUrl) {
+				URL.revokeObjectURL(previewUrl);
+			}
 			setStatus(result.error);
 			return;
 		}
-		const createdAt = new Date().toISOString();
-		setItems((current) => [
-			{ ...result, createdAt },
-			...current.filter((row) => row.id !== result.id),
-		]);
-		setSelectedId(result.id);
+		if (!itemsRef.current.some((row) => row.id === id)) {
+			pendingRef.current.delete(id);
+			if (previewUrl) {
+				URL.revokeObjectURL(previewUrl);
+			}
+			return;
+		}
+		pendingRef.current.delete(id);
+		setItems((current) =>
+			current.map((row) =>
+				row.id === id
+					? {
+							...row,
+							...result,
+							previewUrl: row.previewUrl ?? previewUrl,
+							uploadProgress: undefined,
+						}
+					: row,
+			),
+		);
 	}
 
 	const draftLines = draft.split("\n").length;
@@ -813,7 +928,11 @@ export default function Page() {
 											animate={{ opacity: 1, y: 0 }}
 											exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
 											transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-											className={["log-item", selected ? "is-selected" : ""]
+											className={[
+												"log-item",
+												selected ? "is-selected" : "",
+												item.kind === "image" || item.kind === "file" ? "has-file" : "",
+											]
 												.filter(Boolean)
 												.join(" ")}
 										>
@@ -823,6 +942,28 @@ export default function Page() {
 													{item.text}. <a href="/pair/show">Show a code</a> or{" "}
 													<a href="/recover">use the 12 words</a>
 												</p>
+											) : item.kind === "image" || item.kind === "file" ? (
+												<button
+													type="button"
+													className="body file-body"
+													onClick={() => activateItem(item)}
+												>
+													{item.previewUrl && item.kind === "image" ? (
+														<img className="file-thumb" src={item.previewUrl} alt="" />
+													) : (
+														<span className="file-thumb is-empty" aria-hidden="true" />
+													)}
+													<span className="file-copy">
+														<span className="file-name">{item.text}</span>
+														<span className="file-meta">
+															{item.uploadProgress !== undefined
+																? `Sending ${Math.round(item.uploadProgress * 100)}%`
+																: item.kind === "image"
+																	? "Image"
+																	: "File"}
+														</span>
+													</span>
+												</button>
 											) : (
 												<button type="button" className="body" onClick={() => activateItem(item)}>
 													{item.text}
@@ -830,6 +971,25 @@ export default function Page() {
 											)}
 											<span className="log-actions">
 												{copiedId === item.id ? <span className="copied">Copied</span> : null}
+												{item.kind === "image" || item.kind === "file" ? (
+													<button
+														type="button"
+														className="forget"
+														onClick={() => void openPreview(item)}
+													>
+														Preview
+													</button>
+												) : null}
+												{item.kind === "image" || item.kind === "file" ? (
+													<button
+														type="button"
+														className="forget"
+														disabled={item.uploadProgress !== undefined}
+														onClick={() => void saveBlob(item)}
+													>
+														Save
+													</button>
+												) : null}
 												<button
 													type="button"
 													className="forget"
@@ -839,8 +999,18 @@ export default function Page() {
 												</button>
 											</span>
 											<span
-												className={warn ? "ttl warn" : "ttl"}
-												style={{ ["--remain" as string]: String(remain) }}
+												className={
+													item.uploadProgress !== undefined
+														? "ttl is-upload"
+														: warn
+															? "ttl warn"
+															: "ttl"
+												}
+												style={{
+													["--remain" as string]: String(
+														item.uploadProgress !== undefined ? item.uploadProgress : remain,
+													),
+												}}
 											/>
 										</motion.li>
 									);
@@ -863,6 +1033,16 @@ export default function Page() {
 					<Status value={status} />
 				</div>
 			) : null}
+			<FilePreview
+				preview={preview}
+				onClose={() => setPreview(null)}
+				onDownload={() => {
+					const item = itemsRef.current.find((row) => row.previewUrl === preview?.url);
+					if (item) {
+						void saveBlob(item);
+					}
+				}}
+			/>
 		</main>
 	);
 }
