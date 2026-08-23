@@ -31,6 +31,7 @@ export const wsEnvelopeSchema = z.discriminatedUnion("type", [
 		v: z.literal(1),
 		type: z.literal("item.created"),
 		item: itemRecordSchema,
+		ephemeral: z.boolean().optional(),
 	}),
 	z.object({
 		v: z.literal(1),
