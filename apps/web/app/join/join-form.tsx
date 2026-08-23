@@ -3,6 +3,7 @@
 import { startRegistration } from "@simplewebauthn/browser";
 import { type FormEvent, useState } from "react";
 import { errorCode, postJson } from "@/lib/client/http";
+import { rememberPasskey } from "@/lib/client/passkey";
 import { parseInviteToken } from "@/lib/ui/invite-url";
 import { Panel } from "@/lib/ui/panel";
 import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
@@ -58,6 +59,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 				setStatus(errorCode(verifyRes.data));
 				return;
 			}
+			rememberPasskey(credential.rawId || credential.id);
 			window.location.href = "/";
 		} catch (err) {
 			setStatus(err instanceof Error ? err.message : "passkey_failed");
