@@ -42,7 +42,7 @@ The service worker (Serwist) intercepts Android Share Target POSTs, writes the s
 
 ## Uploads (milestone 6)
 
-Vercel never writes to R2. It checks `can_upload` and remaining quota, inserts a pending blob with a server-generated key, and mints a 60s EdDSA JWT (`CAPABILITY_TOKEN_PRIVATE_KEY`). The Worker verifies that JWT (`CAPABILITY_TOKEN_PUBLIC_KEY`), rejects missing/oversize `Content-Length`, and only then PUTs ciphertext. Spec said Vercel `HeadObject`s R2; Vercel has no R2 credentials, so commit calls Worker `GET /stat` with a capability token. Admin approval grants quota bytes, not a boolean. Filenames and MIME types stay in the encrypted metadata envelope. Images are redrawn to a canvas before encryption so EXIF/GPS does not survive.
+Vercel never writes to R2. It checks `can_upload` and remaining quota, inserts a pending blob with a server-generated key, and mints a 60s EdDSA JWT (`CAPABILITY_TOKEN_PRIVATE_KEY`). The Worker verifies that JWT (`CAPABILITY_TOKEN_PUBLIC_KEY`), rejects missing/oversize `Content-Length`, and only then PUTs ciphertext. Browser PUTs to `/upload` (and GETs `/dl`) are cross-origin; the Worker answers CORS only for `APP_URL` / `APP_ORIGINS`. An unknown origin gets no ACAO. Spec said Vercel `HeadObject`s R2; Vercel has no R2 credentials, so commit calls Worker `GET /stat` with a capability token. Admin approval grants quota bytes, not a boolean. Filenames and MIME types stay in the encrypted metadata envelope. Images are redrawn to a canvas before encryption so EXIF/GPS does not survive.
 
 ## P2P (milestone 7)
 
@@ -50,7 +50,7 @@ WebRTC DataChannels carry ciphertext only; Zod rejects a `plaintext` field on th
 
 ## Admin (milestone 8)
 
-Directory, audit, and usage are admin-only. A member session is `403 forbidden` even with a hand-crafted `/api/admin/*` request. The dashboard shows metadata: handles, quota, device labels, audit actions. It does not show plaintext, filenames, or MIME types. Device revoke sets `revoked_at` and deletes sessions; `device.revoked` is fanned out as an id only. User remove deletes the Neon rows (`ON DELETE CASCADE` / `SET NULL`). R2 objects for a removed user are not deleted here — that is the milestone 9 sweep. Class B ops are not counted without Worker telemetry.
+Directory, audit, and usage are admin-only. A member session is `403 forbidden` even with a hand-crafted `/api/admin/*` request. The dashboard shows metadata: handles, quota, device labels, audit actions. It does not show plaintext, filenames, or MIME types. Device revoke sets `revoked_at` and deletes sessions; `device.revoked` is fanned out as an id only. User remove deletes the Neon rows (`ON DELETE CASCADE` / `SET NULL`), after clearing invite/audit FKs that are not nullable. A signed-in user can delete their own account with `POST /api/auth/account/delete` and their handle; the last admin is `409 last_admin`. A member still cannot hit `/api/admin/users/:id/remove`. Pixel avatars are drawn in the browser and never stored. R2 objects for a removed user are not deleted here — that is the milestone 9 sweep. Class B ops are not counted without Worker telemetry.
 
 ## Hardening (milestone 9)
 
