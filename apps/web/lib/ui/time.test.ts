@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { formatGutterTime, isLiveItem, ttlWarn } from "./time";
+import {
+	formatClockTime,
+	formatDayLabel,
+	formatGutterTime,
+	groupByDay,
+	isLiveItem,
+	ttlWarn,
+} from "./time";
 
 describe("formatGutterTime", () => {
 	test("uses HH:MM for today", () => {
@@ -12,6 +19,44 @@ describe("formatGutterTime", () => {
 		const now = new Date(2026, 7, 22, 15, 0, 0).getTime();
 		const iso = new Date(2026, 7, 21, 9, 32, 0).toISOString();
 		expect(formatGutterTime(iso, now)).toBe("08-21");
+	});
+});
+
+describe("formatDayLabel", () => {
+	test("names today and yesterday, then the calendar day", () => {
+		const now = new Date(2026, 7, 24, 15, 0, 0).getTime();
+		expect(formatDayLabel(new Date(2026, 7, 24, 9, 12).toISOString(), now)).toEqual({
+			key: "2026-08-24",
+			title: "Today",
+			date: "24 August",
+		});
+		expect(formatDayLabel(new Date(2026, 7, 23, 22, 10).toISOString(), now)).toEqual({
+			key: "2026-08-23",
+			title: "Yesterday",
+			date: "23 August",
+		});
+		expect(formatDayLabel(new Date(2026, 7, 21, 8, 0).toISOString(), now)).toEqual({
+			key: "2026-08-21",
+			title: "21 August",
+			date: "",
+		});
+	});
+});
+
+describe("groupByDay", () => {
+	test("keeps newest-first items under each day", () => {
+		const now = new Date(2026, 7, 24, 18, 0, 0).getTime();
+		const groups = groupByDay(
+			[
+				{ id: "a", createdAt: new Date(2026, 7, 24, 14, 32).toISOString() },
+				{ id: "b", createdAt: new Date(2026, 7, 24, 11, 5).toISOString() },
+				{ id: "c", createdAt: new Date(2026, 7, 23, 22, 10).toISOString() },
+			],
+			now,
+		);
+		expect(groups.map((group) => group.key)).toEqual(["2026-08-24", "2026-08-23"]);
+		expect(groups[0]?.items.map((item) => item.id)).toEqual(["a", "b"]);
+		expect(formatClockTime(groups[0]?.items[0]?.createdAt ?? "")).toBe("14:32");
 	});
 });
 
