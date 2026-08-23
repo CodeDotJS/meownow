@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+	accountDeleteRequestSchema,
 	errorEnvelopeSchema,
 	handleSchema,
 	inviteCreateRequestSchema,
@@ -51,6 +52,12 @@ test("login verify may send the sealed challenge in the body", () => {
 	expect(loginVerifyRequestSchema.parse({ credential, challenge: "sealed" }).challenge).toBe(
 		"sealed",
 	);
+});
+
+test("account delete confirms the handle", () => {
+	expect(accountDeleteRequestSchema.parse({ handle: "rishi" }).handle).toBe("rishi");
+	expect(accountDeleteRequestSchema.safeParse({}).success).toBe(false);
+	expect(accountDeleteRequestSchema.safeParse({ handle: "Rishi" }).success).toBe(false);
 });
 
 test("invite note is optional and capped", () => {
