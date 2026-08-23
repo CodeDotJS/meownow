@@ -34,12 +34,8 @@ describe("statusCopy", () => {
 		expect(statusCopy("ipv6_unreachable")).toBe(
 			"IPv6 could not reach the database. Using IPv4 for now.",
 		);
-		expect(statusCopy("No Local peer.")).toBe(
-			"Stayed on this device. No other device on this Wi‑Fi.",
-		);
-		expect(statusCopy("dc_send_failed")).toBe(
-			"Stayed on this device. Could not send over this Wi‑Fi.",
-		);
+		expect(statusCopy("No Local peer.")).toBe("Stayed on this device. No other live device.");
+		expect(statusCopy("dc_send_failed")).toBe("Stayed on this device. Could not send live.");
 	});
 
 	test("does not dump raw JSON into the status pill", () => {
