@@ -49,7 +49,7 @@ export function FilePreview({
 					<button type="button" className="select" onClick={onDownload}>
 						Download
 					</button>
-					<button type="button" onClick={onClose}>
+					<button type="button" className="quiet" onClick={onClose}>
 						Close
 					</button>
 				</nav>
