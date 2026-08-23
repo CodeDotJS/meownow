@@ -12,7 +12,7 @@ const PROTOCOL: Record<ErrorCode, string> = {
 	seats_full: "All ten seats are taken.",
 	unauthorized: "Sign in first.",
 	forbidden: "Not allowed.",
-	unverified: "Passkey verification failed.",
+	unverified: "That passkey did not work. Try again.",
 	admin_enrolled: "An admin already exists.",
 	suspended: "This account is suspended.",
 	device_revoked: "This device was revoked.",
