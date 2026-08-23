@@ -1,6 +1,25 @@
 import { expect, test } from "vitest";
 import { HUB_PING, HUB_PONG, mintHubTicket, openHubTicket, wsEnvelopeSchema } from "./ws";
 
+test("item.created can mark a live ephemeral note that was never stored", () => {
+	const parsed = wsEnvelopeSchema.parse({
+		v: 1,
+		type: "item.created",
+		ephemeral: true,
+		item: {
+			id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+			kind: "text",
+			ciphertext: "YQ",
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 1,
+			expiresAt: new Date().toISOString(),
+			createdAt: new Date().toISOString(),
+		},
+	});
+	expect(parsed).toMatchObject({ type: "item.created", ephemeral: true });
+});
+
 test("keepalive frames parse and stay byte-exact for the edge auto-response", () => {
 	expect(wsEnvelopeSchema.parse(JSON.parse(HUB_PING)).type).toBe("ping");
 	expect(wsEnvelopeSchema.parse(JSON.parse(HUB_PONG)).type).toBe("pong");
