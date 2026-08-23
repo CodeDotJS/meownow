@@ -126,6 +126,7 @@ export const registerVerifyRequestSchema = z.object({
 
 export const loginVerifyRequestSchema = z.object({
 	credential: webAuthnAuthenticationResponseSchema,
+	challenge: z.string().min(1).optional(),
 });
 
 export const okHandleResponseSchema = z.object({
@@ -150,6 +151,7 @@ export const logoutResponseSchema = z.object({
 
 export const publicKeyOptionsResponseSchema = z.object({
 	options: z.unknown(),
+	challenge: z.string().min(1).optional(),
 });
 
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
