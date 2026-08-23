@@ -1,16 +1,12 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { publicPngDataUri } from "@/lib/og-icon";
 
 export const alt = "meownow. Copy here. Paste there.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const cat = `data:image/png;base64,${readFileSync(
-	join(process.cwd(), "public/icons/icon-192.png"),
-).toString("base64")}`;
-
 export default function OpengraphImage() {
+	const cat = publicPngDataUri("icons/icon-192.png");
 	return new ImageResponse(
 		<div
 			style={{
