@@ -9,9 +9,11 @@ import {
 	type TransportNotice,
 } from "@/lib/client/transport-notice";
 import { markStandalone } from "@/lib/pwa/standalone";
+import { subscribeHub } from "@/lib/vault/hub-live";
 import { loadVault } from "@/lib/vault/idb";
 import { dropStaleLocalVault } from "@/lib/vault/local";
 import { statusCopy } from "./copy";
+import { HoverTip } from "./hover-tip";
 import { CatMark } from "./marks";
 import { menuActions } from "./menu";
 import { CommandPalette, type PaletteAction } from "./palette";
@@ -31,6 +33,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [mod, setMod] = useState("⌘K");
 	const [notice, setNotice] = useState<TransportNotice | null>(null);
+	const [live, setLive] = useState(false);
 
 	useEffect(() => {
 		const mac = /Mac|iPhone|iPad/.test(navigator.platform) || navigator.userAgent.includes("Mac");
@@ -54,6 +57,14 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	}, [pathname]);
 
 	useEffect(() => subscribeTransportNotice(setNotice), []);
+
+	useEffect(() => {
+		if (!me || !hasLocal) {
+			setLive(false);
+			return;
+		}
+		return subscribeHub({ onLive: setLive });
+	}, [me, hasLocal]);
 
 	useEffect(() => {
 		function onKey(event: KeyboardEvent) {
@@ -117,6 +128,17 @@ export function AppFrame({ children }: { children: ReactNode }) {
 							<span className="chrome-narrow">{hasLocal ? "Add" : "Show"}</span>
 						</a>
 					) : null}
+					{me ? (
+						<HoverTip label={live ? "Live on your devices" : "Syncing…"} place="below">
+							<button
+								type="button"
+								className={live ? "chrome-live is-on" : "chrome-live"}
+								aria-label={live ? "Live on your devices" : "Syncing…"}
+							>
+								<span className="chrome-live-dot" aria-hidden />
+							</button>
+						</HoverTip>
+					) : null}
 					<button type="button" className="chrome-menu" onClick={() => setOpen(true)}>
 						<kbd className="chrome-kbd">{mod}</kbd>
 						<span className="chrome-menu-word">Menu</span>
@@ -126,7 +148,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			{notice ? (
 				<div className="frame-notice" role="status">
 					<p>{statusCopy(notice)}</p>
-					<button type="button" onClick={() => dismissTransportNotice(notice)}>
+					<button type="button" className="quiet" onClick={() => dismissTransportNotice(notice)}>
 						Dismiss
 					</button>
 				</div>
