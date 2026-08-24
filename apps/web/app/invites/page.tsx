@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { AdminNav } from "@/lib/ui/admin-nav";
 import { formatInviteLeft, type InviteRow, openInvites } from "@/lib/ui/invite-list";
@@ -10,31 +10,40 @@ import { Status } from "@/lib/ui/status";
 
 export default function InvitesPage() {
 	const [invites, setInvites] = useState<InviteRow[]>([]);
+	const [asks, setAsks] = useState<
+		Array<{ id: string; email: string; note: string; createdAt: string }>
+	>([]);
 	const [note, setNote] = useState("");
+	const [replyTo, setReplyTo] = useState<string | null>(null);
 	const [token, setToken] = useState<string | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 
-	async function refresh() {
-		const res = await getJson("/api/invites");
-		if (!res.ok) {
-			setStatus(errorCode(res.data));
+	const refresh = useCallback(async () => {
+		const [inviteRes, askRes] = await Promise.all([
+			getJson("/api/invites"),
+			getJson("/api/invite-asks"),
+		]);
+		if (!inviteRes.ok) {
+			setStatus(errorCode(inviteRes.data));
 			return;
 		}
-		const data = res.data as { invites: InviteRow[] };
-		setInvites(data.invites);
-	}
+		if (!askRes.ok) {
+			setStatus(errorCode(askRes.data));
+			return;
+		}
+		setInvites((inviteRes.data as { invites: InviteRow[] }).invites);
+		setAsks(
+			(
+				askRes.data as {
+					asks: Array<{ id: string; email: string; note: string; createdAt: string }>;
+				}
+			).asks,
+		);
+	}, []);
 
 	useEffect(() => {
-		void (async () => {
-			const res = await getJson("/api/invites");
-			if (!res.ok) {
-				setStatus(errorCode(res.data));
-				return;
-			}
-			const data = res.data as { invites: InviteRow[] };
-			setInvites(data.invites);
-		})();
-	}, []);
+		void refresh();
+	}, [refresh]);
 
 	async function onCreate(event: FormEvent) {
 		event.preventDefault();
@@ -70,6 +79,60 @@ export default function InvitesPage() {
 				<h1>Invites</h1>
 				<p className="lead">Send the link. One person, 72 hours, shown once.</p>
 				<AdminNav />
+				{asks.length > 0 ? (
+					<>
+						<p className="hint">
+							{asks.length === 1
+								? "1 person asked for a link."
+								: `${asks.length} people asked for a link.`}
+						</p>
+						<ul className="dir-list">
+							{asks.map((ask) => (
+								<li key={ask.id}>
+									<div className="dir-head">
+										<span className="dir-name">{ask.email}</span>
+										<span className="dir-actions">
+											<button
+												type="button"
+												className="quiet"
+												onClick={() => {
+													setNote(ask.email.slice(0, 120));
+													setReplyTo(ask.email);
+												}}
+											>
+												Use
+											</button>
+											<button
+												type="button"
+												className="quiet"
+												onClick={() => {
+													void (async () => {
+														const res = await fetch(`/api/invite-asks/${ask.id}`, {
+															method: "DELETE",
+															credentials: "include",
+														});
+														const data: unknown = await res.json();
+														if (!res.ok) {
+															setStatus(errorCode(data));
+															return;
+														}
+														if (replyTo === ask.email) {
+															setReplyTo(null);
+														}
+														await refresh();
+													})();
+												}}
+											>
+												Dismiss
+											</button>
+										</span>
+									</div>
+									{ask.note ? <p className="dir-meta">{ask.note}</p> : null}
+								</li>
+							))}
+						</ul>
+					</>
+				) : null}
 				<form onSubmit={onCreate}>
 					<label>
 						Who it is for
@@ -102,6 +165,14 @@ export default function InvitesPage() {
 							>
 								Copy link
 							</button>
+							{replyTo ? (
+								<a
+									className="select"
+									href={`mailto:${replyTo}?subject=${encodeURIComponent("meownow invite")}&body=${encodeURIComponent(inviteJoinUrl(window.location.origin, token))}`}
+								>
+									Mail the link
+								</a>
+							) : null}
 						</nav>
 					</>
 				) : null}

@@ -4,6 +4,7 @@ import {
 	blobs,
 	devices,
 	type HttpDatabase,
+	inviteAsks,
 	inviteState,
 	invites,
 	items,
@@ -39,6 +40,7 @@ import {
 	AuthError,
 	type AuthStore,
 	type DeviceWithUser,
+	type InviteAskRow,
 	type InviteRow,
 	type LoginCommit,
 	type RegistrationCommit,
@@ -237,6 +239,59 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 				return false;
 			}
 			await db.update(invites).set({ revokedAt: now }).where(eq(invites.id, id));
+			return true;
+		});
+	}
+
+	async countOpenAsks(): Promise<number> {
+		return this.withDb(async (db) => {
+			const rows = await db
+				.select({ id: inviteAsks.id })
+				.from(inviteAsks)
+				.where(isNull(inviteAsks.dismissedAt));
+			return rows.length;
+		});
+	}
+
+	async createAsk(input: { email: string; note: string; now: Date }): Promise<{ id: string }> {
+		return this.withDb(async (db) => {
+			const rows = await db
+				.insert(inviteAsks)
+				.values({ email: input.email, note: input.note, createdAt: input.now })
+				.returning({ id: inviteAsks.id });
+			const id = rows[0]?.id;
+			if (!id) {
+				throw new Error("failed to insert invite ask");
+			}
+			return { id };
+		});
+	}
+
+	async listOpenAsks(): Promise<InviteAskRow[]> {
+		return this.withDb(async (db) => {
+			const rows = await db
+				.select()
+				.from(inviteAsks)
+				.where(isNull(inviteAsks.dismissedAt))
+				.orderBy(desc(inviteAsks.createdAt));
+			return rows.map((row) => ({
+				id: row.id,
+				email: row.email,
+				note: row.note,
+				dismissedAt: row.dismissedAt,
+				createdAt: row.createdAt,
+			}));
+		});
+	}
+
+	async dismissAsk(id: string, now: Date): Promise<boolean> {
+		return this.withDb(async (db) => {
+			const rows = await db.select().from(inviteAsks).where(eq(inviteAsks.id, id)).limit(1);
+			const ask = rows[0];
+			if (!ask || ask.dismissedAt) {
+				return false;
+			}
+			await db.update(inviteAsks).set({ dismissedAt: now }).where(eq(inviteAsks.id, id));
 			return true;
 		});
 	}

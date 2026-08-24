@@ -7,6 +7,7 @@ import {
 	type ErrorCode,
 	errorEnvelopeSchema,
 	handleSchema,
+	inviteAskRequestSchema,
 	inviteCreateRequestSchema,
 	itemCreateRequestSchema,
 	loginVerifyRequestSchema,
@@ -87,6 +88,18 @@ export function createHandlers(deps: HandlerDeps) {
 		deleteInvite: (request: Request, id: string) =>
 			mutating(request, deps.env, async () => {
 				await auth.revokeInvite(sid(request), id);
+				return json({ ok: true });
+			}),
+		postInviteAsk: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				await requireAuthLimit(limits, request);
+				const body = await readBody(request, inviteAskRequestSchema);
+				return json(await auth.createAsk({ email: body.email, note: body.note }));
+			}),
+		getInviteAsks: (request: Request) => run(async () => json(await auth.listAsks(sid(request)))),
+		deleteInviteAsk: (request: Request, id: string) =>
+			mutating(request, deps.env, async () => {
+				await auth.dismissAsk(sid(request), id);
 				return json({ ok: true });
 			}),
 		postRegisterOptions: (request: Request) =>

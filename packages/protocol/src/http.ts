@@ -52,6 +52,28 @@ export const inviteCreateRequestSchema = z.object({
 	note: z.string().max(120).optional(),
 });
 
+export const ASK_OPEN_MAX = 20;
+
+export const inviteAskRequestSchema = z.object({
+	email: z.string().trim().toLowerCase().pipe(z.email()),
+	note: z.string().trim().max(200).optional().default(""),
+});
+
+export const inviteAskResponseSchema = z.object({
+	ok: z.literal(true),
+});
+
+export const inviteAskListItemSchema = z.object({
+	id: z.string().uuid(),
+	email: z.string(),
+	note: z.string(),
+	createdAt: z.string(),
+});
+
+export const inviteAskListResponseSchema = z.object({
+	asks: z.array(inviteAskListItemSchema),
+});
+
 export const inviteCreateResponseSchema = z.object({
 	id: z.string().uuid(),
 	token: z.string(),
@@ -166,6 +188,7 @@ export type ErrorCode = z.infer<typeof errorCodeSchema>;
 export type ErrorEnvelope = z.infer<typeof errorEnvelopeSchema>;
 export type InviteCreateRequest = z.infer<typeof inviteCreateRequestSchema>;
 export type InviteCreateResponse = z.infer<typeof inviteCreateResponseSchema>;
+export type InviteAskListResponse = z.infer<typeof inviteAskListResponseSchema>;
 export type RegisterOptionsRequest = z.infer<typeof registerOptionsRequestSchema>;
 export type AdminEnrollOptionsRequest = z.infer<typeof adminEnrollOptionsRequestSchema>;
 export type RegisterVerifyRequest = z.infer<typeof registerVerifyRequestSchema>;

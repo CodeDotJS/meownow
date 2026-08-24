@@ -18,6 +18,7 @@ import {
 	type AuthStore,
 	type DeviceRow,
 	type DeviceWithUser,
+	type InviteAskRow,
 	type InviteRow,
 	type LoginCommit,
 	type RegistrationCommit,
@@ -39,6 +40,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		claimedAt: null,
 	}));
 	invites = new Map<string, InviteRow>();
+	asks = new Map<string, InviteAskRow>();
 	devices = new Map<string, DeviceRow & { lastSeenAt: Date | null; createdAt: Date }>();
 	sessions = new Map<string, SessionRow>();
 	audit: AuditEntry[] = [];
@@ -171,6 +173,43 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			return false;
 		}
 		invite.revokedAt = now;
+		return true;
+	}
+
+	async countOpenAsks(): Promise<number> {
+		let count = 0;
+		for (const ask of this.asks.values()) {
+			if (!ask.dismissedAt) {
+				count += 1;
+			}
+		}
+		return count;
+	}
+
+	async createAsk(input: { email: string; note: string; now: Date }): Promise<{ id: string }> {
+		const id = randomUUID();
+		this.asks.set(id, {
+			id,
+			email: input.email,
+			note: input.note,
+			dismissedAt: null,
+			createdAt: input.now,
+		});
+		return { id };
+	}
+
+	async listOpenAsks(): Promise<InviteAskRow[]> {
+		return [...this.asks.values()]
+			.filter((ask) => !ask.dismissedAt)
+			.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+	}
+
+	async dismissAsk(id: string, now: Date): Promise<boolean> {
+		const ask = this.asks.get(id);
+		if (!ask || ask.dismissedAt) {
+			return false;
+		}
+		ask.dismissedAt = now;
 		return true;
 	}
 

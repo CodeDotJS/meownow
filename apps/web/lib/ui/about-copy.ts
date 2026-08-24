@@ -29,7 +29,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-in",
 		q: "How do I get in?",
-		a: "Someone already here sends an invite link. There is no public signup and no password. Without a link, ask them.",
+		a: "Someone already here sends an invite link. There is no public signup and no password. Without a link, ask from the home page and leave an email.",
 	},
 	{
 		id: "about-passkey",

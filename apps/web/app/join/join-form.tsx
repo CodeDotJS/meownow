@@ -82,6 +82,11 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
 					? "Pick a username, then create a passkey on this device. Face ID or Windows Hello. No password."
 					: "Someone already in has to send you a link. It looks like /join?t=… You can paste the code below if you have one."}
 			</p>
+			{invited ? null : (
+				<p className="hint">
+					Need a link? <a href="/ask">Ask for an invite</a>
+				</p>
+			)}
 			<form onSubmit={onSubmit}>
 				{invited ? null : (
 					<label>

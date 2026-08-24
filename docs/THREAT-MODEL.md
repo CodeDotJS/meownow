@@ -18,7 +18,7 @@ The server sees: owner, size, timestamps, kind, opaque ciphertext, wrapped keys,
 
 Passkeys are origin-bound discoverable credentials. There is no password. Invite tokens are 32 random bytes shown once; only `sha256(token)` is stored. Sessions are opaque 256-bit cookies (`httpOnly; Secure; SameSite=Lax; Path=/`), hashed at rest, sliding 30 days, hard-capped at 90. Mutating routes require both SameSite and a matching `Origin`.
 
-Membership is invite-only. There is no numeric seat cap. An unused, unexpired, unrevoked invite is the only way to create a member.
+Membership is invite-only. There is no numeric seat cap. An unused, unexpired, unrevoked invite is the only way to create a member. Guests may leave an email and an optional note at `/ask`; that write is rate-limited, stores no IP, and never creates a seat. An admin still has to mint and send a `/join?t=` link.
 
 The seeded admin has no passkey. First enroll is invite-less and gated by `ADMIN_ENROLL_SECRET`. Anyone who knows that secret can bind the first admin device; after a device exists the route is closed.
 

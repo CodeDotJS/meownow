@@ -3,6 +3,7 @@ import {
 	accountDeleteRequestSchema,
 	errorEnvelopeSchema,
 	handleSchema,
+	inviteAskRequestSchema,
 	inviteCreateRequestSchema,
 	loginVerifyRequestSchema,
 	publicKeyOptionsResponseSchema,
@@ -63,4 +64,17 @@ test("account delete confirms the handle", () => {
 test("invite note is optional and capped", () => {
 	expect(inviteCreateRequestSchema.parse({}).note).toBeUndefined();
 	expect(inviteCreateRequestSchema.safeParse({ note: "x".repeat(121) }).success).toBe(false);
+});
+
+test("invite ask requires an email", () => {
+	expect(inviteAskRequestSchema.parse({ email: "  Ada@Example.COM  ", note: "  hi  " })).toEqual({
+		email: "ada@example.com",
+		note: "hi",
+	});
+	expect(inviteAskRequestSchema.parse({ email: "ada@example.com" }).note).toBe("");
+	expect(inviteAskRequestSchema.safeParse({ note: "text me" }).success).toBe(false);
+	expect(inviteAskRequestSchema.safeParse({ email: "not-an-email" }).success).toBe(false);
+	expect(inviteAskRequestSchema.safeParse({ email: "a@b.c", note: "x".repeat(201) }).success).toBe(
+		false,
+	);
 });

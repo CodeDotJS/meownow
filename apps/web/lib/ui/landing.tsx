@@ -48,6 +48,9 @@ export function Landing({ hasLocal }: { hasLocal: boolean }) {
 						) : null}
 						<ul className="hero-fade hint-list">
 							<li>
+								Need an invite? <a href="/ask">Ask</a>
+							</li>
+							<li>
 								Have an invite? <a href="/join">Join</a>
 							</li>
 							<li>

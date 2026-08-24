@@ -1,5 +1,5 @@
 import type { WebEnv } from "@meownow/config/env";
-import { AUTH_LIMIT_USER_ID, mintHubTicket } from "@meownow/protocol";
+import { ASK_OPEN_MAX, AUTH_LIMIT_USER_ID, mintHubTicket } from "@meownow/protocol";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { expect, test } from "vitest";
 import { createHandlers } from "./handlers";
@@ -517,4 +517,37 @@ test("internal prune with a cron ticket returns keep and delete keys", async () 
 	);
 	expect(res.status).toBe(200);
 	expect(await res.json()).toEqual({ keepR2Keys: [], deleteR2Keys: [] });
+});
+
+test("a guest can ask for an invite and a member cannot list asks", async () => {
+	const store = new MemoryAuthStore();
+	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
+	const admin = await enrollAdmin(auth);
+	const member = await signupMember(auth, admin.sessionToken, "ada");
+	await expect(
+		auth.createAsk({ email: "ada@example.com", note: "text me on signal" }),
+	).resolves.toEqual({ ok: true });
+	expect(store.asks.size).toBe(1);
+	await expect(auth.listAsks(member.result.sessionToken)).rejects.toMatchObject({
+		code: "forbidden",
+		status: 403,
+	});
+	const listed = await auth.listAsks(admin.sessionToken);
+	expect(listed.asks).toHaveLength(1);
+	expect(listed.asks[0]?.email).toBe("ada@example.com");
+	expect(listed.asks[0]?.note).toBe("text me on signal");
+});
+
+test("open invite asks cap at ASK_OPEN_MAX", async () => {
+	const store = new MemoryAuthStore();
+	const auth = new AuthService({ env, store, webauthn: mockWebAuthn() });
+	for (let i = 0; i < ASK_OPEN_MAX; i += 1) {
+		await auth.createAsk({ email: `ask${i}@example.com`, note: `ask ${i}` });
+	}
+	await expect(
+		auth.createAsk({ email: "one-more@example.com", note: "one more" }),
+	).rejects.toMatchObject({
+		code: "rate_limited",
+		status: 429,
+	});
 });

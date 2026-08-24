@@ -142,6 +142,9 @@ export default function LoginPage() {
 						New here? You need an <a href="/join">invite link</a>
 					</li>
 					<li>
+						Need a link? <a href="/ask">Ask for an invite</a>
+					</li>
+					<li>
 						Adding this browser? <a href="/pair/show">Show a code</a>
 					</li>
 					<li>

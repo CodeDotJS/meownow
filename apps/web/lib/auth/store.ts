@@ -36,6 +36,14 @@ export type InviteRow = {
 	createdAt: Date;
 };
 
+export type InviteAskRow = {
+	id: string;
+	email: string;
+	note: string;
+	dismissedAt: Date | null;
+	createdAt: Date;
+};
+
 export type DeviceRow = {
 	id: string;
 	userId: string;
@@ -140,6 +148,10 @@ export type AuthStore = {
 		now: Date;
 	}): Promise<{ id: string }>;
 	revokeInvite(id: string, now: Date): Promise<boolean>;
+	countOpenAsks(): Promise<number>;
+	createAsk(input: { email: string; note: string; now: Date }): Promise<{ id: string }>;
+	listOpenAsks(): Promise<InviteAskRow[]>;
+	dismissAsk(id: string, now: Date): Promise<boolean>;
 	completeRegistration(input: RegistrationCommit): Promise<RegistrationCommitResult>;
 	completeAdminEnroll(input: AdminEnrollCommit): Promise<AdminEnrollCommitResult>;
 	completeLogin(input: LoginCommit): Promise<void>;

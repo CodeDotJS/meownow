@@ -260,6 +260,14 @@ create table invites (
   created_at  timestamptz not null default now()
 );
 
+create table invite_asks (
+  id           uuid primary key default gen_random_uuid(),
+  email        text not null,
+  note         text not null,
+  dismissed_at timestamptz,
+  created_at   timestamptz not null default now()
+);
+
 create table blobs (
   id           uuid primary key default gen_random_uuid(),
   owner_id     uuid not null references users(id) on delete cascade,
@@ -463,7 +471,7 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state. Exceptions: the composer bar (Send, Ephemeral, File) and the About questions open/close chip. Both use native platform emoji on light chips, with a hover label. Do not fill those chips with ink. First-run copy names the next action in plain language. Do not say “vault” on a screen a guest has to complete.
 
-**First-run.** One visible next action. The signed-out chrome is About, then Sign in, then Menu. The signed-out hero has one filled CTA: Continue with passkey. Join, recover, pairing, and first-admin enroll are hints on the home, not equal filled buttons. Guest Menu lists those onboarding paths with a one-line hint. A signed-in working browser's Menu is the product: clipboard, both pairing roles, admin People / Invites / Requests, Account, log out. Admin screens share one nav. Invites list only open links — never a revoked id. Recover is not on that Menu — this browser is already a device. Recover stays on the guest Menu and on the new-browser screen, where the other device may be gone. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only the next filled action when the account already has keys and this browser does not. An empty browser only offers Show a code. Recovery is the lost-every-device path. Pairing has two roles: the new browser shows a code, the working browser types it under Add a device. `/pair` presents both as cards and tags the one this browser should start with. Never hide the other role. A browser that guesses wrong must be one click from the right screen, never bounced with a refusal, and Menu lists both pairing roles. Invites are sent as a `/join?t=` URL, not a bare token.
+**First-run.** One visible next action. The signed-out chrome is About, then Sign in, then Menu. The signed-out hero has one filled CTA: Continue with passkey. Join, ask for an invite, recover, pairing, and first-admin enroll are hints on the home, not equal filled buttons. Guest Menu lists those onboarding paths with a one-line hint. An ask is an email and an optional note for someone already in — it is not a signup and does not mint a `/join?t=` link. A signed-in working browser's Menu is the product: clipboard, both pairing roles, admin People / Invites / Requests, Account, log out. Admin screens share one nav. Invites list only open links — never a revoked id. Recover is not on that Menu — this browser is already a device. Recover stays on the guest Menu and on the new-browser screen, where the other device may be gone. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only the next filled action when the account already has keys and this browser does not. An empty browser only offers Show a code. Recovery is the lost-every-device path. Pairing has two roles: the new browser shows a code, the working browser types it under Add a device. `/pair` presents both as cards and tags the one this browser should start with. Never hide the other role. A browser that guesses wrong must be one click from the right screen, never bounced with a refusal, and Menu lists both pairing roles. Invites are sent as a `/join?t=` URL, not a bare token.
 
 **Forbidden:** Inter, purple-to-pink soup, dark auto-theme, glow, mesh, conic border, system-font emoji chrome, unread shadcn, implying the server can read paste contents.
 

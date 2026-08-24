@@ -14,11 +14,12 @@ import {
 import type {
 	AdminEnrollOptionsRequest,
 	ErrorCode,
+	InviteAskListResponse,
 	InviteCreateResponse,
 	MeResponse,
 	RegisterOptionsRequest,
 } from "@meownow/protocol";
-import { SEAT_CEILING } from "@meownow/protocol";
+import { ASK_OPEN_MAX, SEAT_CEILING } from "@meownow/protocol";
 import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } from "../challenge";
 import { rpFromAppUrl } from "../env";
 import {
@@ -110,6 +111,55 @@ export class AuthService {
 				createdAt: row.createdAt.toISOString(),
 			})),
 		};
+	}
+
+	async createAsk(input: { email: string; note: string }): Promise<{ ok: true }> {
+		const now = this.now();
+		if ((await this.store.countOpenAsks()) >= ASK_OPEN_MAX) {
+			throw new AuthError("rate_limited", 429);
+		}
+		const inserted = await this.store.createAsk({
+			email: input.email,
+			note: input.note,
+			now,
+		});
+		await this.store.insertAudit({
+			actorId: null,
+			action: "invite.asked",
+			subjectType: "invite_ask",
+			subjectId: inserted.id,
+			now,
+		});
+		return { ok: true };
+	}
+
+	async listAsks(sessionToken: string | undefined): Promise<InviteAskListResponse> {
+		await this.requireAdmin(sessionToken);
+		const rows = await this.store.listOpenAsks();
+		return {
+			asks: rows.map((row) => ({
+				id: row.id,
+				email: row.email,
+				note: row.note,
+				createdAt: row.createdAt.toISOString(),
+			})),
+		};
+	}
+
+	async dismissAsk(sessionToken: string | undefined, askId: string): Promise<void> {
+		const admin = await this.requireAdmin(sessionToken);
+		const now = this.now();
+		const ok = await this.store.dismissAsk(askId, now);
+		if (!ok) {
+			throw new AuthError("not_found", 404);
+		}
+		await this.store.insertAudit({
+			actorId: admin.id,
+			action: "invite.ask_dismissed",
+			subjectType: "invite_ask",
+			subjectId: askId,
+			now,
+		});
 	}
 
 	async listUsers(sessionToken: string | undefined) {

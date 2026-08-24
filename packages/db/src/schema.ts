@@ -104,6 +104,15 @@ export const invites = pgTable("invites", {
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Guest ask for a /join link. Not a signup. No IP column. */
+export const inviteAsks = pgTable("invite_asks", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	email: text("email").notNull(),
+	note: text("note").notNull(),
+	dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const blobs = pgTable("blobs", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	ownerId: uuid("owner_id")

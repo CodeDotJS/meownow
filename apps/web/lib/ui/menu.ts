@@ -17,6 +17,12 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 				href: "/join",
 			},
 			{
+				id: "ask",
+				label: "Ask for an invite",
+				hint: "Leave an email for someone already in",
+				href: "/ask",
+			},
+			{
 				id: "pair",
 				label: hasLocal ? "Show a code" : "This browser is new",
 				hint: hasLocal
