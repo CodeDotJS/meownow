@@ -5,11 +5,14 @@ import { type FormEvent, useEffect, useState } from "react";
 import { detectDeviceLabel } from "@/lib/client/device-label";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { forgetPasskey } from "@/lib/client/passkey";
+import { notesSyncedCopy } from "@/lib/ui/copy";
 import { Panel } from "@/lib/ui/panel";
 import { PixelAvatar } from "@/lib/ui/pixel-avatar";
 import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
 import { Status } from "@/lib/ui/status";
+import { setSyncEnabled } from "@/lib/vault/flush";
 import { clearVault } from "@/lib/vault/idb";
+import { clearItemCache, getItemCacheMeta } from "@/lib/vault/item-cache";
 
 export default function AccountPage() {
 	const { ready, me } = useBrowserSession();
@@ -18,6 +21,11 @@ export default function AccountPage() {
 	const [confirm, setConfirm] = useState("");
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [syncEnabled, setSyncOn] = useState(true);
+
+	useEffect(() => {
+		void getItemCacheMeta().then((meta) => setSyncOn(meta.syncEnabled));
+	}, []);
 
 	useEffect(() => {
 		if (!me) {
@@ -56,6 +64,20 @@ export default function AccountPage() {
 	const handle = profile?.handle ?? me.handle;
 	const displayName = profile?.displayName ?? me.handle;
 
+	async function onSyncToggle(enabled: boolean) {
+		setSyncOn(enabled);
+		setStatus(null);
+		const result = await setSyncEnabled(enabled);
+		if (!enabled) {
+			return;
+		}
+		if (result.flushed > 0) {
+			setStatus(notesSyncedCopy(result.flushed));
+		} else if (result.error) {
+			setStatus(result.error === "offline" ? "sync_needs_network" : result.error);
+		}
+	}
+
 	async function onDelete(event: FormEvent) {
 		event.preventDefault();
 		if (confirm !== handle) {
@@ -72,6 +94,7 @@ export default function AccountPage() {
 			}
 			forgetPasskey();
 			await clearVault();
+			await clearItemCache();
 			window.location.href = "/";
 		} catch {
 			setStatus("request_failed");
@@ -91,6 +114,19 @@ export default function AccountPage() {
 					</div>
 				</div>
 				{deviceLabel ? <p className="dir-meta">This browser is {deviceLabel}.</p> : null}
+				<section className="account-sync">
+					<h2>Sync</h2>
+					<p>Off keeps new notes on this browser until you sync them.</p>
+					<label className="ack">
+						<input
+							className="ack-box"
+							type="checkbox"
+							checked={syncEnabled}
+							onChange={(event) => void onSyncToggle(event.target.checked)}
+						/>
+						Sync to other devices
+					</label>
+				</section>
 				<form className="account-leave" onSubmit={(event) => void onDelete(event)}>
 					<h2>Delete account</h2>
 					<p>
