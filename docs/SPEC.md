@@ -53,7 +53,7 @@ That second one is why the architecture below puts realtime on Cloudflare.
                    ┌──────────────────────────────────────┐
                    │  Client (PWA, React)                 │
                    │  · WebCrypto: all encrypt/decrypt     │
-                   │  · IndexedDB: vault key + local cache │
+                   │  · IndexedDB: vault key + ciphertext cache │
                    │  · Service worker: share target, push │
                    └───┬──────────┬──────────────┬─────────┘
                        │          │              │
@@ -85,6 +85,8 @@ That second one is why the architecture below puts realtime on Cloudflare.
 - **Cloudflare Worker** owns everything that needs to be stateful, streaming, or long-lived: the WebSocket hub, the upload gate, downloads, and cron. It never decides policy; it only verifies capability tokens minted by Vercel.
 - **R2** stores ciphertext blobs. Bucket is private, no public access, no custom domain.
 - **Neon** stores metadata and small ciphertext payloads.
+
+The browser also keeps sealed text/link envelopes in IndexedDB (`queued` / `held` / `synced`) and a this-browser Sync preference. Decrypt happens in the page. A `lastMe` snapshot is chrome convenience when `/api/auth/me` cannot be reached; it is not a session and does not authorize writes.
 
 **Why the Worker instead of doing it all on Vercel:** Durable Objects with the SQLite backend are <cite index="15-1">available on the Workers Free plan</cite>, WebSocket Hibernation makes idle connections free, and <cite index="16-1">max WebSocket message size is 32 MiB</cite>. Free tier is <cite index="11-1">100,000 requests/day, resetting at 00:00 UTC</cite>. For 10 users that is not a constraint you will ever feel.
 
@@ -421,8 +423,8 @@ Verified current free-tier ceilings:
 | Auth | `@simplewebauthn/server` + `/browser` | — |
 | Crypto | WebCrypto, plus `hash-wasm` for Argon2id | Zero crypto deps you'd have to trust |
 | Realtime | Cloudflare Worker + Durable Object (Hibernation API) | — |
-| Client state | TanStack Query + a Zustand store for vault/session | — |
-| Local cache | Dexie over IndexedDB | Offline reads, client-side search |
+| Client state | React state on the clipboard page | TanStack Query and Zustand are not required for live fan-out or the tray |
+| Local cache | IndexedDB (`meownow-items`), same helper style as the vault | Offline reads of ciphertext. Dexie is not required. Search and pin UI are not built |
 | Service worker | **Serwist** | `next-pwa` is unmaintained |
 | Styling | Tailwind v4 + CSS custom properties for tokens | — |
 | Primitives | Radix directly, styled by hand | shadcn defaults are exactly the look you don't want |
@@ -472,7 +474,7 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state. Exceptions: the composer bar (Send, Ephemeral, File) and the About questions open/close chip. Both use native platform emoji on light chips, with a hover label. Do not fill those chips with ink. First-run copy names the next action in plain language. Do not say “vault” on a screen a guest has to complete.
 
-**First-run.** One visible next action. The signed-out chrome is About, then Sign in, then Menu. The signed-out hero has one filled CTA: Continue with passkey. Join, ask for an invite, recover, pairing, and first-admin enroll are hints on the home, not equal filled buttons. Guest Menu lists those onboarding paths with a one-line hint. An ask is an email and an optional note for someone already in — it is not a signup and does not mint a `/join?t=` link. A signed-in working browser's Menu is the product: clipboard, both pairing roles, admin People / Invites / Requests, Account, log out. Admin screens share one nav. Invites list only open links — never a revoked id. Recover is not on that Menu — this browser is already a device. Recover stays on the guest Menu and on the new-browser screen, where the other device may be gone. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only the next filled action when the account already has keys and this browser does not. An empty browser only offers Show a code. Recovery is the lost-every-device path. Pairing has two roles: the new browser shows a code, the working browser types it under Add a device. `/pair` presents both as cards and tags the one this browser should start with. Never hide the other role. A browser that guesses wrong must be one click from the right screen, never bounced with a refusal, and Menu lists both pairing roles. Invites are sent as a `/join?t=` URL, not a bare token.
+**First-run.** One visible next action. The signed-out chrome is About, then Sign in, then Menu. The signed-out hero has one filled CTA: Continue with passkey. Join, ask for an invite, recover, pairing, and first-admin enroll are hints on the home, not equal filled buttons. Guest Menu lists those onboarding paths with a one-line hint. An ask is an email and an optional note for someone already in — it is not a signup and does not mint a `/join?t=` link. A signed-in working browser's Menu is the product: clipboard, both pairing roles, admin People / Invites / Requests, Account, log out. Admin screens share one nav. Invites list only open links — never a revoked id. Recover is not on that Menu — this browser is already a device. Recover stays on the guest Menu and on the new-browser screen, where the other device may be gone. After a passkey, this browser generates the 12 words on the same screen, with a working label while Argon2 runs. Pairing is only the next filled action when the account already has keys and this browser does not. An empty browser only offers Show a code. Recovery is the lost-every-device path. Pairing has two roles: the new browser shows a code, the working browser types it under Add a device. `/pair` presents both as cards and tags the one this browser should start with. Never hide the other role. A browser that guesses wrong must be one click from the right screen, never bounced with a refusal, and Menu lists both pairing roles. Invites are sent as a `/join?t=` URL, not a bare token. Sync to other devices is an Account control on this browser (default on). It is not a second filled CTA on the home.
 
 **Forbidden:** Inter, purple-to-pink soup, dark auto-theme, glow, mesh, conic border, system-font emoji chrome, unread shadcn, implying the server can read paste contents.
 
@@ -490,6 +492,7 @@ Each milestone is independently shippable and independently testable.
 | 3 | Vault: generation, QR device pairing with fingerprint confirmation, recovery phrase | Second device joins and reads item created on first |
 | 4 | Text/link items: create, encrypt, store, WS fan-out, TTL, decrypt, copy | Two browsers stay in sync live |
 | 5 | PWA: manifest, Serwist, Share Target, shortcuts, offline shell, Web Push | Android share sheet lands content in meownow |
+| 5b | Offline tray: ciphertext cache, Sync on/off | A browser with keys opens the clipboard with no network; Sync-on flushes queued text/links; Sync-off waits for Sync / Sync all |
 | 6 | Uploads: request/approve flow, capability tokens, Worker gate, chunked encrypted upload, quota accounting | Non-approved user provably cannot write to R2 |
 | 7 | P2P: signalling, DataChannel, LAN detection, ephemeral send | LAN transfer measurably faster than server path |
 | 8 | Admin: users, devices, requests, audit log, usage dashboard | You can see R2 usage against the free-tier ceiling |
