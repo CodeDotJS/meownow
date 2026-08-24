@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getJson } from "@/lib/client/http";
-import { loadVault } from "@/lib/vault/idb";
-import { dropStaleLocalVault } from "@/lib/vault/local";
 import type { MenuMe } from "./menu";
 import { Panel } from "./panel";
+import { asMenuMe, hydrateBrowserSession } from "./session-cache";
 
 export function useBrowserSession() {
 	const [ready, setReady] = useState(false);
@@ -14,15 +12,9 @@ export function useBrowserSession() {
 
 	useEffect(() => {
 		void (async () => {
-			const res = await getJson("/api/auth/me");
-			if (res.ok) {
-				const profile = res.data as MenuMe & { hasVault: boolean };
-				await dropStaleLocalVault(profile.hasVault);
-				setMe(profile);
-			} else {
-				setMe(null);
-			}
-			setHasLocal((await loadVault()) !== null);
+			const session = await hydrateBrowserSession();
+			setMe(session.me ? asMenuMe(session.me) : null);
+			setHasLocal(session.hasLocal);
 			setReady(true);
 		})();
 	}, []);
