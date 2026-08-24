@@ -685,3 +685,51 @@ test("prune removes expired items and stale pending blobs", async () => {
 	expect(result.deleteR2Keys).toContain("stale-pending");
 	expect(store.blobs).toEqual([]);
 });
+
+test("upload quota grants are 25 to 100 MB, not 500 MB or 1 GB", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn });
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const admin = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const invite = await auth.createInvite(admin.sessionToken, undefined);
+	const { challenge: join } = await auth.registerOptions({
+		token: invite.token,
+		handle: "ada",
+		displayName: "Ada",
+		deviceLabel: "laptop",
+	});
+	const member = await auth.registerVerify(dummyAttestation, join);
+
+	await expect(
+		vaultApi.requestUpload(member.sessionToken, { requestedMb: 24, reason: "too small" }),
+	).rejects.toMatchObject({ code: "invalid_body", status: 400 });
+	await expect(
+		vaultApi.requestUpload(member.sessionToken, { requestedMb: 101, reason: "too big" }),
+	).rejects.toMatchObject({ code: "invalid_body", status: 400 });
+	await expect(
+		vaultApi.requestUpload(member.sessionToken, { requestedMb: 40, reason: "screenshots" }),
+	).resolves.toEqual({ ok: true });
+
+	const listed = await vaultApi.listUploadRequests(admin.sessionToken);
+	const pending = listed.requests[0];
+	if (!pending) {
+		throw new Error("missing request");
+	}
+	expect(pending.requestedBytes).toBe(40 * 1024 * 1024);
+
+	await expect(
+		vaultApi.decideUpload(admin.sessionToken, pending.id, { status: "approved", grantedMb: 500 }),
+	).rejects.toMatchObject({ code: "invalid_body", status: 400 });
+	await expect(
+		vaultApi.decideUpload(admin.sessionToken, pending.id, { status: "approved", grantedMb: 40 }),
+	).resolves.toEqual({ ok: true });
+	const user = [...store.users.values()].find((row) => row.handle === "ada");
+	expect(user?.canUpload).toBe(true);
+	expect(user?.storageQuotaBytes).toBe(40 * 1024 * 1024);
+});

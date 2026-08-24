@@ -301,15 +301,16 @@ create index on items (owner_id, created_at desc);
 create index on items (expires_at) where pinned = false;
 
 create table upload_requests (
-  id            uuid primary key default gen_random_uuid(),
-  user_id       uuid not null references users(id) on delete cascade,
-  reason        text not null,
-  status        req_status not null default 'pending',
-  decided_by    uuid references users(id),
-  decided_at    timestamptz,
-  decision_note text,
-  granted_bytes bigint,
-  created_at    timestamptz not null default now()
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references users(id) on delete cascade,
+  reason          text not null,
+  requested_bytes bigint not null,
+  status          req_status not null default 'pending',
+  decided_by      uuid references users(id),
+  decided_at      timestamptz,
+  decision_note   text,
+  granted_bytes   bigint,
+  created_at      timestamptz not null default now()
 );
 create unique index one_pending_per_user
   on upload_requests (user_id) where status = 'pending';
@@ -388,7 +389,7 @@ Verified current free-tier ceilings:
 
 | Service | Free allowance | Your projected usage |
 |---|---|---|
-| R2 storage | <cite index="27-1">10 GB-month</cite> | 10 users × 500 MB quota = 5 GB worst case |
+| R2 storage | <cite index="27-1">10 GB-month</cite> | 10 users × 100 MB quota = 1 GB worst case |
 | R2 Class A (writes) | <cite index="27-1">1M requests/month</cite> | Hundreds |
 | R2 Class B (reads) | <cite index="27-1">10M requests/month</cite> | Thousands |
 | R2 egress | <cite index="22-1">Always $0, no time limit</cite> | — |
@@ -399,7 +400,7 @@ Verified current free-tier ceilings:
 
 **Guardrails to build in from day one, not retrofit:**
 
-- Per-user quota, default 0, granted on approval. Never unlimited.
+- Per-user quota, default 0, granted on approval as 25–100 MB (whole megabytes). Never unlimited.
 - Per-file cap 100 MB. Per-item text cap 64 KB.
 - Blob TTL 7 days default, text TTL 30 days, pinning extends indefinitely but counts against quota.
 - **R2 lifecycle rule** as a second line of defence, independent of your cron.
@@ -562,4 +563,4 @@ Four things I picked a default for. Change them if you disagree:
 1. **Personal vault per user**, with optional direct sends between users. The alternative — one shared clipboard all 10 people see — is simpler but changes the crypto substantially. Say now if that's what you meant.
 2. **iOS is a second-class citizen** (no Share Target). The iOS Shortcut workaround is documented but not built in v1.
 3. **STUN only, no TURN.** Isolated home Wi‑Fi and ~10-20% of other networks fail P2P. Persisted items use the server path; ephemeral items use a live hub fan-out, then stay on the sender.
-4. **500 MB per user, 100 MB per file, 7-day blob TTL.** Sized to keep 10 users inside R2's 10 GB.
+4. **25–100 MB per user (whole megabytes), 100 MB per file, 7-day blob TTL.** Sized to keep 10 users inside R2's 10 GB.

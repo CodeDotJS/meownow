@@ -19,6 +19,8 @@ import {
 	PAIRING_TTL_MS,
 	type PairingWrapRequest,
 	type PublicJwk,
+	quotaGrantMbSchema,
+	quotaMbToBytes,
 	R2_CLASS_A_CEILING,
 	R2_CLASS_B_CEILING,
 	R2_STORAGE_CEILING_BYTES,
@@ -203,13 +205,21 @@ export class VaultService {
 		return { ticket, url: `${hub.replace(/\/$/, "")}/ws` };
 	}
 
-	async requestUpload(sessionToken: string | undefined, reason: string) {
+	async requestUpload(
+		sessionToken: string | undefined,
+		body: { requestedMb: number; reason: string },
+	) {
 		const user = await this.requireUser(sessionToken);
+		const requested = quotaGrantMbSchema.safeParse(body.requestedMb);
+		if (!requested.success) {
+			throw new AuthError("invalid_body", 400);
+		}
 		const now = this.now();
 		const result = await this.vault.createUploadRequest({
 			id: randomUUID(),
 			userId: user.id,
-			reason,
+			reason: body.reason,
+			requestedBytes: quotaMbToBytes(requested.data),
 			now,
 		});
 		if (result === "pending") {
@@ -233,18 +243,23 @@ export class VaultService {
 	async decideUpload(
 		sessionToken: string | undefined,
 		id: string,
-		body: { status: "approved" | "denied"; grantedBytes?: number; decisionNote?: string },
+		body: { status: "approved" | "denied"; grantedMb?: number; decisionNote?: string },
 	) {
 		const admin = await this.requireAdmin(sessionToken);
-		if (body.status === "approved" && !body.grantedBytes) {
-			throw new AuthError("invalid_body", 400);
+		let grantedBytes: number | null = null;
+		if (body.status === "approved") {
+			const granted = quotaGrantMbSchema.safeParse(body.grantedMb);
+			if (!granted.success) {
+				throw new AuthError("invalid_body", 400);
+			}
+			grantedBytes = quotaMbToBytes(granted.data);
 		}
 		const now = this.now();
 		const result = await this.vault.decideUploadRequest({
 			id,
 			decidedBy: admin.id,
 			status: body.status,
-			grantedBytes: body.grantedBytes ?? null,
+			grantedBytes,
 			decisionNote: body.decisionNote ?? null,
 			now,
 		});

@@ -1,5 +1,6 @@
 "use client";
 
+import { QUOTA_GRANT_MAX_MB, QUOTA_GRANT_MIN_MB, quotaBytesToMb } from "@meownow/protocol";
 import { useEffect, useState } from "react";
 import { errorCode, getJson, postJson } from "@/lib/client/http";
 import { AdminNav } from "@/lib/ui/admin-nav";
@@ -11,19 +12,14 @@ type Row = {
 	handle: string;
 	reason: string;
 	status: string;
+	requestedBytes: number;
 	grantedBytes: number | null;
 	createdAt: string;
 };
 
-const GRANTS = [
-	{ bytes: 524_288_000, label: "500 MB" },
-	{ bytes: 1_073_741_824, label: "1 GB" },
-] as const;
-
 export default function RequestsPage() {
 	const [rows, setRows] = useState<Row[]>([]);
 	const [status, setStatus] = useState<string | null>(null);
-	const [grant, setGrant] = useState(String(GRANTS[0].bytes));
 
 	async function refresh() {
 		const res = await getJson("/api/uploads/requests");
@@ -45,19 +41,6 @@ export default function RequestsPage() {
 		})();
 	}, []);
 
-	async function decide(id: string, next: "approved" | "denied") {
-		setStatus(null);
-		const res = await postJson(`/api/uploads/requests/${id}/decide`, {
-			status: next,
-			grantedBytes: next === "approved" ? Number(grant) : undefined,
-		});
-		if (!res.ok) {
-			setStatus(errorCode(res.data));
-			return;
-		}
-		await refresh();
-	}
-
 	const pending = rows.filter((row) => row.status === "pending");
 	const settled = rows.length - pending.length;
 
@@ -65,45 +48,19 @@ export default function RequestsPage() {
 		<main>
 			<Panel>
 				<h1>Requests</h1>
-				<p className="lead">Grant file space. Text and links do not need this.</p>
+				<p className="lead">Grant 25 to 100 MB of file space. Text and links do not need this.</p>
 				<AdminNav />
-				<label>
-					If you approve, grant
-					<select value={grant} onChange={(e) => setGrant(e.target.value)}>
-						{GRANTS.map((option) => (
-							<option key={option.bytes} value={option.bytes}>
-								{option.label}
-							</option>
-						))}
-					</select>
-				</label>
 				<Status value={status} />
 				{pending.length === 0 ? <p className="hint">No pending requests.</p> : null}
 				{pending.length > 0 ? (
 					<ul className="dir-list">
 						{pending.map((row) => (
-							<li key={row.id}>
-								<div className="dir-head">
-									<span className="dir-name">{row.handle}</span>
-									<span className="dir-actions">
-										<button
-											type="button"
-											className="select"
-											onClick={() => void decide(row.id, "approved")}
-										>
-											Approve
-										</button>
-										<button
-											type="button"
-											className="quiet"
-											onClick={() => void decide(row.id, "denied")}
-										>
-											Deny
-										</button>
-									</span>
-								</div>
-								{row.reason ? <p className="dir-meta">{row.reason}</p> : null}
-							</li>
+							<PendingRequest
+								key={row.id}
+								row={row}
+								onStatus={setStatus}
+								onDone={() => void refresh()}
+							/>
 						))}
 					</ul>
 				) : null}
@@ -114,5 +71,63 @@ export default function RequestsPage() {
 				) : null}
 			</Panel>
 		</main>
+	);
+}
+
+function PendingRequest({
+	row,
+	onStatus,
+	onDone,
+}: {
+	row: Row;
+	onStatus: (value: string | null) => void;
+	onDone: () => void;
+}) {
+	const [mb, setMb] = useState(String(quotaBytesToMb(row.requestedBytes)));
+
+	async function decide(next: "approved" | "denied") {
+		onStatus(null);
+		const res = await postJson(`/api/uploads/requests/${row.id}/decide`, {
+			status: next,
+			grantedMb: next === "approved" ? Number(mb) : undefined,
+		});
+		if (!res.ok) {
+			onStatus(errorCode(res.data));
+			return;
+		}
+		onDone();
+	}
+
+	return (
+		<li>
+			<div className="dir-head">
+				<span className="dir-name">{row.handle}</span>
+				<span className="dir-actions">
+					<button type="button" className="select" onClick={() => void decide("approved")}>
+						Approve
+					</button>
+					<button type="button" className="quiet" onClick={() => void decide("denied")}>
+						Deny
+					</button>
+				</span>
+			</div>
+			<label>
+				Grant, in MB
+				<input
+					type="number"
+					inputMode="numeric"
+					min={QUOTA_GRANT_MIN_MB}
+					max={QUOTA_GRANT_MAX_MB}
+					step={1}
+					value={mb}
+					onChange={(e) => setMb(e.target.value)}
+					required
+				/>
+			</label>
+			<p className="dir-meta">
+				Asked for {quotaBytesToMb(row.requestedBytes)} MB
+				{row.reason ? ` · ${row.reason}` : ""}
+			</p>
+		</li>
 	);
 }

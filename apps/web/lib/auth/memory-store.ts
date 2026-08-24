@@ -519,6 +519,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		id: string;
 		userId: string;
 		reason: string;
+		requestedBytes: number;
 		now: Date;
 	}): Promise<"ok" | "pending"> {
 		if (
@@ -532,6 +533,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			userId: input.userId,
 			handle: user?.handle ?? "",
 			reason: input.reason,
+			requestedBytes: input.requestedBytes,
 			status: "pending",
 			decidedBy: null,
 			decidedAt: null,

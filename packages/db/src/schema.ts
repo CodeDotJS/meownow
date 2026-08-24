@@ -162,6 +162,7 @@ export const uploadRequests = pgTable(
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
 		reason: text("reason").notNull(),
+		requestedBytes: bigint("requested_bytes", { mode: "number" }).notNull(),
 		status: reqStatus("status").notNull().default("pending"),
 		decidedBy: uuid("decided_by").references(() => users.id),
 		decidedAt: timestamp("decided_at", { withTimezone: true }),

@@ -740,6 +740,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		id: string;
 		userId: string;
 		reason: string;
+		requestedBytes: number;
 		now: Date;
 	}): Promise<"ok" | "pending"> {
 		return this.withDb(async (db) => {
@@ -755,6 +756,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 				id: input.id,
 				userId: input.userId,
 				reason: input.reason,
+				requestedBytes: input.requestedBytes,
 				createdAt: input.now,
 			});
 			return "ok" as const;
@@ -769,6 +771,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 					userId: uploadRequests.userId,
 					handle: users.handle,
 					reason: uploadRequests.reason,
+					requestedBytes: uploadRequests.requestedBytes,
 					status: uploadRequests.status,
 					decidedBy: uploadRequests.decidedBy,
 					decidedAt: uploadRequests.decidedAt,

@@ -31,6 +31,7 @@ export type UploadRequestRow = {
 	userId: string;
 	handle: string;
 	reason: string;
+	requestedBytes: number;
 	status: "pending" | "approved" | "denied" | "withdrawn";
 	decidedBy: string | null;
 	decidedAt: Date | null;
@@ -90,6 +91,7 @@ export type VaultStore = {
 		id: string;
 		userId: string;
 		reason: string;
+		requestedBytes: number;
 		now: Date;
 	}): Promise<"ok" | "pending">;
 	listUploadRequests(): Promise<UploadRequestRow[]>;

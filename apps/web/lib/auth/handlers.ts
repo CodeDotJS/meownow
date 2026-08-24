@@ -261,7 +261,7 @@ export function createHandlers(deps: HandlerDeps) {
 		postUploadRequest: (request: Request) =>
 			mutating(request, deps.env, async () => {
 				const body = await readBody(request, uploadRequestCreateSchema);
-				return json(await vault.requestUpload(sid(request), body.reason));
+				return json(await vault.requestUpload(sid(request), body));
 			}),
 		getUploadRequests: (request: Request) =>
 			run(async () => json(await vault.listUploadRequests(sid(request)))),

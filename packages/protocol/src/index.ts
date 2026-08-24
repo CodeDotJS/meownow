@@ -79,6 +79,11 @@ export {
 	PAIRING_CODE_LENGTH,
 } from "./pairing-code";
 export {
+	QUOTA_GRANT_MAX_MB,
+	QUOTA_GRANT_MIN_MB,
+	quotaBytesToMb,
+	quotaGrantMbSchema,
+	quotaMbToBytes,
 	uploadCommitRequestSchema,
 	uploadIntentRequestSchema,
 	uploadRequestCreateSchema,
