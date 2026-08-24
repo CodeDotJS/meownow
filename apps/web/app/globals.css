@@ -777,6 +777,22 @@ h1 {
 	margin: 0.2rem 0 0;
 }
 
+.account-sync {
+	margin-top: 1.75rem;
+}
+
+.account-sync h2 {
+	margin: 0;
+	font-size: 1.02rem;
+	font-weight: 560;
+	letter-spacing: -0.03em;
+}
+
+.account-sync p {
+	margin: 0.45rem 0 0;
+	color: var(--muted);
+}
+
 .account-leave {
 	margin-top: 2rem;
 	padding-top: 1.25rem;
