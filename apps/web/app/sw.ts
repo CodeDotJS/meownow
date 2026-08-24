@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
+import { NetworkOnly, Serwist } from "serwist";
 import { saveIncomingShare } from "../lib/pwa/inbox";
 import { sharePayloadFromForm } from "../lib/pwa/share";
 
@@ -19,7 +19,21 @@ const serwist = new Serwist({
 	clientsClaim: true,
 	navigationPreload: true,
 	disableDevLogs: true,
-	runtimeCaching: defaultCache,
+	runtimeCaching: [
+		{
+			matcher({ url }) {
+				return url.pathname.startsWith("/api/");
+			},
+			handler: new NetworkOnly(),
+		},
+		{
+			matcher({ url }) {
+				return url.pathname === "/upload" || url.pathname === "/dl" || url.pathname === "/stat";
+			},
+			handler: new NetworkOnly(),
+		},
+		...defaultCache,
+	],
 	fallbacks: {
 		entries: [
 			{
