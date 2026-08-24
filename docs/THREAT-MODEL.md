@@ -58,7 +58,7 @@ Directory, audit, and usage are admin-only. A member session is `403 forbidden` 
 
 ## Hardening (milestone 9)
 
-HTML responses carry a per-request CSP nonce with `strict-dynamic`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`, and `require-trusted-types-for 'script'`. `style-src` allows `'unsafe-inline'` because React inline styles (TTL hairline, usage meter) cannot be nonced. Trusted Types policies include Next’s `nextjs` / `nextjs#bundler` names.
+HTML responses carry a per-request CSP nonce with `strict-dynamic`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`, and `require-trusted-types-for 'script'`. `style-src` allows `'unsafe-inline'` because React inline styles (TTL hairline, usage meter) cannot be nonced. Trusted Types policies include Next’s `nextjs` / `nextjs#bundler` names. Registering `/sw.js` uses a `meownow#sw` policy that only mints that script URL.
 
 Send and auth rate limits are token buckets in Durable Object storage (`bucket:send:{userId}` on that user’s object, `bucket:auth:{sha256(ip)}` on the dedicated limiter object). Vercel never trusts the UI for this: a 429 is `rate_limited`. Auth limiter keys are `sha256(ip)`, not the raw address. If `EDGE_URL` or `HUB_SECRET` is unset in production, `take()` denies. In development it allows so local pages work without a Worker.
 

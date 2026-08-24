@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect } from "react";
+import { swScriptUrl } from "./sw-url";
 
 export function PwaSerwist({ children }: { children: ReactNode }) {
 	useEffect(() => {
@@ -10,7 +11,13 @@ export function PwaSerwist({ children }: { children: ReactNode }) {
 		if (!("serviceWorker" in navigator)) {
 			return;
 		}
-		void navigator.serviceWorker.register("/sw.js", { type: "classic", scope: "/" });
+		try {
+			void navigator.serviceWorker
+				.register(swScriptUrl() as string, { type: "classic", scope: "/" })
+				.catch(() => undefined);
+		} catch {
+			return;
+		}
 	}, []);
 	return children;
 }

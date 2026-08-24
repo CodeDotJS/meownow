@@ -21,7 +21,7 @@ export function contentSecurityPolicy(input: {
 		`form-action 'self';`,
 		`frame-ancestors 'none';`,
 		`require-trusted-types-for 'script';`,
-		`trusted-types default nextjs nextjs#bundler goog#html wasm-js 'allow-duplicates';`,
+		`trusted-types default nextjs nextjs#bundler goog#html wasm-js meownow#sw 'allow-duplicates';`,
 		upgrade,
 	]
 		.join(" ")
