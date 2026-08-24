@@ -1,6 +1,6 @@
 import { errorCodeSchema } from "@meownow/protocol";
 import { describe, expect, test } from "vitest";
-import { statusCopy } from "./copy";
+import { notesSyncedCopy, statusCopy } from "./copy";
 
 describe("statusCopy", () => {
 	test("maps every protocol error to a sentence", () => {
@@ -36,6 +36,13 @@ describe("statusCopy", () => {
 		);
 		expect(statusCopy("No Local peer.")).toBe("Stayed on this device. No other live device.");
 		expect(statusCopy("dc_send_failed")).toBe("Stayed on this device. Could not send live.");
+		expect(statusCopy("file_needs_network")).toBe("Need a network to send a file.");
+		expect(statusCopy("file_needs_sync")).toBe(
+			"Files need Sync on. They cannot wait on this browser.",
+		);
+		expect(statusCopy("sync_needs_network")).toBe("Need a network to sync.");
+		expect(notesSyncedCopy(1)).toBe("1 note synced");
+		expect(notesSyncedCopy(3)).toBe("3 notes synced");
 	});
 
 	test("does not dump raw JSON into the status pill", () => {
