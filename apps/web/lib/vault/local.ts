@@ -1,4 +1,5 @@
 import { clearVault, loadVault } from "./idb";
+import { clearItemCache } from "./item-cache";
 
 /** Leftover IndexedDB keys after a server wipe look like a working vault. */
 export function isStaleLocalVault(hasServerVault: boolean, hasLocal: boolean): boolean {
@@ -12,5 +13,6 @@ export async function dropStaleLocalVault(hasServerVault: boolean): Promise<bool
 		return false;
 	}
 	await clearVault();
+	await clearItemCache();
 	return true;
 }
