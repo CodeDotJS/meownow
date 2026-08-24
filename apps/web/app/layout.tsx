@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Martian_Mono, Outfit } from "next/font/google";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
+import { PwaSerwist } from "@/lib/pwa/serwist-provider";
 import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
 import { AppFrame } from "@/lib/ui/app-frame";
 import "./globals.css";
@@ -69,7 +70,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 	return (
 		<html lang="en" className={`${outfit.variable} ${martianMono.variable}`}>
 			<body>
-				<AppFrame>{children}</AppFrame>
+				<PwaSerwist>
+					<AppFrame>{children}</AppFrame>
+				</PwaSerwist>
 			</body>
 		</html>
 	);
