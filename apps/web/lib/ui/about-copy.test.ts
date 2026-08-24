@@ -42,10 +42,12 @@ test("names live-only delivery and real TTLs", () => {
 	).toBe(true);
 });
 
-test("splits twelve questions into two equal columns", () => {
+test("splits questions into two equal columns", () => {
 	expect(ABOUT_FAQ).toHaveLength(ABOUT_FAQ_COL * 2);
 	expect(ABOUT_FAQ.length % 2).toBe(0);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-leave")?.a).toMatch(/delete/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-sync")?.a).toMatch(/this browser/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-offline")?.a).toMatch(/local cache/i);
 });
 
 test("says the server cannot read plaintext", () => {
