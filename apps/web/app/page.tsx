@@ -7,10 +7,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteJson, errorCode, getJson, postJson } from "@/lib/client/http";
 import { ephemeralLivePath } from "@/lib/p2p/ephemeral";
 import { Mesh } from "@/lib/p2p/mesh";
-import { sendOnMesh, shouldPersist } from "@/lib/p2p/send";
+import { sendOnMesh } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
 import { ComposerGlyph } from "@/lib/ui/composer-glyph";
+import { notesSyncedCopy } from "@/lib/ui/copy";
 import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
 import { HoverTip } from "@/lib/ui/hover-tip";
@@ -22,22 +23,33 @@ import { textNeedsReader } from "@/lib/ui/note-size";
 import { Panel } from "@/lib/ui/panel";
 import { PixelStamp, PixelThumb } from "@/lib/ui/pixel-avatar";
 import { OFFLINE_POLL_MS, shouldHttpPoll } from "@/lib/ui/reconcile";
+import { hydrateBrowserSession } from "@/lib/ui/session-cache";
 import { Status } from "@/lib/ui/status";
 import { formatClockTime, groupByDay, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
+import {
+	type FlushResult,
+	flushQueuedItems,
+	syncAllUnsynced,
+	syncCachedItem,
+} from "@/lib/vault/flush";
 import { hubSend, subscribeHub } from "@/lib/vault/hub-live";
 import { loadVault } from "@/lib/vault/idb";
-import { dropStaleLocalVault } from "@/lib/vault/local";
+import {
+	deleteCachedItem,
+	getCachedItems,
+	getItemCacheMeta,
+	type LastMe,
+	pruneExpiredCachedItems,
+	putCachedItem,
+	setItemCacheMeta,
+	upsertSyncedFromRemote,
+} from "@/lib/vault/item-cache";
+import { type CachedItem, type OutboxState, unsynced } from "@/lib/vault/outbox";
+import { persistIntent } from "@/lib/vault/persist-intent";
 import { downloadBlobItem, openBlobPreview, sendBlobFile } from "@/lib/vault/upload-client";
 import { b64urlToBytes, bytesToB64url } from "@/lib/vault/wire";
 
-type Me = {
-	id: string;
-	handle: string;
-	displayName: string;
-	role: "admin" | "member";
-	canUpload: boolean;
-	hasVault: boolean;
-};
+type Me = LastMe;
 
 type ItemRow = {
 	id: string;
@@ -70,6 +82,8 @@ type Shown = {
 	/** Object URL drawn in this browser only. */
 	previewUrl?: string;
 	uploadProgress?: number;
+	/** queued/held until Sync. Omitted once the store has it. */
+	syncState?: Exclude<OutboxState, "synced">;
 };
 
 /** Blob ciphertext lives in R2 and is not held here, so only text can come back. */
@@ -89,6 +103,54 @@ const UNREADABLE = "This browser cannot read that line";
 const CLIP_HINT_KEY = "meownow.clip-hint";
 const FORGET_TOMBSTONE_MS = 15000;
 const UNDO_NOTICE_MS = 5000;
+
+function cachedToRow(item: CachedItem): ItemRow {
+	return {
+		id: item.id,
+		kind: item.kind,
+		ciphertext: item.ciphertext,
+		metaCiphertext: item.metaCiphertext,
+		iv: item.iv,
+		byteSize: item.byteSize,
+		createdAt: item.createdAt,
+		expiresAt: item.expiresAt,
+	};
+}
+
+function asCached(
+	payload: {
+		id: string;
+		kind: "text" | "link";
+		ciphertext: string;
+		metaCiphertext: string;
+		iv: string;
+		byteSize: number;
+		expiresAt: string;
+	},
+	createdAt: string,
+	state: OutboxState,
+): CachedItem {
+	return { ...payload, createdAt, state };
+}
+
+function applySyncState(rows: Shown[], cached: CachedItem[]): Shown[] {
+	const byId = new Map(cached.map((row) => [row.id, row]));
+	return rows.map((row) => {
+		const rec = byId.get(row.id);
+		const syncState = rec && rec.state !== "synced" ? rec.state : undefined;
+		return { ...row, syncState };
+	});
+}
+
+function flushStatus(result: FlushResult): string | null {
+	if (result.flushed > 0) {
+		return notesSyncedCopy(result.flushed);
+	}
+	if (result.error === "offline") {
+		return "sync_needs_network";
+	}
+	return result.error;
+}
 
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
@@ -118,20 +180,16 @@ export default function Page() {
 	const refreshSeqRef = useRef(0);
 	const forgetWaitRef = useRef(Promise.resolve(true));
 	const sendingRef = useRef(false);
+	const flushingRef = useRef(false);
 	const hubSendRef = useRef<(envelope: WsEnvelope) => boolean>(() => false);
 	const reduceMotion = useReducedMotion();
 	itemsRef.current = items;
 
 	useEffect(() => {
 		void (async () => {
-			const res = await getJson("/api/auth/me");
-			if (res.ok) {
-				const profile = res.data as Me;
-				await dropStaleLocalVault(profile.hasVault);
-				setMe(profile);
-			}
-			const local = await loadVault();
-			setHasLocal(local !== null);
+			const session = await hydrateBrowserSession();
+			setMe(session.me);
+			setHasLocal(session.hasLocal);
 			setLoaded(true);
 		})();
 	}, []);
@@ -139,6 +197,12 @@ export default function Page() {
 	const finishVault = useCallback(() => {
 		setMe((current) => (current ? { ...current, hasVault: true } : current));
 		setHasLocal(true);
+		void (async () => {
+			const meta = await getItemCacheMeta();
+			if (meta.lastMe) {
+				await setItemCacheMeta({ ...meta, lastMe: { ...meta.lastMe, hasVault: true } });
+			}
+		})();
 	}, []);
 
 	useEffect(() => {
@@ -193,14 +257,48 @@ export default function Page() {
 		if (seq !== refreshSeqRef.current) {
 			return;
 		}
+		const nowMs = Date.now();
+		const tombstones = tombstonesRef.current;
+		for (const [id, lapses] of tombstones) {
+			if (lapses <= nowMs) {
+				tombstones.delete(id);
+			}
+		}
 		if (!res.ok) {
 			const failed = errorCode(res.data);
 			if (failed === "vault_missing") {
 				setStatus(failed);
 			}
+			const cached = await pruneExpiredCachedItems();
+			if (seq !== refreshSeqRef.current) {
+				return;
+			}
+			pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+			const opened: Shown[] = [];
+			for (const row of cached) {
+				opened.push({
+					...(await openItem(cachedToRow(row))),
+					syncState: row.state === "synced" ? undefined : row.state,
+				});
+			}
+			if (seq !== refreshSeqRef.current) {
+				return;
+			}
+			setItems((current) =>
+				applySyncState(
+					mergeRemoteItems(current, opened, {
+						tombstones: tombstones.keys(),
+						pending: pendingRef.current,
+					}),
+					cached,
+				),
+			);
 			return;
 		}
 		const list = (res.data as { items: ItemRow[] }).items;
+		await upsertSyncedFromRemote(list);
+		const cached = await pruneExpiredCachedItems();
+		pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
 		const opened: Shown[] = [];
 		for (const item of list) {
 			if (isLiveItem(item.expiresAt)) {
@@ -210,33 +308,66 @@ export default function Page() {
 		if (seq !== refreshSeqRef.current) {
 			return;
 		}
-		const now = Date.now();
-		const tombstones = tombstonesRef.current;
-		for (const [id, lapses] of tombstones) {
-			if (lapses <= now) {
-				tombstones.delete(id);
-			}
-		}
-		for (const row of opened) {
-			pendingRef.current.delete(row.id);
-		}
 		setItems((current) =>
-			mergeRemoteItems(current, opened, {
-				tombstones: tombstones.keys(),
-				pending: pendingRef.current,
-			}).map((row) => {
-				const prev = current.find((item) => item.id === row.id);
-				return prev?.previewUrl ? { ...row, previewUrl: prev.previewUrl } : row;
-			}),
+			applySyncState(
+				mergeRemoteItems(current, opened, {
+					tombstones: tombstones.keys(),
+					pending: pendingRef.current,
+				}).map((row) => {
+					const prev = current.find((item) => item.id === row.id);
+					return prev?.previewUrl ? { ...row, previewUrl: prev.previewUrl } : row;
+				}),
+				cached,
+			),
 		);
 	}, [openItem]);
+
+	const runFlush = useCallback(async () => {
+		if (flushingRef.current) {
+			return;
+		}
+		flushingRef.current = true;
+		try {
+			const result = await flushQueuedItems();
+			const cached = await getCachedItems();
+			pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+			setItems((current) => applySyncState(current, cached));
+			const notice = flushStatus(result);
+			if (notice) {
+				setStatus(notice);
+			}
+		} finally {
+			flushingRef.current = false;
+		}
+	}, []);
 
 	useEffect(() => {
 		if (!me || !hasLocal) {
 			return;
 		}
-		void refreshItems();
-	}, [me, hasLocal, refreshItems]);
+		void (async () => {
+			const cached = await pruneExpiredCachedItems();
+			pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+			const opened: Shown[] = [];
+			for (const row of cached) {
+				opened.push({
+					...(await openItem(cachedToRow(row))),
+					syncState: row.state === "synced" ? undefined : row.state,
+				});
+			}
+			setItems((current) =>
+				applySyncState(
+					mergeRemoteItems(current, opened, {
+						tombstones: tombstonesRef.current.keys(),
+						pending: pendingRef.current,
+					}),
+					cached,
+				),
+			);
+			void refreshItems();
+			void runFlush();
+		})();
+	}, [me, hasLocal, openItem, refreshItems, runFlush]);
 
 	useEffect(() => {
 		if (!me || !hasLocal) {
@@ -247,6 +378,7 @@ export default function Page() {
 			onEnvelope: (envelope) => {
 				if (envelope.type === "hello") {
 					void refreshItems();
+					void runFlush();
 					meshRef.current?.close();
 					meshRef.current = new Mesh(
 						envelope.deviceId,
@@ -304,10 +436,15 @@ export default function Page() {
 		function onWake() {
 			if (document.visibilityState === "visible") {
 				void refreshItems();
+				void runFlush();
 			}
 		}
+		function onOnline() {
+			void refreshItems();
+			void runFlush();
+		}
 		document.addEventListener("visibilitychange", onWake);
-		window.addEventListener("online", onWake);
+		window.addEventListener("online", onOnline);
 		return () => {
 			stopHub();
 			hubSendRef.current = () => false;
@@ -316,9 +453,9 @@ export default function Page() {
 			setLive(false);
 			setLocal(false);
 			document.removeEventListener("visibilitychange", onWake);
-			window.removeEventListener("online", onWake);
+			window.removeEventListener("online", onOnline);
 		};
-	}, [me, hasLocal, openItem, refreshItems]);
+	}, [me, hasLocal, openItem, refreshItems, runFlush]);
 
 	const hadLive = useRef(false);
 	useEffect(() => {
@@ -403,27 +540,54 @@ export default function Page() {
 					ephemeral,
 					item: payload,
 				});
-				if (shouldPersist(ephemeral)) {
-					const res = await postJson("/api/items", payload);
-					if (!res.ok) {
-						pendingRef.current.delete(id);
-						setItems((current) => current.filter((row) => row.id !== id));
-						setDraft(trimmed);
-						setStatus(errorCode(res.data));
+				const intent = persistIntent({
+					ephemeral,
+					syncEnabled: (await getItemCacheMeta()).syncEnabled,
+					online: navigator.onLine,
+				});
+				if (intent === "live") {
+					const hubSent =
+						meshSend.delivered === 0 &&
+						hubSendRef.current({
+							v: 1,
+							type: "item.created",
+							ephemeral: true,
+							item: { ...payload, createdAt },
+						});
+					if (ephemeralLivePath({ meshDelivered: meshSend.delivered, hubSent }) === "none") {
+						setStatus(meshSend.failed > 0 ? "dc_send_failed" : "No Local peer.");
 					}
 					return;
 				}
-				const hubSent =
-					meshSend.delivered === 0 &&
-					hubSendRef.current({
-						v: 1,
-						type: "item.created",
-						ephemeral: true,
-						item: { ...payload, createdAt },
-					});
-				if (ephemeralLivePath({ meshDelivered: meshSend.delivered, hubSent }) === "none") {
-					setStatus(meshSend.failed > 0 ? "dc_send_failed" : "No Local peer.");
+				const record = asCached(payload, createdAt, intent === "hold" ? "held" : "queued");
+				await putCachedItem(record);
+				setItems((current) =>
+					current.map((row) =>
+						row.id === id
+							? { ...row, syncState: record.state === "synced" ? undefined : record.state }
+							: row,
+					),
+				);
+				if (intent === "hold" || intent === "queue") {
+					return;
 				}
+				const res = await postJson("/api/items", payload);
+				if (res.ok) {
+					await putCachedItem({ ...record, state: "synced" });
+					pendingRef.current.delete(id);
+					setItems((current) =>
+						current.map((row) => (row.id === id ? { ...row, syncState: undefined } : row)),
+					);
+					return;
+				}
+				if (res.status === 0) {
+					return;
+				}
+				pendingRef.current.delete(id);
+				await deleteCachedItem(id);
+				setItems((current) => current.filter((row) => row.id !== id));
+				setDraft(trimmed);
+				setStatus(errorCode(res.data));
 			} catch {
 				setStatus("request_failed");
 			} finally {
@@ -542,6 +706,18 @@ export default function Page() {
 		if (item.ephemeral) {
 			return true;
 		}
+		const cached = (await getCachedItems()).find((row) => row.id === item.id);
+		const localOnly =
+			cached?.state === "queued" ||
+			cached?.state === "held" ||
+			item.syncState === "queued" ||
+			item.syncState === "held";
+		if (cached) {
+			await deleteCachedItem(item.id);
+		}
+		if (localOnly) {
+			return true;
+		}
 		const res = await deleteJson(`/api/items/${item.id}`);
 		if (!res.ok) {
 			const failed = errorCode(res.data);
@@ -616,17 +792,26 @@ export default function Page() {
 			if (back.delivered === 0) {
 				setStatus("No Local peer.");
 			}
+		} else if (item.syncState === "queued" || item.syncState === "held") {
+			await putCachedItem(asCached(payload, item.createdAt, item.syncState));
+			if (item.syncState === "queued") {
+				void runFlush();
+			}
 		} else {
 			const res = await postJson("/api/items", payload);
 			if (!res.ok) {
-				setStatus(errorCode(res.data));
-				return;
+				if (res.status === 0) {
+					await putCachedItem(asCached(payload, item.createdAt, "queued"));
+				} else {
+					setStatus(errorCode(res.data));
+					return;
+				}
 			}
 		}
 		setItems((current) =>
 			current.some((row) => row.id === item.id) ? current : [item, ...current],
 		);
-	}, [undo]);
+	}, [runFlush, undo]);
 
 	const downloadNote = useCallback(async (item: Shown) => {
 		if (item.kind === "text" || item.kind === "link") {
@@ -778,12 +963,45 @@ export default function Page() {
 		await sendPlain(draft);
 	}
 
+	async function applyCacheToTray() {
+		const cached = await getCachedItems();
+		pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+		setItems((current) => applySyncState(current, cached));
+	}
+
+	async function onSyncOne(id: string) {
+		const result = await syncCachedItem(id);
+		await applyCacheToTray();
+		if (result === "ok") {
+			setStatus(notesSyncedCopy(1));
+			return;
+		}
+		setStatus(result === "offline" ? "sync_needs_network" : result);
+	}
+
+	async function onSyncAll() {
+		const result = await syncAllUnsynced();
+		await applyCacheToTray();
+		const notice = flushStatus(result);
+		if (notice) {
+			setStatus(notice);
+		}
+	}
+
 	async function onFile(files: FileList | null) {
 		const file = files?.[0];
 		if (!file) {
 			return;
 		}
 		dismissHint();
+		if (!navigator.onLine) {
+			setStatus("file_needs_network");
+			return;
+		}
+		if (!(await getItemCacheMeta()).syncEnabled) {
+			setStatus("file_needs_sync");
+			return;
+		}
 		const id = crypto.randomUUID();
 		const kind = file.type.startsWith("image/") ? ("image" as const) : ("file" as const);
 		const previewUrl =
@@ -846,6 +1064,9 @@ export default function Page() {
 
 	const draftLines = draft.split("\n").length;
 	const visible = items.filter((item) => isLiveItem(item.expiresAt, now));
+	const waiting = visible.filter(
+		(item) => item.syncState === "queued" || item.syncState === "held",
+	);
 
 	if (!loaded) {
 		return (
@@ -992,6 +1213,11 @@ export default function Page() {
 					<div className="log-head">
 						<p className="sheet-label">On the clipboard</p>
 						<div className="log-head-meta">
+							{waiting.length > 1 ? (
+								<button type="button" className="quiet" onClick={() => void onSyncAll()}>
+									Sync all
+								</button>
+							) : null}
 							{local ? (
 								<HoverTip label="Direct on this network" place="below">
 									<button type="button" className="path-chip" aria-label="Direct on this network">
@@ -1127,6 +1353,15 @@ export default function Page() {
 																	onClick={() => void openPreview(item)}
 																>
 																	PREVIEW
+																</button>
+															) : null}
+															{item.syncState === "queued" || item.syncState === "held" ? (
+																<button
+																	type="button"
+																	className="act"
+																	onClick={() => void onSyncOne(item.id)}
+																>
+																	SYNC
 																</button>
 															) : null}
 															<button
