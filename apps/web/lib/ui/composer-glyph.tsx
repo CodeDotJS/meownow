@@ -1,15 +1,17 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
+import { FolderMark, SendMark, WifiMark } from "./marks";
 
-const GLYPHS = {
-	send: "📤",
-	ephemeral: "👻",
-	file: "📎",
+const MARKS = {
+	send: SendMark,
+	ephemeral: WifiMark,
+	file: FolderMark,
 } as const;
 
-export function ComposerGlyph({ name, pop = false }: { name: keyof typeof GLYPHS; pop?: boolean }) {
+export function ComposerGlyph({ name, pop = false }: { name: keyof typeof MARKS; pop?: boolean }) {
 	const reduce = useReducedMotion();
+	const Mark = MARKS[name];
 	return (
 		<motion.span
 			className="composer-glyph"
@@ -21,7 +23,7 @@ export function ComposerGlyph({ name, pop = false }: { name: keyof typeof GLYPHS
 			}
 			transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
 		>
-			{GLYPHS[name]}
+			<Mark size={18} decorative />
 		</motion.span>
 	);
 }
