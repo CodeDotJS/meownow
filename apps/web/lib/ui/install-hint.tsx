@@ -16,6 +16,8 @@ export function InstallHint() {
 	}
 
 	return (
-		<p className="install-hint">Install from the browser menu to put meownow on the home screen.</p>
+		<p className="install-hint">
+			Install from the browser menu. Open it once online so the app still loads without a network.
+		</p>
 	);
 }

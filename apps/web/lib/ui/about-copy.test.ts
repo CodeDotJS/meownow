@@ -36,18 +36,34 @@ test("names live-only delivery and real TTLs", () => {
 	expect(copy).toMatch(/live only/);
 	expect(copy).toMatch(/thirty days/);
 	expect(copy).toMatch(/seven/);
-	expect(copy).toMatch(/pin/);
+	expect(copy).not.toMatch(/\bpin\b/);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-ttl")?.a).toMatch(/images and files/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-ttl")?.a).toMatch(/deadline/i);
 	expect(
 		ABOUT_FAQ.some((row) => row.id === "about-live" && /skip the store/.test(row.a.toLowerCase())),
 	).toBe(true);
 });
 
-test("splits questions into two equal columns", () => {
+test("splits unique questions into two equal columns", () => {
+	const ids = ABOUT_FAQ.map((row) => row.id);
+	const questions = ABOUT_FAQ.map((row) => row.q);
+	expect(new Set(ids).size).toBe(ids.length);
+	expect(new Set(questions).size).toBe(questions.length);
+	expect(ABOUT_FAQ_COL).toBe(10);
+	expect(ABOUT_FAQ).toHaveLength(20);
 	expect(ABOUT_FAQ).toHaveLength(ABOUT_FAQ_COL * 2);
-	expect(ABOUT_FAQ.length % 2).toBe(0);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-leave")?.a).toMatch(/delete/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-sync")?.a).toMatch(/this browser/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-sync")?.a).toMatch(/queues/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-offline")?.a).toMatch(/local cache/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-offline")?.a).toMatch(/once online/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-offline")?.a).toMatch(
+		/already have the clipboard/i,
+	);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-others")?.a).toMatch(/^No/);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-upload")?.a).toMatch(/25 to 100/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-install")?.a).toMatch(/install/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-share")?.a).toMatch(/android/i);
 });
 
 test("says the server cannot read plaintext", () => {
@@ -56,4 +72,5 @@ test("says the server cannot read plaintext", () => {
 	expect(ABOUT_FAQ.some((row) => row.id === "about-watch" && /cannot watch/.test(row.a))).toBe(
 		true,
 	);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-arrive")?.a).toMatch(/not the paste/i);
 });

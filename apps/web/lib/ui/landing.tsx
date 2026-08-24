@@ -34,7 +34,8 @@ export function Landing({ hasLocal }: { hasLocal: boolean }) {
 							<span className="lede-line">Paste there.</span>
 						</h1>
 						<p className="hero-fade lead">
-							A private clipboard. If someone sent you this page, ask them for an invite link.
+							A private clipboard. Sealed before it leaves your browser. If someone sent you this,
+							ask them for an invite link.
 						</p>
 						<nav className="hero-fade stack">
 							<a className="select" href="/login">

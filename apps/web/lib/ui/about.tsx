@@ -138,7 +138,7 @@ export function About() {
 						<span className="lede-line">who already know each other.</span>
 					</h1>
 					<p className="about-fade lead">
-						Copy here. Paste there. What you copy is sealed before it leaves this page.
+						Copy here. Paste there. What you copy is sealed before it leaves your browser.
 					</p>
 				</header>
 
@@ -176,7 +176,9 @@ export function About() {
 
 				<section className="about-faq about-fade" aria-labelledby="about-faq-title">
 					<div className="about-faq-head">
-						<p className="about-flow-kicker">Invite, keys, Live only, and how long a note lasts.</p>
+						<p className="about-flow-kicker">
+							How you get in, what lasts, and what this browser can do.
+						</p>
 						<HoverTip label={anyOpen ? "Close all" : "Open all"} place="below">
 							<button
 								type="button"

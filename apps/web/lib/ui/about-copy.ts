@@ -21,7 +21,7 @@ export const ABOUT_FLOW = [
 		id: "flow-open",
 		state: "open",
 		title: "The other browser opens it",
-		body: "Decrypt happens there, in that page. Notes last thirty days unless you pin them. Files last seven. Live only never lands in the store.",
+		body: "Decrypt happens there, in that page. Text and links last thirty days. Images and files last seven. Live only never lands in the store.",
 	},
 ] as const;
 
@@ -29,7 +29,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-in",
 		q: "How do I get in?",
-		a: "Someone already here sends an invite link. There is no public signup and no password. Without a link, ask from the home page and leave an email.",
+		a: "An admin sends an invite link. There is no public signup and no password. Ask on the home page only leaves an email — it does not get you in.",
 	},
 	{
 		id: "about-passkey",
@@ -44,17 +44,27 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-words",
 		q: "What if every device is gone?",
-		a: "Setup shows twelve words once. Those words unlock this clipboard on a new browser. Keep them off the devices you use.",
+		a: "Setup shows twelve words once. Those unlock this clipboard if every device is gone. If one still works, pair instead. Keep the words off the devices you use.",
+	},
+	{
+		id: "about-others",
+		q: "Do other people here see what I copy?",
+		a: "No. An invite is an account, not a shared tray. Only this account's devices can open what you copy.",
+	},
+	{
+		id: "about-kinds",
+		q: "What can I send?",
+		a: "Text, links, images, and files. Text stays under 64 KB. A stored file can be up to 100 MB.",
 	},
 	{
 		id: "about-ttl",
 		q: "How long do things stay?",
-		a: "Notes expire after thirty days. Files after seven. Pin a stored item to keep it. Live only never writes to the store, so a refresh drops it.",
+		a: "Text and links last thirty days. Images and files last seven. At the deadline they leave the tray, then the store. There is no keep-forever control. Live only is gone on refresh.",
 	},
 	{
 		id: "about-live",
 		q: "What is Live only?",
-		a: "Skip the store. Another device that is live gets the sealed note over a direct channel, or through the hub if that channel is not open. If nobody else is live, it stays on this device.",
+		a: "Skip the store. Another device that is live gets the sealed note over a direct channel, or through the hub if that channel is not open. If nobody else is live, it stays on this device until you refresh.",
 	},
 	{
 		id: "about-local",
@@ -62,9 +72,14 @@ export const ABOUT_FAQ = [
 		a: "No. Many routers isolate devices on the same network. Local means the browsers found a LAN path. If they did not, a live send still arrives through the hub.",
 	},
 	{
+		id: "about-forget",
+		q: "Can I take something back?",
+		a: "Forget removes it from this tray. A stored note is deleted on the server. A note that never left this browser is only dropped here. Live only notes only exist on the devices that already have them.",
+	},
+	{
 		id: "about-read",
 		q: "Can a server read what I copy?",
-		a: "No. This page seals the text, the filename, the type, and the preview before anything leaves. Servers see owner, size, time, and kind.",
+		a: "No. The clipboard seals the text, the filename, the type, and the preview before anything leaves. Servers see owner, size, time, and kind.",
 	},
 	{
 		id: "about-watch",
@@ -72,32 +87,47 @@ export const ABOUT_FAQ = [
 		a: "No. A browser cannot watch the clipboard in the background. You paste or share here, then copy on the other device.",
 	},
 	{
-		id: "about-kinds",
-		q: "What can I send?",
-		a: "Text, links, images, and files. Text stays under 64 KB. A file can be up to 100 MB, and files need upload permission.",
+		id: "about-sync",
+		q: "What does Sync do?",
+		a: "On, the default, writes sealed text and links to the store when a network exists, and queues them here when it does not. Other devices see a queued note after this browser is back online. Off holds new text and links here until you tap Sync. Turning it off does not pull stored notes back. Files and images never wait. Account holds the switch.",
 	},
 	{
-		id: "about-forget",
-		q: "Can I take something back?",
-		a: "Forget removes it from this tray. Stored items are deleted on the server. Live only notes only exist on the devices that already have them.",
+		id: "about-offline",
+		q: "Does it work without a network?",
+		a: "This browser must already have the clipboard and must have loaded once online. Then you can open and write text and links from the local cache, including after you close the tab. Files and images need a network. Live only needs another live device, and a refresh drops it.",
+	},
+	{
+		id: "about-upload",
+		q: "Why can't I send a file?",
+		a: "Text and links do not need permission. Images and files do. Ask from the menu; an admin grants 25 to 100 MB.",
+	},
+	{
+		id: "about-two",
+		q: "Do I need another device?",
+		a: "One browser can hold a tray. Paste on a phone or laptop needs that browser paired.",
+	},
+	{
+		id: "about-install",
+		q: "Should I install it?",
+		a: "The tab is enough. Install from the browser menu for the home screen. Open it once online so the app can still load without a network.",
+	},
+	{
+		id: "about-share",
+		q: "Can I share into it from another app?",
+		a: "On Android, an installed meownow can take shared text and links. iOS does not. Paste here instead.",
+	},
+	{
+		id: "about-arrive",
+		q: "How do I know something arrived?",
+		a: "When another of your devices stores a note, this one can show a notification that names the account, not the paste. Open the app to read it.",
 	},
 	{
 		id: "about-leave",
 		q: "Can I close my account?",
 		a: "Yes. Sign in, open Account, type your username, and delete it. The last admin cannot. Notes already on other devices stay until those browsers forget them.",
 	},
-	{
-		id: "about-sync",
-		q: "What does Sync do?",
-		a: "On writes sealed notes to the store when a network exists. Off keeps new notes on this browser until you tap Sync. Account holds the switch.",
-	},
-	{
-		id: "about-offline",
-		q: "Does it work without a network?",
-		a: "This browser can open and write text and links from the local cache. Files still need a network. Live only still needs another live device.",
-	},
 ] as const;
 
-export const ABOUT_FAQ_COL = 7;
+export const ABOUT_FAQ_COL = 10;
 
 export const ABOUT_FAQ_TITLE = "Questions";
