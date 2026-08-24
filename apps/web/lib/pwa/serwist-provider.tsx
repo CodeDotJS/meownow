@@ -1,17 +1,16 @@
 "use client";
 
-import { SerwistProvider } from "@serwist/next/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 
 export function PwaSerwist({ children }: { children: ReactNode }) {
-	return (
-		<SerwistProvider
-			swUrl="/sw.js"
-			disable={process.env.NODE_ENV === "development"}
-			reloadOnOnline={false}
-			options={{ type: "classic" }}
-		>
-			{children}
-		</SerwistProvider>
-	);
+	useEffect(() => {
+		if (process.env.NODE_ENV === "development") {
+			return;
+		}
+		if (!("serviceWorker" in navigator)) {
+			return;
+		}
+		void navigator.serviceWorker.register("/sw.js", { type: "classic", scope: "/" });
+	}, []);
+	return children;
 }

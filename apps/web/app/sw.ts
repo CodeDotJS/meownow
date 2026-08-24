@@ -17,7 +17,7 @@ const serwist = new Serwist({
 	precacheEntries: self.__SW_MANIFEST,
 	skipWaiting: true,
 	clientsClaim: true,
-	navigationPreload: true,
+	navigationPreload: false,
 	disableDevLogs: true,
 	runtimeCaching: [
 		{
@@ -39,7 +39,7 @@ const serwist = new Serwist({
 			{
 				url: "/~offline",
 				matcher({ request }) {
-					return request.destination === "document";
+					return request.mode === "navigate" || request.destination === "document";
 				},
 			},
 		],
