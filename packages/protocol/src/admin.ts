@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./z";
 
 export const R2_STORAGE_CEILING_BYTES = 10 * 1024 * 1024 * 1024;
 export const R2_CLASS_A_CEILING = 1_000_000;

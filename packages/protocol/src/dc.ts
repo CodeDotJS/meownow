@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { itemKindSchema, wrappedKeyWireSchema } from "./vault";
+import { z } from "./z";
 
 export const dcEnvelopeSchema = z.discriminatedUnion("type", [
 	z

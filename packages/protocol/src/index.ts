@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./z";
 
 export const protocolVersionSchema = z.literal(1);
 

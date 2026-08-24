@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./z";
 
 export const FILE_MAX_BYTES = 100 * 1024 * 1024;
 export const BLOB_TTL_MS = 7 * 24 * 60 * 60 * 1000;

@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { itemRecordSchema } from "./vault";
+import { z } from "./z";
 
 export const TEXT_PLAIN_MAX_BYTES = 64 * 1024;
 export const TEXT_CIPHERTEXT_MAX_BYTES = TEXT_PLAIN_MAX_BYTES + 16;

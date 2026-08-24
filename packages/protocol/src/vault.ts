@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { normalizePairingCode, PAIRING_CODE_LENGTH } from "./pairing-code";
+import { z } from "./z";
 
 export const TEXT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const PAIRING_TTL_MS = 5 * 60 * 1000;

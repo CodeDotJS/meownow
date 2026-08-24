@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { FILE_MAX_BYTES } from "./capability";
+import { z } from "./z";
 
 export const MIB = 1024 * 1024;
 export const QUOTA_GRANT_MIN_MB = 25;
