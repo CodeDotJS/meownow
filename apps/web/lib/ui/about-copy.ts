@@ -86,8 +86,18 @@ export const ABOUT_FAQ = [
 		q: "Can I close my account?",
 		a: "Yes. Sign in, open Account, type your username, and delete it. The last admin cannot. Notes already on other devices stay until those browsers forget them.",
 	},
+	{
+		id: "about-sync",
+		q: "What does Sync do?",
+		a: "On writes sealed notes to the store when a network exists. Off keeps new notes on this browser until you tap Sync. Account holds the switch.",
+	},
+	{
+		id: "about-offline",
+		q: "Does it work without a network?",
+		a: "This browser can open and write text and links from the local cache. Files still need a network. Live only still needs another live device.",
+	},
 ] as const;
 
-export const ABOUT_FAQ_COL = 6;
+export const ABOUT_FAQ_COL = 7;
 
 export const ABOUT_FAQ_TITLE = "Questions";
