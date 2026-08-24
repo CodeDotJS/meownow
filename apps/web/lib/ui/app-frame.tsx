@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { getJson, postJson } from "@/lib/client/http";
+import { postJson } from "@/lib/client/http";
 import {
 	dismissTransportNotice,
 	subscribeTransportNotice,
@@ -10,14 +10,13 @@ import {
 } from "@/lib/client/transport-notice";
 import { markStandalone } from "@/lib/pwa/standalone";
 import { subscribeHub } from "@/lib/vault/hub-live";
-import { loadVault } from "@/lib/vault/idb";
-import { dropStaleLocalVault } from "@/lib/vault/local";
 import { statusCopy } from "./copy";
 import { HoverTip } from "./hover-tip";
 import { CatMark } from "./marks";
 import { menuActions } from "./menu";
 import { CommandPalette, type PaletteAction } from "./palette";
 import { PixelAvatar } from "./pixel-avatar";
+import { asMenuMe, hydrateBrowserSession } from "./session-cache";
 
 type FrameMe = {
 	handle: string;
@@ -44,15 +43,9 @@ export function AppFrame({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		void (async () => {
 			void pathname;
-			const res = await getJson("/api/auth/me");
-			if (res.ok) {
-				const profile = res.data as FrameMe;
-				await dropStaleLocalVault(profile.hasVault);
-				setMe(profile);
-			} else {
-				setMe(null);
-			}
-			setHasLocal((await loadVault()) !== null);
+			const session = await hydrateBrowserSession();
+			setMe(session.me ? asMenuMe(session.me) : null);
+			setHasLocal(session.hasLocal);
 		})();
 	}, [pathname]);
 
@@ -129,11 +122,11 @@ export function AppFrame({ children }: { children: ReactNode }) {
 						</a>
 					) : null}
 					{me ? (
-						<HoverTip label={live ? "Live on your devices" : "Syncing…"} place="below">
+						<HoverTip label={live ? "Live on your devices" : "Connecting…"} place="below">
 							<button
 								type="button"
 								className={live ? "chrome-live is-on" : "chrome-live"}
-								aria-label={live ? "Live on your devices" : "Syncing…"}
+								aria-label={live ? "Live on your devices" : "Connecting…"}
 							>
 								<span className="chrome-live-dot" aria-hidden />
 							</button>
