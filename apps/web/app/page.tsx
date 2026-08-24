@@ -16,7 +16,7 @@ import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
 import { HoverTip } from "@/lib/ui/hover-tip";
 import { Landing } from "@/lib/ui/landing";
-import { CatMark } from "@/lib/ui/marks";
+import { CatMark, DeleteMark, OpenMark, PreviewMark, SyncMark, WifiMark } from "@/lib/ui/marks";
 import { mergeRemoteItems } from "@/lib/ui/merge-items";
 import { NoteReader, type NoteReaderState } from "@/lib/ui/note-reader";
 import { textNeedsReader } from "@/lib/ui/note-size";
@@ -102,7 +102,7 @@ function itemTtl(kind: Shown["kind"]): number {
 const UNREADABLE = "This browser cannot read that line";
 const CLIP_HINT_KEY = "meownow.clip-hint";
 const FORGET_TOMBSTONE_MS = 15000;
-const UNDO_NOTICE_MS = 5000;
+const TRAY_NOTICE_MS = 6000;
 
 function cachedToRow(item: CachedItem): ItemRow {
 	return {
@@ -170,6 +170,7 @@ export default function Page() {
 	const [undo, setUndo] = useState<Shown | null>(null);
 	const [preview, setPreview] = useState<FilePreviewState | null>(null);
 	const [note, setNote] = useState<NoteReaderState | null>(null);
+	const [syncingId, setSyncingId] = useState<string | null>(null);
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
@@ -679,10 +680,10 @@ export default function Page() {
 	}, [copiedId]);
 
 	useEffect(() => {
-		if (status !== "Downloaded.") {
+		if (!status) {
 			return;
 		}
-		const timer = window.setTimeout(() => setStatus(null), 2000);
+		const timer = window.setTimeout(() => setStatus(null), TRAY_NOTICE_MS);
 		return () => window.clearTimeout(timer);
 	}, [status]);
 
@@ -690,7 +691,7 @@ export default function Page() {
 		if (!undo) {
 			return;
 		}
-		const timer = window.setTimeout(() => setUndo(null), UNDO_NOTICE_MS);
+		const timer = window.setTimeout(() => setUndo(null), TRAY_NOTICE_MS);
 		return () => window.clearTimeout(timer);
 	}, [undo]);
 
@@ -970,13 +971,18 @@ export default function Page() {
 	}
 
 	async function onSyncOne(id: string) {
-		const result = await syncCachedItem(id);
-		await applyCacheToTray();
-		if (result === "ok") {
-			setStatus(notesSyncedCopy(1));
-			return;
+		setSyncingId(id);
+		try {
+			const result = await syncCachedItem(id);
+			await applyCacheToTray();
+			if (result === "ok") {
+				setStatus(notesSyncedCopy(1));
+				return;
+			}
+			setStatus(result === "offline" ? "sync_needs_network" : result);
+		} finally {
+			setSyncingId(null);
 		}
-		setStatus(result === "offline" ? "sync_needs_network" : result);
 	}
 
 	async function onSyncAll() {
@@ -1129,7 +1135,7 @@ export default function Page() {
 					Tap a short note to copy. Open a long one to read it. Paste on this page to send.
 				</p>
 			) : null}
-			<div className={ephemeral ? "stage is-ghost" : "stage"}>
+			<div className="stage">
 				<div className="composer">
 					<p className="sheet-label">{ephemeral ? "Live only" : "New paste"}</p>
 					<textarea
@@ -1220,7 +1226,12 @@ export default function Page() {
 							) : null}
 							{local ? (
 								<HoverTip label="Direct on this network" place="below">
-									<button type="button" className="path-chip" aria-label="Direct on this network">
+									<button
+										type="button"
+										className="path-chip is-on"
+										aria-label="Direct on this network"
+									>
+										<span className="path-chip-dot" aria-hidden />
 										LAN
 									</button>
 								</HoverTip>
@@ -1286,7 +1297,6 @@ export default function Page() {
 														}}
 														className={[
 															"log-item",
-															item.ephemeral ? "is-ghost" : "",
 															selected ? "is-selected" : "",
 															item.kind === "image" || item.kind === "file" ? "has-file" : "",
 														]
@@ -1302,90 +1312,118 @@ export default function Page() {
 															)}
 														</span>
 														<span className="rail" aria-hidden />
-														{locked ? (
-															<p className="body">
-																{item.text}. <a href="/pair/show">Show a code</a> or{" "}
-																<a href="/recover">use the 12 words</a>
-															</p>
-														) : item.kind === "image" || item.kind === "file" ? (
-															<button
-																type="button"
-																className="body file-body"
-																onClick={() => activateItem(item)}
-															>
-																<PixelThumb seed={item.id} label={item.text} />
-																<span className="file-copy">
-																	<span className="file-name">{item.text}</span>
-																	<span className="file-meta">
-																		{item.uploadProgress !== undefined
-																			? `Sending ${Math.round(item.uploadProgress * 100)}%`
-																			: item.kind === "image"
-																				? "Image"
-																				: "File"}
-																	</span>
-																</span>
-															</button>
-														) : (
-															<button
-																type="button"
-																className="body"
-																onClick={() => activateItem(item)}
-															>
-																{item.text}
-															</button>
-														)}
-														<span className="log-actions">
-															{item.kind !== "image" &&
-															item.kind !== "file" &&
-															textNeedsReader(item.text) ? (
+														<div className="log-main">
+															{locked ? (
+																<p className="body">
+																	{item.text}. <a href="/pair/show">Show a code</a> or{" "}
+																	<a href="/recover">use the 12 words</a>
+																</p>
+															) : item.kind === "image" || item.kind === "file" ? (
 																<button
 																	type="button"
-																	className="act"
+																	className="body file-body"
 																	onClick={() => activateItem(item)}
 																>
-																	OPEN
+																	<PixelThumb seed={item.id} label={item.text} />
+																	<span className="file-copy">
+																		<span className="file-name">
+																			{item.ephemeral ? (
+																				<WifiMark className="note-live-mark" size={14} decorative />
+																			) : null}
+																			<span>{item.text}</span>
+																		</span>
+																		<span className="file-meta">
+																			{item.uploadProgress !== undefined
+																				? `Sending ${Math.round(item.uploadProgress * 100)}%`
+																				: item.kind === "image"
+																					? "Image"
+																					: "File"}
+																		</span>
+																	</span>
 																</button>
-															) : null}
-															{item.kind === "image" || item.kind === "file" ? (
+															) : (
 																<button
 																	type="button"
-																	className="act"
-																	onClick={() => void openPreview(item)}
+																	className="body"
+																	onClick={() => activateItem(item)}
 																>
-																	PREVIEW
+																	{item.ephemeral ? (
+																		<WifiMark className="note-live-mark" size={14} decorative />
+																	) : null}
+																	{item.text}
 																</button>
-															) : null}
-															{item.syncState === "queued" || item.syncState === "held" ? (
-																<button
-																	type="button"
-																	className="act"
-																	onClick={() => void onSyncOne(item.id)}
-																>
-																	SYNC
-																</button>
-															) : null}
-															<button
-																type="button"
-																className="act"
-																onClick={() => void onForget(item.id)}
-															>
-																FORGET
-															</button>
-														</span>
-														<span
-															className={
-																item.uploadProgress !== undefined
-																	? "ttl is-upload"
-																	: warn
-																		? "ttl warn"
-																		: "ttl"
-															}
-															style={{
-																["--remain" as string]: String(
-																	item.uploadProgress !== undefined ? item.uploadProgress : remain,
-																),
-															}}
-														/>
+															)}
+															<span className="log-actions">
+																{item.kind !== "image" &&
+																item.kind !== "file" &&
+																textNeedsReader(item.text) ? (
+																	<HoverTip label="Open" place="above">
+																		<button
+																			type="button"
+																			className="act act-icon"
+																			aria-label="Open"
+																			onClick={() => activateItem(item)}
+																		>
+																			<OpenMark size={15} decorative />
+																		</button>
+																	</HoverTip>
+																) : null}
+																{item.kind === "image" || item.kind === "file" ? (
+																	<HoverTip label="Preview" place="above">
+																		<button
+																			type="button"
+																			className="act act-icon"
+																			aria-label="Preview"
+																			onClick={() => void openPreview(item)}
+																		>
+																			<PreviewMark size={15} decorative />
+																		</button>
+																	</HoverTip>
+																) : null}
+																{item.syncState === "queued" || item.syncState === "held" ? (
+																	<HoverTip label="Sync" place="above">
+																		<button
+																			type="button"
+																			className={
+																				syncingId === item.id
+																					? "act act-icon is-busy"
+																					: "act act-icon"
+																			}
+																			aria-label="Sync"
+																			onClick={() => void onSyncOne(item.id)}
+																		>
+																			<SyncMark size={15} decorative />
+																		</button>
+																	</HoverTip>
+																) : null}
+																<HoverTip label="Forget" place="above">
+																	<button
+																		type="button"
+																		className="act act-icon"
+																		aria-label="Forget"
+																		onClick={() => void onForget(item.id)}
+																	>
+																		<DeleteMark size={15} decorative />
+																	</button>
+																</HoverTip>
+															</span>
+															<span
+																className={
+																	item.uploadProgress !== undefined
+																		? "ttl is-upload"
+																		: warn
+																			? "ttl warn"
+																			: "ttl"
+																}
+																style={{
+																	["--remain" as string]: String(
+																		item.uploadProgress !== undefined
+																			? item.uploadProgress
+																			: remain,
+																	),
+																}}
+															/>
+														</div>
 													</motion.li>
 												);
 											})}
