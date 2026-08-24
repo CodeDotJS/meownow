@@ -51,7 +51,14 @@ const LOCAL: Record<string, string> = {
 	"fingerprint mismatch": "Numbers did not match. Abort.",
 	"No Local peer.": "Stayed on this device. No other live device.",
 	dc_send_failed: "Stayed on this device. Could not send live.",
+	file_needs_network: "Need a network to send a file.",
+	file_needs_sync: "Files need Sync on. They cannot wait on this browser.",
+	sync_needs_network: "Need a network to sync.",
 };
+
+export function notesSyncedCopy(count: number): string {
+	return count === 1 ? "1 note synced" : `${count} notes synced`;
+}
 
 export function statusCopy(status: string): string {
 	if (status in PROTOCOL) {
