@@ -11,7 +11,12 @@ export default function OfflinePage() {
 		<main>
 			<Panel>
 				<h1>Offline</h1>
-				<p className="lead">Items already on this device still open from the local cache.</p>
+				<p className="lead">Open Home. Notes already on this device still open from there.</p>
+				<nav className="stack">
+					<a className="select" href="/">
+						Home
+					</a>
+				</nav>
 			</Panel>
 		</main>
 	);
