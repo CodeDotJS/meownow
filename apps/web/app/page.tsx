@@ -154,7 +154,6 @@ function flushStatus(result: FlushResult): string | null {
 
 export default function Page() {
 	const [me, setMe] = useState<Me | null>(null);
-	const [loaded, setLoaded] = useState(false);
 	const [hasLocal, setHasLocal] = useState(false);
 	const [draft, setDraft] = useState("");
 	const [items, setItems] = useState<Shown[]>([]);
@@ -191,7 +190,6 @@ export default function Page() {
 			const session = await hydrateBrowserSession();
 			setMe(session.me);
 			setHasLocal(session.hasLocal);
-			setLoaded(true);
 		})();
 	}, []);
 
@@ -1073,22 +1071,6 @@ export default function Page() {
 	const waiting = visible.filter(
 		(item) => item.syncState === "queued" || item.syncState === "held",
 	);
-
-	if (!loaded) {
-		return (
-			<main>
-				<h1 className="file-hidden">Clipboard</h1>
-				<p className="file-hidden" role="status">
-					Loading
-				</p>
-				<div className="panel sheet-skeleton" aria-hidden="true">
-					<span className="skel" />
-					<span className="skel" />
-					<span className="skel skel-short" />
-				</div>
-			</main>
-		);
-	}
 
 	if (!me) {
 		return <Landing hasLocal={hasLocal} />;

@@ -25,7 +25,7 @@ export function Landing({ hasLocal }: { hasLocal: boolean }) {
 	}, [reduce]);
 
 	return (
-		<>
+		<div className="landing-stage">
 			<main className={reduce ? "landing is-static" : "landing"} ref={rootRef}>
 				<section className="hero">
 					<div className="hero-copy">
@@ -74,6 +74,6 @@ export function Landing({ hasLocal }: { hasLocal: boolean }) {
 				</section>
 			</main>
 			<SiteFooter />
-		</>
+		</div>
 	);
 }
