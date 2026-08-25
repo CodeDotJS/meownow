@@ -246,8 +246,23 @@ The spec is [`docs/SPEC.md`](docs/SPEC.md).
 
 ---
 
-## License
+<br>
 
-Copyright © 2026 [Rishi Giri](https://rishi.rest).
+<div align="center">
 
-<center>meownow is released under the [MIT License](LICENSE).</center>
+<p align="center">
+  <img src="media/cat-travel-bag.svg" width="128" alt="meownow" />
+</p>
+
+
+__License__
+
+<br>
+
+Copyright © 2026 [Rishi Giri](https://rishi.rest)
+
+<br>
+
+meownow is released under the [MIT License](LICENSE)
+
+</div>
