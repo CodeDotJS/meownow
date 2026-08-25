@@ -16,7 +16,7 @@ import { CatMark } from "./marks";
 import { menuActions } from "./menu";
 import { CommandPalette, type PaletteAction } from "./palette";
 import { PixelAvatar } from "./pixel-avatar";
-import { asMenuMe, hydrateBrowserSession } from "./session-cache";
+import { asMenuMe, clearBrowserSession, hydrateBrowserSession } from "./session-cache";
 
 type FrameMe = {
 	handle: string;
@@ -81,6 +81,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 						...row,
 						run: async () => {
 							await postJson("/api/auth/logout", {});
+							clearBrowserSession();
 							window.location.href = "/";
 						},
 					}

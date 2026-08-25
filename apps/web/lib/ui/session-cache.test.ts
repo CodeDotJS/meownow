@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
 import type { LastMe } from "@/lib/vault/item-cache";
-import { resolveSession } from "./session-cache";
+import {
+	clearBrowserSession,
+	peekBrowserSession,
+	rememberBrowserSession,
+	resolveSession,
+} from "./session-cache";
 
 const cached: LastMe = {
 	id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -34,4 +39,13 @@ test("a live unauthorized response does not use lastMe", () => {
 	expect(
 		resolveSession({ status: 401, profile: null, cachedMe: cached, hasLocal: true }),
 	).toBeNull();
+});
+
+test("this tab can peek the last hydrate without waiting", () => {
+	clearBrowserSession();
+	expect(peekBrowserSession()).toBeNull();
+	rememberBrowserSession({ me: cached, hasLocal: true });
+	expect(peekBrowserSession()).toEqual({ me: cached, hasLocal: true });
+	clearBrowserSession();
+	expect(peekBrowserSession()).toBeNull();
 });

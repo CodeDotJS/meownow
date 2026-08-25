@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import type { MenuMe } from "./menu";
 import { Panel } from "./panel";
-import { asMenuMe, hydrateBrowserSession } from "./session-cache";
+import { asMenuMe, hydrateBrowserSession, peekBrowserSession } from "./session-cache";
 
 export function useBrowserSession() {
-	const [ready, setReady] = useState(false);
-	const [me, setMe] = useState<MenuMe | null>(null);
-	const [hasLocal, setHasLocal] = useState(false);
+	const peeked = peekBrowserSession();
+	const [ready, setReady] = useState(() => peeked !== null);
+	const [me, setMe] = useState<MenuMe | null>(() => (peeked?.me ? asMenuMe(peeked.me) : null));
+	const [hasLocal, setHasLocal] = useState(() => peeked?.hasLocal ?? false);
 
 	useEffect(() => {
 		void (async () => {

@@ -50,11 +50,28 @@ export function lastMeFromProfile(profile: {
 	};
 }
 
-/** Cookie session still authorizes writes. lastMe is chrome only. */
-export async function hydrateBrowserSession(): Promise<{
+type BrowserSession = {
 	me: LastMe | null;
 	hasLocal: boolean;
-}> {
+};
+
+let memory: BrowserSession | null = null;
+
+/** Last hydrate in this tab. Null until the first one finishes. */
+export function peekBrowserSession(): BrowserSession | null {
+	return memory;
+}
+
+export function rememberBrowserSession(session: BrowserSession): void {
+	memory = session;
+}
+
+export function clearBrowserSession(): void {
+	memory = null;
+}
+
+/** Cookie session still authorizes writes. lastMe is chrome only. */
+export async function hydrateBrowserSession(): Promise<BrowserSession> {
 	const hasLocal = (await loadVault()) !== null;
 	const cachedMe = (await getItemCacheMeta()).lastMe;
 	const res = await getJson("/api/auth/me");
@@ -72,7 +89,11 @@ export async function hydrateBrowserSession(): Promise<{
 		const stillLocal = (await loadVault()) !== null;
 		const meta = await getItemCacheMeta();
 		await setItemCacheMeta({ ...meta, lastMe: profile });
-		return { me: resolved, hasLocal: stillLocal };
+		const session = { me: resolved, hasLocal: stillLocal };
+		rememberBrowserSession(session);
+		return session;
 	}
-	return { me: resolved, hasLocal };
+	const session = { me: resolved, hasLocal };
+	rememberBrowserSession(session);
+	return session;
 }

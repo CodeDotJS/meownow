@@ -23,7 +23,7 @@ import { textNeedsReader } from "@/lib/ui/note-size";
 import { Panel } from "@/lib/ui/panel";
 import { PixelStamp, PixelThumb } from "@/lib/ui/pixel-avatar";
 import { OFFLINE_POLL_MS, shouldHttpPoll } from "@/lib/ui/reconcile";
-import { hydrateBrowserSession } from "@/lib/ui/session-cache";
+import { hydrateBrowserSession, peekBrowserSession } from "@/lib/ui/session-cache";
 import { Status } from "@/lib/ui/status";
 import { formatClockTime, groupByDay, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
 import {
@@ -153,8 +153,10 @@ function flushStatus(result: FlushResult): string | null {
 }
 
 export default function Page() {
-	const [me, setMe] = useState<Me | null>(null);
-	const [hasLocal, setHasLocal] = useState(false);
+	const peeked = peekBrowserSession();
+	const [me, setMe] = useState<Me | null>(() => peeked?.me ?? null);
+	const [hasLocal, setHasLocal] = useState(() => peeked?.hasLocal ?? false);
+	const [ready, setReady] = useState(() => peeked !== null);
 	const [draft, setDraft] = useState("");
 	const [items, setItems] = useState<Shown[]>([]);
 	const [status, setStatus] = useState<string | null>(null);
@@ -190,6 +192,7 @@ export default function Page() {
 			const session = await hydrateBrowserSession();
 			setMe(session.me);
 			setHasLocal(session.hasLocal);
+			setReady(true);
 		})();
 	}, []);
 
@@ -1071,6 +1074,17 @@ export default function Page() {
 	const waiting = visible.filter(
 		(item) => item.syncState === "queued" || item.syncState === "held",
 	);
+
+	if (!ready) {
+		return (
+			<main>
+				<h1 className="file-hidden">Clipboard</h1>
+				<p className="file-hidden" role="status">
+					Loading
+				</p>
+			</main>
+		);
+	}
 
 	if (!me) {
 		return <Landing hasLocal={hasLocal} />;
