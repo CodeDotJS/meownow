@@ -20,6 +20,7 @@ import { HoverTip } from "@/lib/ui/hover-tip";
 import { Landing } from "@/lib/ui/landing";
 import {
 	CatMark,
+	CopyMark,
 	DeleteMark,
 	EditMark,
 	OpenMark,
@@ -191,6 +192,8 @@ export default function Page() {
 	const [note, setNote] = useState<NoteReaderState | null>(null);
 	const [syncingId, setSyncingId] = useState<string | null>(null);
 	const [editingId, setEditingId] = useState<string | null>(null);
+	const [clipLongNotes, setClipLongNotes] = useState(false);
+	const [tapNoteToCopy, setTapNoteToCopy] = useState(false);
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
@@ -213,6 +216,13 @@ export default function Page() {
 			setHasLocal(session.hasLocal);
 			setReady(true);
 		})();
+	}, []);
+
+	useEffect(() => {
+		void getItemCacheMeta().then((meta) => {
+			setClipLongNotes(meta.clipLongNotes);
+			setTapNoteToCopy(meta.tapNoteToCopy);
+		});
 	}, []);
 
 	const finishVault = useCallback(() => {
@@ -1104,14 +1114,16 @@ export default function Page() {
 				return;
 			}
 			setPreview(null);
-			if (textNeedsReader(item.text)) {
+			if (clipLongNotes && textNeedsReader(item.text)) {
 				setNote({ id: item.id, text: item.text, createdAt: item.createdAt });
 				return;
 			}
 			setNote(null);
-			void onCopy(item.text, item.id);
+			if (tapNoteToCopy) {
+				void onCopy(item.text, item.id);
+			}
 		},
-		[dismissHint, onCopy, openPreview],
+		[clipLongNotes, dismissHint, onCopy, openPreview, tapNoteToCopy],
 	);
 
 	useEffect(() => {
@@ -1158,7 +1170,18 @@ export default function Page() {
 			}
 			if (event.key === "Enter") {
 				event.preventDefault();
-				activateItem(selected);
+				if (selected.kind === "image" || selected.kind === "file") {
+					activateItem(selected);
+					return;
+				}
+				if (selected.text === UNREADABLE) {
+					return;
+				}
+				if (clipLongNotes && textNeedsReader(selected.text)) {
+					activateItem(selected);
+					return;
+				}
+				void onCopy(selected.text, selected.id);
 				return;
 			}
 			if (event.key === "Backspace" || event.key === "Delete") {
@@ -1168,7 +1191,7 @@ export default function Page() {
 		}
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [activateItem, hasLocal, me, onForget, selectedId]);
+	}, [activateItem, clipLongNotes, hasLocal, me, onCopy, onForget, selectedId]);
 
 	async function onSend() {
 		dismissHint();
@@ -1340,7 +1363,7 @@ export default function Page() {
 			<h1 className="file-hidden">Clipboard</h1>
 			{hint ? (
 				<p className="hint clip-hint">
-					Tap a short note to copy. Open a long one to read it. Paste on this page to send.
+					Copy from the mark next to a note. Paste on this page to send.
 				</p>
 			) : null}
 			<div className="stage">
@@ -1487,6 +1510,24 @@ export default function Page() {
 												const warn = ttlWarn(item.expiresAt, now);
 												const selected = item.id === selectedId;
 												const locked = item.text === UNREADABLE;
+												const isFile = item.kind === "image" || item.kind === "file";
+												const clampNote =
+													!locked && !isFile && clipLongNotes && textNeedsReader(item.text);
+												const noteBodyClass = [
+													"body",
+													clampNote ? "is-clamped" : "",
+													tapNoteToCopy ? "is-action" : "",
+												]
+													.filter(Boolean)
+													.join(" ");
+												const noteBody = (
+													<span className="note-md-row">
+														{item.ephemeral ? (
+															<WifiMark className="note-live-mark" size={14} decorative />
+														) : null}
+														<NoteMarkdown text={item.text} links={!tapNoteToCopy} />
+													</span>
+												);
 												return (
 													<motion.li
 														key={item.id}
@@ -1550,26 +1591,19 @@ export default function Page() {
 																		</span>
 																	</span>
 																</button>
-															) : (
+															) : tapNoteToCopy ? (
 																<button
 																	type="button"
-																	className={
-																		textNeedsReader(item.text) ? "body is-clamped" : "body"
-																	}
+																	className={noteBodyClass}
 																	onClick={() => activateItem(item)}
 																>
-																	<span className="note-md-row">
-																		{item.ephemeral ? (
-																			<WifiMark className="note-live-mark" size={14} decorative />
-																		) : null}
-																		<NoteMarkdown text={item.text} links={false} />
-																	</span>
+																	{noteBody}
 																</button>
+															) : (
+																<div className={noteBodyClass}>{noteBody}</div>
 															)}
 															<span className="log-actions">
-																{item.kind !== "image" &&
-																item.kind !== "file" &&
-																textNeedsReader(item.text) ? (
+																{!isFile && clampNote ? (
 																	<HoverTip label="Open" place="above">
 																		<button
 																			type="button"
@@ -1581,7 +1615,7 @@ export default function Page() {
 																		</button>
 																	</HoverTip>
 																) : null}
-																{item.kind === "image" || item.kind === "file" ? (
+																{isFile ? (
 																	<HoverTip label="Preview" place="above">
 																		<button
 																			type="button"
@@ -1593,9 +1627,22 @@ export default function Page() {
 																		</button>
 																	</HoverTip>
 																) : null}
-																{item.kind !== "image" &&
-																item.kind !== "file" &&
-																item.text !== UNREADABLE ? (
+																{!isFile && !locked ? (
+																	<HoverTip label="Copy" place="above">
+																		<button
+																			type="button"
+																			className="act act-icon"
+																			aria-label="Copy"
+																			onClick={() => {
+																				setSelectedId(item.id);
+																				void onCopy(item.text, item.id);
+																			}}
+																		>
+																			<CopyMark size={15} decorative />
+																		</button>
+																	</HoverTip>
+																) : null}
+																{!isFile && item.text !== UNREADABLE ? (
 																	<HoverTip
 																		label={editingId === item.id ? "Cancel" : "Edit"}
 																		place="above"
