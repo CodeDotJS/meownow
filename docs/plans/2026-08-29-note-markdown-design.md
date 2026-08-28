@@ -17,12 +17,12 @@ HTML in the envelope is still plaintext to anyone who decrypts. It drops the sou
 Client-only. `marked` lexes; React walks tokens. Never `innerHTML`, never `marked.parse`.
 
 - GFM with `breaks: true` so existing newline-shaped notes do not collapse.
-- Allow: headings, lists (dot markers), quotes, tables, emphasis, strike, inline code, fenced code, autolinks, `[text](url)`, `[ ]` / `[x]` task boxes.
+- Allow: headings h1–h6, lists (including nested and an ordered start), quotes, tables (column align from the separator), emphasis, strike, inline code, fenced and indented code, autolinks, `[text](url)` with an optional title, `[ ]` / `[x]` task boxes.
 - Links have no underline. `http:`, `https:`, `mailto:` only. No relative URLs (those would be this origin).
 - Images: alt text only. No `img`, no remote fetch (CSP `img-src` is already `'self' blob: data:`).
 - HTML in the source is shown as text.
 
-The tray clamp is max-height, not `-webkit-line-clamp`, because block markdown breaks box-orient. Tray links are not `<a>` (the row is still tap-to-copy). Open and the reader use real links.
+The tray clamp is max-height, not `-webkit-line-clamp`, because block markdown breaks box-orient. Tray links are real `<a>` unless this browser turns Tap a note to copy on in Account. Open and the reader always use real links.
 
 ## Emoji
 
@@ -35,5 +35,5 @@ Cap remains 64 KB of **source**.
 - WYSIWYG / contenteditable composer
 - Persisting HTML
 - Markdown images from the network
-- Editing a sent note
+- markdown-it plugins (typographer, sub/sup, footnotes, definition lists, containers, syntax highlighting)
 - Worker, Neon, protocol schema
