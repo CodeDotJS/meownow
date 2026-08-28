@@ -38,6 +38,28 @@ export async function getJson(url: string): Promise<{
 	}
 }
 
+export async function patchJson(
+	url: string,
+	body: unknown,
+): Promise<{
+	ok: boolean;
+	status: number;
+	data: unknown;
+}> {
+	try {
+		const res = await fetch(url, {
+			method: "PATCH",
+			credentials: "include",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		readTransportNotice(res);
+		return { ok: res.ok, status: res.status, data: await readJson(res) };
+	} catch {
+		return { ...OFFLINE };
+	}
+}
+
 export async function deleteJson(url: string): Promise<{
 	ok: boolean;
 	status: number;
