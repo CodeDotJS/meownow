@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { inviteState, seatNumbers } from "@meownow/db";
-import type { ItemCreateRequest } from "@meownow/protocol";
+import type { ItemCreateRequest, ItemUpdateRequest } from "@meownow/protocol";
 import { planPrune } from "../vault/prune";
 import type {
 	BlobRow,
@@ -477,6 +477,30 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			return;
 		}
 		this.items.push({ ...item, ownerId, createdAt: now });
+	}
+
+	async updateTextItem(
+		ownerId: string,
+		id: string,
+		patch: ItemUpdateRequest,
+		now: Date,
+	): Promise<StoredItem | "missing" | "not_text" | "expired"> {
+		const row = this.items.find((item) => item.id === id && item.ownerId === ownerId);
+		if (!row) {
+			return "missing";
+		}
+		if (row.kind !== "text" && row.kind !== "link") {
+			return "not_text";
+		}
+		if (Date.parse(row.expiresAt) <= now.getTime()) {
+			return "expired";
+		}
+		row.kind = patch.kind;
+		row.ciphertext = patch.ciphertext;
+		row.metaCiphertext = patch.metaCiphertext;
+		row.iv = patch.iv;
+		row.byteSize = patch.byteSize;
+		return row;
 	}
 
 	async listItems(ownerId: string): Promise<StoredItem[]> {
