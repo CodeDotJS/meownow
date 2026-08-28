@@ -168,7 +168,7 @@ export async function upsertSyncedFromRemote(
 			continue;
 		}
 		const existing = byId.get(item.id);
-		if (existing?.state === "queued" || existing?.state === "held") {
+		if (existing?.state === "queued" || existing?.state === "held" || existing?.state === "dirty") {
 			continue;
 		}
 		await putCachedItem({
