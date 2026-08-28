@@ -91,6 +91,16 @@ export const itemCreateRequestSchema = z.object({
 	expiresAt: z.string(),
 });
 
+export const itemUpdateRequestSchema = z
+	.object({
+		kind: z.enum(["text", "link"]),
+		ciphertext: z.string().min(1),
+		metaCiphertext: z.string().min(1),
+		iv: z.string().min(1),
+		byteSize: z.number().int().nonnegative(),
+	})
+	.strict();
+
 export const itemRecordSchema = z.object({
 	id: z.string().uuid(),
 	kind: itemKindSchema,
@@ -128,6 +138,7 @@ export type VaultPutRequest = z.infer<typeof vaultPutRequestSchema>;
 export type PairingStartRequest = z.infer<typeof pairingStartRequestSchema>;
 export type PairingWrapRequest = z.infer<typeof pairingWrapRequestSchema>;
 export type ItemCreateRequest = z.infer<typeof itemCreateRequestSchema>;
+export type ItemUpdateRequest = z.infer<typeof itemUpdateRequestSchema>;
 export type ItemRecord = z.infer<typeof itemRecordSchema>;
 export type PairingQr = z.infer<typeof pairingQrSchema>;
 export type PushSubscribeRequest = z.infer<typeof pushSubscribeRequestSchema>;
