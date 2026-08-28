@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { NOTE_CLAMP_LINES, NOTE_READER_CHARS, noteLineCount, textNeedsReader } from "./note-size";
 
-test("short notes still copy from the tray", () => {
+test("short notes do not need the reader", () => {
 	expect(textNeedsReader("a short paste")).toBe(false);
 	expect(textNeedsReader("one\ntwo\nthree\nfour")).toBe(false);
 });
