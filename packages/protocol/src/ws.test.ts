@@ -20,6 +20,26 @@ test("item.created can mark a live ephemeral note that was never stored", () => 
 	expect(parsed).toMatchObject({ type: "item.created", ephemeral: true });
 });
 
+test("item.updated is a sealed replace and may mark a live-only note", () => {
+	const item = {
+		id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+		kind: "text" as const,
+		ciphertext: "Yg",
+		metaCiphertext: "YQ",
+		iv: "YQ",
+		byteSize: 1,
+		expiresAt: new Date().toISOString(),
+		createdAt: new Date().toISOString(),
+	};
+	expect(wsEnvelopeSchema.parse({ v: 1, type: "item.updated", item })).toMatchObject({
+		type: "item.updated",
+		item: { id: item.id, ciphertext: "Yg" },
+	});
+	expect(
+		wsEnvelopeSchema.parse({ v: 1, type: "item.updated", ephemeral: true, item }),
+	).toMatchObject({ type: "item.updated", ephemeral: true });
+});
+
 test("keepalive frames parse and stay byte-exact for the edge auto-response", () => {
 	expect(wsEnvelopeSchema.parse(JSON.parse(HUB_PING)).type).toBe("ping");
 	expect(wsEnvelopeSchema.parse(JSON.parse(HUB_PONG)).type).toBe("pong");
