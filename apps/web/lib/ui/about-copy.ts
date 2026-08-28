@@ -54,7 +54,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-kinds",
 		q: "What can I send?",
-		a: "Text, links, images, and files. Text stays under 64 KB. A stored file can be up to 100 MB.",
+		a: "Text, links, images, and files. Notes are markdown in this browser; what is stored is still ciphertext of the source. Type :smile: for emoji. Text stays under 64 KB. A stored file can be up to 100 MB.",
 	},
 	{
 		id: "about-ttl",
