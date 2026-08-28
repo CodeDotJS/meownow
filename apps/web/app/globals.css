@@ -1308,15 +1308,18 @@ button:disabled {
 }
 
 .composer textarea {
+	display: block;
 	width: 100%;
 	min-height: 4.5rem;
-	max-height: 9rem;
+	max-height: min(48dvh, 22rem);
+	field-sizing: content;
 	margin: 0;
 	padding: 0.15rem 0.1rem;
 	border: 0;
 	background: transparent;
 	resize: none;
 	overflow-y: auto;
+	scrollbar-gutter: stable;
 	font-family: inherit;
 	font-size: 1.125rem;
 	line-height: 1.5;
@@ -1326,6 +1329,9 @@ button:disabled {
 
 .composer-field {
 	position: relative;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
 }
 
 .composer textarea:focus {
@@ -1981,11 +1987,17 @@ li {
 	font-size: 1rem;
 	line-height: 1.4;
 	min-height: 1.85rem;
-	max-height: calc(1.4em * 4);
 	border-radius: var(--radius-xs);
 	display: block;
-	overflow: hidden;
+	overflow: visible;
 	cursor: pointer;
+}
+
+.log-item .body.is-clamped {
+	max-height: calc(1.4em * 4);
+	overflow: hidden;
+	-webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 0.65em), transparent);
+	mask-image: linear-gradient(to bottom, #000 calc(100% - 0.65em), transparent);
 }
 
 .log-item .body:hover,
@@ -2036,6 +2048,11 @@ li {
 
 .log-item .act.act-icon.is-busy svg {
 	animation: mark-spin 0.8s linear infinite;
+}
+
+.log-item .act.act-icon.is-on {
+	background: var(--wash);
+	border-color: var(--ink);
 }
 
 @keyframes mark-spin {
@@ -2094,6 +2111,18 @@ li {
 .note-md-pre,
 .note-md-h {
 	margin: 0.28rem 0;
+}
+
+.log-item .body .note-md-p,
+.log-item .body .note-md-quote,
+.log-item .body .note-md-list,
+.log-item .body .note-md-pre,
+.log-item .body .note-md-h {
+	margin: 0;
+}
+
+.log-item .body .note-md-list > li {
+	padding: 0.02rem 0;
 }
 
 .note-md-h {
@@ -2388,13 +2417,17 @@ li {
 }
 
 .log-item.is-compose textarea {
+	display: block;
 	width: 100%;
 	min-height: 4.5rem;
+	max-height: min(48dvh, 22rem);
+	field-sizing: content;
 	margin: 0;
 	padding: 0.15rem 0.2rem;
 	border: 0;
 	background: transparent;
 	resize: none;
+	overflow-y: auto;
 	font-family: inherit;
 	font-size: 1.125rem;
 	line-height: 1.5;
@@ -2689,10 +2722,16 @@ li {
 		border-right: 1px solid var(--rule);
 	}
 
+	.composer-field {
+		flex: 1 1 auto;
+	}
+
 	.composer textarea {
 		flex: 1 1 auto;
 		min-height: 7.5rem;
 		max-height: none;
+		field-sizing: fixed;
+		height: auto;
 	}
 
 	.composer-foot {
@@ -3099,7 +3138,7 @@ li {
 	.log-item.is-compose textarea {
 		font-size: 16px;
 		min-height: 5.75rem;
-		max-height: 8.5rem;
+		max-height: min(48dvh, 22rem);
 	}
 
 	.fp-sheet {
