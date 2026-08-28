@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { DEFAULT_ITEM_CACHE_META, type ItemCacheMeta, type ItemCacheStore } from "./item-cache";
+import {
+	asItemCacheMeta,
+	DEFAULT_ITEM_CACHE_META,
+	type ItemCacheMeta,
+	type ItemCacheStore,
+} from "./item-cache";
 import type { CachedItem } from "./outbox";
 
 const idA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -65,8 +70,12 @@ test("lastMe round-trips", async () => {
 		canUpload: true,
 		hasVault: true,
 	};
-	await cache.setMeta({ syncEnabled: false, lastMe });
-	expect(await cache.getMeta()).toEqual({ syncEnabled: false, lastMe });
+	await cache.setMeta({ ...DEFAULT_ITEM_CACHE_META, syncEnabled: false, lastMe });
+	expect(await cache.getMeta()).toEqual({
+		...DEFAULT_ITEM_CACHE_META,
+		syncEnabled: false,
+		lastMe,
+	});
 });
 
 test("put, list, delete, and clear", async () => {
@@ -77,6 +86,7 @@ test("put, list, delete, and clear", async () => {
 	expect(await cache.getAll()).toEqual([]);
 	await cache.put(sample());
 	await cache.setMeta({
+		...DEFAULT_ITEM_CACHE_META,
 		syncEnabled: false,
 		lastMe: {
 			id: idA,
@@ -90,4 +100,26 @@ test("put, list, delete, and clear", async () => {
 	await cache.clear();
 	expect(await cache.getAll()).toEqual([]);
 	expect(await cache.getMeta()).toEqual(DEFAULT_ITEM_CACHE_META);
+});
+
+test("old meta without tray prefs stays unclipped and does not tap-copy", () => {
+	expect(
+		asItemCacheMeta({
+			syncEnabled: true,
+			lastMe: null,
+		}),
+	).toEqual({
+		syncEnabled: true,
+		lastMe: null,
+		clipLongNotes: false,
+		tapNoteToCopy: false,
+	});
+	expect(
+		asItemCacheMeta({
+			syncEnabled: false,
+			lastMe: null,
+			clipLongNotes: true,
+			tapNoteToCopy: true,
+		}).clipLongNotes,
+	).toBe(true);
 });
