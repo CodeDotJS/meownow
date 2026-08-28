@@ -65,8 +65,8 @@ function renderToken(token: Token, key: number, links: boolean): ReactNode {
 		case "hr":
 			return <hr key={key} className="note-md-hr" />;
 		case "heading": {
-			const depth = token.depth < 1 ? 1 : token.depth > 3 ? 3 : token.depth;
-			const Tag = `h${depth}` as "h1" | "h2" | "h3";
+			const depth = token.depth < 1 ? 1 : token.depth > 6 ? 6 : token.depth;
+			const Tag = `h${depth}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 			return (
 				<Tag key={key} className={`note-md-h note-md-h${depth}`}>
 					{kids(token.tokens, links)}
@@ -145,11 +145,23 @@ function renderToken(token: Token, key: number, links: boolean): ReactNode {
 	}
 }
 
+function cellAlign(align: string | null | undefined): "left" | "center" | "right" | undefined {
+	if (align === "left" || align === "center" || align === "right") {
+		return align;
+	}
+	return undefined;
+}
+
 function renderList(token: Tokens.List, key: number, links: boolean): ReactNode {
 	const Tag = token.ordered ? "ol" : "ul";
 	const start = typeof token.start === "number" && token.start > 1 ? token.start : undefined;
 	return (
-		<Tag key={key} className={token.ordered ? "note-md-list is-ol" : "note-md-list"} start={start}>
+		<Tag
+			key={key}
+			className={token.ordered ? "note-md-list is-ol" : "note-md-list"}
+			start={start}
+			style={start ? { counterReset: `note-md ${start - 1}` } : undefined}
+		>
 			{token.items.map((item, index) => (
 				// Duplicate bullets share `raw`. Position in this snapshot is stable.
 				// biome-ignore lint/suspicious/noArrayIndexKey: duplicate list source is valid
@@ -169,7 +181,9 @@ function renderTable(token: Tokens.Table, key: number, links: boolean): ReactNod
 					<tr>
 						{token.header.map((cell, index) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: table cells can repeat
-							<th key={`${index}:${cell.text}`}>{kids(cell.tokens, links)}</th>
+							<th key={`${index}:${cell.text}`} style={{ textAlign: cellAlign(cell.align) }}>
+								{kids(cell.tokens, links)}
+							</th>
 						))}
 					</tr>
 				</thead>
@@ -179,7 +193,9 @@ function renderTable(token: Tokens.Table, key: number, links: boolean): ReactNod
 						<tr key={`${rowIndex}:${row.map((cell) => cell.text).join("\n")}`}>
 							{row.map((cell, index) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: table cells can repeat
-								<td key={`${index}:${cell.text}`}>{kids(cell.tokens, links)}</td>
+								<td key={`${index}:${cell.text}`} style={{ textAlign: cellAlign(cell.align) }}>
+									{kids(cell.tokens, links)}
+								</td>
 							))}
 						</tr>
 					))}
@@ -202,8 +218,9 @@ function renderLink(token: Tokens.Link, key: number, links: boolean): ReactNode 
 	if (!href) {
 		return <span key={key}>{inner}</span>;
 	}
+	const title = token.title ? token.title : undefined;
 	return (
-		<a key={key} href={href} target="_blank" rel="noopener noreferrer">
+		<a key={key} href={href} title={title} target="_blank" rel="noopener noreferrer">
 			{inner}
 		</a>
 	);
