@@ -64,6 +64,8 @@ test("splits unique questions into two equal columns", () => {
 	expect(ABOUT_FAQ.find((row) => row.id === "about-upload")?.a).toMatch(/25 to 100/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-install")?.a).toMatch(/install/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-share")?.a).toMatch(/android/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-kinds")?.a).toMatch(/markdown/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-kinds")?.a).toMatch(/ciphertext/i);
 });
 
 test("says the server cannot read plaintext", () => {
