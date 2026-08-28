@@ -10,6 +10,7 @@ import {
 	inviteAskRequestSchema,
 	inviteCreateRequestSchema,
 	itemCreateRequestSchema,
+	itemUpdateRequestSchema,
 	loginVerifyRequestSchema,
 	openHubTicket,
 	pairingLookupRequestSchema,
@@ -249,6 +250,12 @@ export function createHandlers(deps: HandlerDeps) {
 		deleteItem: (request: Request, id: string) =>
 			mutating(request, deps.env, async () => {
 				await vault.deleteItem(sid(request), id);
+				return json({ ok: true });
+			}),
+		patchItem: (request: Request, id: string) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, itemUpdateRequestSchema);
+				await vault.updateItem(sid(request), id, body);
 				return json({ ok: true });
 			}),
 		getHubTicket: (request: Request) => run(async () => json(await vault.hubTicket(sid(request)))),
