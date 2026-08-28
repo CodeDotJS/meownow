@@ -39,3 +39,31 @@ test("datachannel carries a delete so an ephemeral item can be revoked off-serve
 		dcEnvelopeSchema.safeParse({ v: 1, type: "item.deleted", id, plaintext: "hi" }).success,
 	).toBe(false);
 });
+
+test("datachannel item.updated replaces ciphertext on the same id", () => {
+	const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+	const parsed = dcEnvelopeSchema.parse({
+		v: 1,
+		type: "item.updated",
+		ephemeral: false,
+		item: {
+			id,
+			kind: "text",
+			ciphertext: "Yg",
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 1,
+			expiresAt: new Date().toISOString(),
+		},
+	});
+	expect(parsed).toMatchObject({ type: "item.updated", item: { id, ciphertext: "Yg" } });
+	expect(
+		dcEnvelopeSchema.safeParse({
+			v: 1,
+			type: "item.updated",
+			ephemeral: false,
+			plaintext: "hi",
+			item: parsed.item,
+		}).success,
+	).toBe(false);
+});
