@@ -459,6 +459,155 @@ test("deleteItem on a missing row is a no-op so a second Forget is not an error"
 	).resolves.toBeUndefined();
 });
 
+test("updateItem without a session is denied", async () => {
+	const store = new MemoryAuthStore();
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn: mockWebAuthn() });
+	await expect(
+		vaultApi.updateItem(undefined, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", {
+			kind: "text",
+			ciphertext: wire(new Uint8Array([1])),
+			metaCiphertext: wire(new Uint8Array([2])),
+			iv: wire(new Uint8Array(12)),
+			byteSize: 1,
+		}),
+	).rejects.toMatchObject({ code: "unauthorized" });
+});
+
+test("updateItem replaces ciphertext, keeps expiry, and fans item.updated", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const received: unknown[] = [];
+	const notices: unknown[] = [];
+	const vaultApi = new VaultService({
+		env,
+		auth: store,
+		vault: store,
+		webauthn,
+		hub: {
+			publish: async (_userId, envelope) => {
+				received.push(envelope);
+			},
+		},
+		push: {
+			notify: async (input) => {
+				notices.push(input);
+			},
+		},
+	});
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const vault = await createVault({ argon2: ARGON2_TEST });
+	const identity = await generateIdentityKeyPair();
+	await vaultApi.putVault(enrolled.sessionToken, {
+		identityPub: asPublicJwk(await publicJwk(identity.publicKey)),
+		wrappedVaultRecovery: {
+			iv: wire(vault.wrappedVaultRecovery.iv),
+			bytes: wire(vault.wrappedVaultRecovery.bytes),
+		},
+		recoverySalt: wire(vault.recoverySalt),
+		recoveryVerifier: wire(await recoveryVerifier(vault.mnemonic, vault.recoverySalt, ARGON2_TEST)),
+	});
+	const itemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+	const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
+	const created = await vaultApi.createItem(enrolled.sessionToken, {
+		id: itemId,
+		kind: "text",
+		ciphertext: wire(new Uint8Array([1, 2, 3])),
+		metaCiphertext: wire(new Uint8Array([4])),
+		iv: wire(new Uint8Array(12)),
+		byteSize: 3,
+		expiresAt,
+	});
+	received.length = 0;
+	const updated = await vaultApi.updateItem(enrolled.sessionToken, itemId, {
+		kind: "link",
+		ciphertext: wire(new Uint8Array([9, 9])),
+		metaCiphertext: wire(new Uint8Array([8])),
+		iv: wire(new Uint8Array(12).fill(7)),
+		byteSize: 2,
+	});
+	expect(updated.createdAt).toBe(created.createdAt);
+	expect(updated.expiresAt).toBe(expiresAt);
+	expect(updated).toMatchObject({
+		id: itemId,
+		kind: "link",
+		ciphertext: wire(new Uint8Array([9, 9])),
+		byteSize: 2,
+	});
+	expect(received).toEqual([
+		{
+			v: 1,
+			type: "item.updated",
+			item: updated,
+		},
+	]);
+	expect(notices).toHaveLength(1);
+	const listed = await vaultApi.listItems(enrolled.sessionToken);
+	expect(listed.items[0]).toMatchObject({
+		id: itemId,
+		kind: "link",
+		ciphertext: wire(new Uint8Array([9, 9])),
+		expiresAt,
+		createdAt: created.createdAt,
+	});
+});
+
+test("updateItem on a missing row or a file is denied", async () => {
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn });
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn });
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const vault = await createVault({ argon2: ARGON2_TEST });
+	const identity = await generateIdentityKeyPair();
+	await vaultApi.putVault(enrolled.sessionToken, {
+		identityPub: asPublicJwk(await publicJwk(identity.publicKey)),
+		wrappedVaultRecovery: {
+			iv: wire(vault.wrappedVaultRecovery.iv),
+			bytes: wire(vault.wrappedVaultRecovery.bytes),
+		},
+		recoverySalt: wire(vault.recoverySalt),
+		recoveryVerifier: wire(await recoveryVerifier(vault.mnemonic, vault.recoverySalt, ARGON2_TEST)),
+	});
+	const patch = {
+		kind: "text" as const,
+		ciphertext: wire(new Uint8Array([1])),
+		metaCiphertext: wire(new Uint8Array([2])),
+		iv: wire(new Uint8Array(12)),
+		byteSize: 1,
+	};
+	await expect(
+		vaultApi.updateItem(enrolled.sessionToken, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", patch),
+	).rejects.toMatchObject({ code: "not_found" });
+	const owner = [...store.users.values()][0];
+	if (!owner) {
+		throw new Error("missing user");
+	}
+	store.items.push({
+		id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+		kind: "file",
+		metaCiphertext: wire(new Uint8Array([1])),
+		iv: wire(new Uint8Array(12)),
+		byteSize: 12,
+		expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+		ownerId: owner.id,
+		createdAt: new Date(),
+	});
+	await expect(
+		vaultApi.updateItem(enrolled.sessionToken, "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", patch),
+	).rejects.toMatchObject({ code: "item_invalid" });
+});
+
 test("upload intent is denied when can_upload is false", async () => {
 	const store = new MemoryAuthStore();
 	const webauthn = mockWebAuthn();
