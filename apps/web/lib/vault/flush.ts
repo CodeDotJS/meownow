@@ -1,6 +1,6 @@
-import { errorCode, postJson } from "@/lib/client/http";
+import { errorCode, patchJson, postJson } from "@/lib/client/http";
 import { getCachedItems, getItemCacheMeta, putCachedItem, setItemCacheMeta } from "./item-cache";
-import { type CachedItem, releaseHeld, toCreatePayload } from "./outbox";
+import { type CachedItem, releaseHeld, toCreatePayload, toUpdatePayload } from "./outbox";
 
 export type FlushResult = {
 	flushed: number;
@@ -12,6 +12,17 @@ function browserOnline(): boolean {
 }
 
 async function postCached(row: CachedItem): Promise<"ok" | "offline" | string> {
+	if (row.state === "dirty") {
+		const res = await patchJson(`/api/items/${row.id}`, toUpdatePayload(row));
+		if (res.ok) {
+			await putCachedItem({ ...row, state: "synced" });
+			return "ok";
+		}
+		if (res.status === 0) {
+			return "offline";
+		}
+		return errorCode(res.data);
+	}
 	const res = await postJson("/api/items", toCreatePayload(row));
 	if (res.ok) {
 		await putCachedItem({ ...row, state: "synced" });
@@ -28,7 +39,9 @@ export async function flushQueuedItems(): Promise<FlushResult> {
 	if (!meta.syncEnabled || !browserOnline()) {
 		return { flushed: 0, error: null };
 	}
-	const rows = (await getCachedItems()).filter((row) => row.state === "queued");
+	const rows = (await getCachedItems()).filter(
+		(row) => row.state === "queued" || row.state === "dirty",
+	);
 	let flushed = 0;
 	let error: string | null = null;
 	for (const row of rows) {
@@ -61,7 +74,7 @@ export async function syncAllUnsynced(): Promise<FlushResult> {
 		return { flushed: 0, error: "offline" };
 	}
 	const rows = (await getCachedItems()).filter(
-		(row) => row.state === "queued" || row.state === "held",
+		(row) => row.state === "queued" || row.state === "held" || row.state === "dirty",
 	);
 	let flushed = 0;
 	let error: string | null = null;
