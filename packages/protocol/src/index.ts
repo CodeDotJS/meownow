@@ -93,6 +93,7 @@ export {
 export type {
 	ItemCreateRequest,
 	ItemRecord,
+	ItemUpdateRequest,
 	PairingQr,
 	PairingStartRequest,
 	PairingWrapRequest,
@@ -107,6 +108,7 @@ export {
 	itemKindSchema,
 	itemListResponseSchema,
 	itemRecordSchema,
+	itemUpdateRequestSchema,
 	PAIRING_TTL_MS,
 	pairingGetResponseSchema,
 	pairingLookupRequestSchema,
