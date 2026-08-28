@@ -18,6 +18,7 @@ import {
 } from "@meownow/db";
 import {
 	type ItemCreateRequest,
+	type ItemUpdateRequest,
 	type PairingWrapRequest,
 	type PublicJwk,
 	pairingWrapRequestSchema,
@@ -646,6 +647,57 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 			if (existing && existing.ownerId !== ownerId) {
 				throw new AuthError("forbidden", 403);
 			}
+		});
+	}
+
+	async updateTextItem(
+		ownerId: string,
+		id: string,
+		patch: ItemUpdateRequest,
+		now: Date,
+	): Promise<StoredItem | "missing" | "not_text" | "expired"> {
+		return this.withDb(async (db) => {
+			const [row] = await db
+				.select()
+				.from(items)
+				.where(and(eq(items.id, id), eq(items.ownerId, ownerId)))
+				.limit(1);
+			if (!row) {
+				return "missing";
+			}
+			if (row.kind !== "text" && row.kind !== "link") {
+				return "not_text";
+			}
+			if (asDate(row.expiresAt).getTime() <= now.getTime()) {
+				return "expired";
+			}
+			const [updated] = await db
+				.update(items)
+				.set({
+					kind: patch.kind,
+					ciphertext: Buffer.from(patch.ciphertext, "base64url"),
+					metaCiphertext: Buffer.from(patch.metaCiphertext, "base64url"),
+					iv: Buffer.from(patch.iv, "base64url"),
+					byteSize: patch.byteSize,
+				})
+				.where(eq(items.id, id))
+				.returning();
+			if (!updated) {
+				return "missing";
+			}
+			return {
+				id: updated.id,
+				kind: updated.kind,
+				ciphertext: updated.ciphertext ? b64urlFromBytea(updated.ciphertext) : undefined,
+				metaCiphertext: b64urlFromBytea(updated.metaCiphertext),
+				iv: b64urlFromBytea(updated.iv),
+				wrappedKey: updated.wrappedKey ? bytesToWire(updated.wrappedKey) : undefined,
+				blobId: updated.blobId ?? undefined,
+				byteSize: updated.byteSize,
+				expiresAt: asDate(updated.expiresAt).toISOString(),
+				ownerId: updated.ownerId,
+				createdAt: asDate(updated.createdAt),
+			};
 		});
 	}
 
