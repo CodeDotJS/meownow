@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { EyeMark } from "./marks";
+import { CopyMark } from "./marks";
 import { formatGutterTime } from "./time";
 
 type DemoLine = {
@@ -121,6 +121,14 @@ export function DemoLog() {
 		};
 	}, [reduce]);
 
+	useEffect(() => {
+		if (!copiedId) {
+			return;
+		}
+		const timer = window.setTimeout(() => setCopiedId(null), 1600);
+		return () => window.clearTimeout(timer);
+	}, [copiedId]);
+
 	return (
 		<>
 			<div className="log-head">
@@ -163,23 +171,28 @@ export function DemoLog() {
 								className={selected ? "log-item is-selected" : "log-item"}
 							>
 								<span className="gutter">{line.time}</span>
-								<button
-									type="button"
-									className="body"
-									onClick={() => {
-										void navigator.clipboard.writeText(line.text).then(
-											() => {
-												setCopiedId(line.id);
-												setSelectedId(line.id);
-											},
-											() => setCopiedId(null),
-										);
-									}}
-								>
-									{line.text}
-								</button>
+								<p className="body">{line.text}</p>
 								<span className="log-actions">
-									{copiedId === line.id ? <span className="copied">Copied</span> : null}
+									{copiedId === line.id ? (
+										<span className="copied">Copied</span>
+									) : (
+										<button
+											type="button"
+											className="act act-icon"
+											aria-label="Copy"
+											onClick={() => {
+												void navigator.clipboard.writeText(line.text).then(
+													() => {
+														setCopiedId(line.id);
+														setSelectedId(line.id);
+													},
+													() => setCopiedId(null),
+												);
+											}}
+										>
+											<CopyMark size={15} decorative />
+										</button>
+									)}
 								</span>
 								<span className="ttl" style={{ ["--remain" as string]: line.remain }} />
 							</motion.li>
