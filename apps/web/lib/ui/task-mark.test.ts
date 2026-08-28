@@ -14,4 +14,8 @@ test("turns [ ] and [x] into boxes and leaves the rest as text", () => {
 	]);
 	expect(splitTaskMarks("plain")).toEqual([{ type: "text", value: "plain", at: 0 }]);
 	expect(splitTaskMarks("[nope]")).toEqual([{ type: "text", value: "[nope]", at: 0 }]);
+	expect(splitTaskMarks("[] later")).toEqual([
+		{ type: "box", checked: false, at: 0 },
+		{ type: "text", value: " later", at: 2 },
+	]);
 });
