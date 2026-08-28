@@ -150,8 +150,10 @@ function renderList(token: Tokens.List, key: number, links: boolean): ReactNode 
 	const start = typeof token.start === "number" && token.start > 1 ? token.start : undefined;
 	return (
 		<Tag key={key} className={token.ordered ? "note-md-list is-ol" : "note-md-list"} start={start}>
-			{token.items.map((item) => (
-				<li key={item.raw} className={item.task ? "note-md-task" : undefined}>
+			{token.items.map((item, index) => (
+				// Duplicate bullets share `raw`. Position in this snapshot is stable.
+				// biome-ignore lint/suspicious/noArrayIndexKey: duplicate list source is valid
+				<li key={`${index}:${item.raw}`} className={item.task ? "note-md-task" : undefined}>
 					{kids(item.tokens, links)}
 				</li>
 			))}
@@ -165,16 +167,19 @@ function renderTable(token: Tokens.Table, key: number, links: boolean): ReactNod
 			<table className="note-md-table">
 				<thead>
 					<tr>
-						{token.header.map((cell) => (
-							<th key={cell.text}>{kids(cell.tokens, links)}</th>
+						{token.header.map((cell, index) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: table cells can repeat
+							<th key={`${index}:${cell.text}`}>{kids(cell.tokens, links)}</th>
 						))}
 					</tr>
 				</thead>
 				<tbody>
-					{token.rows.map((row) => (
-						<tr key={row.map((cell) => cell.text).join("\n")}>
-							{row.map((cell) => (
-								<td key={cell.text}>{kids(cell.tokens, links)}</td>
+					{token.rows.map((row, rowIndex) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: table rows can repeat
+						<tr key={`${rowIndex}:${row.map((cell) => cell.text).join("\n")}`}>
+							{row.map((cell, index) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: table cells can repeat
+								<td key={`${index}:${cell.text}`}>{kids(cell.tokens, links)}</td>
 							))}
 						</tr>
 					))}
