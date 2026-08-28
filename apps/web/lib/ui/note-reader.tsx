@@ -17,11 +17,13 @@ export function NoteReader({
 	copied,
 	onClose,
 	onCopy,
+	onEdit,
 }: {
 	note: NoteReaderState | null;
 	copied: boolean;
 	onClose: () => void;
 	onCopy: () => void;
+	onEdit?: () => void;
 }) {
 	const copyRef = useRef<HTMLButtonElement>(null);
 
@@ -74,6 +76,11 @@ export function NoteReader({
 					<button ref={copyRef} type="button" className="select" onClick={onCopy}>
 						Copy
 					</button>
+					{onEdit ? (
+						<button type="button" className="quiet" onClick={onEdit}>
+							Edit
+						</button>
+					) : null}
 					<button type="button" className="quiet" onClick={onClose}>
 						Close
 					</button>
