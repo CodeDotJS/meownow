@@ -20,8 +20,8 @@ Turning Sync **on** drains notes that were held. Turning it **off** does not pul
 - File and image upload while offline or while Sync is off. Those still need `can_upload`, a capability token, and R2. The File control stays gated; a status explains why.
 - Live only. Still means skip the store; another device must be live. Fail closed if mesh and hub are both down. Live only never enters the outbox.
 - Client-side search, Dexie, TanStack Query, Zustand, pin UI (copy mentions pin; the control is not in the tray yet).
-- Worker / Durable Object changes. Quota, `can_upload`, and `POST /api/items` stay on Vercel.
-- Editing a note. The tray is still create, copy, Forget.
+- Worker / Durable Object schema for create/delete. Quota, `can_upload`, `POST /api/items`, and `PATCH /api/items/:id` stay on Vercel. The Worker must parse `item.updated` the same way it parses `item.created`.
+- File and image bytes. Text/link notes can be replaced in place (`item.updated`); files cannot.
 
 ## Local data
 
@@ -30,7 +30,7 @@ Do not add Dexie. Extend the existing IndexedDB style (vault is already `meownow
 New database `meownow-items` (keep vault DB v1 untouched):
 
 - `meta`: `{ syncEnabled: boolean, lastMe: { id, handle, displayName, role, canUpload, hasVault } | null }`
-- `records`: keyed by item id. Ciphertext envelope (`id`, `kind`, `ciphertext`, `metaCiphertext`, `iv`, `byteSize`, `createdAt`, `expiresAt`) plus `state: "queued" | "held" | "synced"`.
+- `records`: keyed by item id. Ciphertext envelope (`id`, `kind`, `ciphertext`, `metaCiphertext`, `iv`, `byteSize`, `createdAt`, `expiresAt`) plus `state: "queued" | "held" | "synced" | "dirty"`. `dirty` is a note already on the server whose local ciphertext is newer; flush uses `PATCH /api/items/:id`.
 
 Never persist plaintext. Decrypt into React state with the vault key already in IDB, same as `openItem` today.
 
