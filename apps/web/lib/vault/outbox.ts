@@ -1,6 +1,6 @@
-import type { ItemCreateRequest } from "@meownow/protocol";
+import type { ItemCreateRequest, ItemUpdateRequest } from "@meownow/protocol";
 
-export type OutboxState = "queued" | "held" | "synced";
+export type OutboxState = "queued" | "held" | "synced" | "dirty";
 
 export type CachedItem = {
 	id: string;
@@ -16,7 +16,7 @@ export type CachedItem = {
 
 export function unsynced(items: CachedItem[]): CachedItem[] {
 	return items
-		.filter((row) => row.state === "queued" || row.state === "held")
+		.filter((row) => row.state === "queued" || row.state === "held" || row.state === "dirty")
 		.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
@@ -25,7 +25,7 @@ export function shouldAutoFlush(input: {
 	online: boolean;
 	state: OutboxState;
 }): boolean {
-	return input.syncEnabled && input.online && input.state === "queued";
+	return input.syncEnabled && input.online && (input.state === "queued" || input.state === "dirty");
 }
 
 export function releaseHeld(items: CachedItem[]): CachedItem[] {
@@ -54,5 +54,15 @@ export function toCreatePayload(row: CachedItem): ItemCreateRequest {
 		iv: row.iv,
 		byteSize: row.byteSize,
 		expiresAt: row.expiresAt,
+	};
+}
+
+export function toUpdatePayload(row: CachedItem): ItemUpdateRequest {
+	return {
+		kind: row.kind,
+		ciphertext: row.ciphertext,
+		metaCiphertext: row.metaCiphertext,
+		iv: row.iv,
+		byteSize: row.byteSize,
 	};
 }
