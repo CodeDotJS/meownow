@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { CopyMark } from "./marks";
+import { CopyMark, EyeMark } from "./marks";
 import { formatGutterTime } from "./time";
 
 type DemoLine = {
