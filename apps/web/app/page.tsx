@@ -10,14 +10,17 @@ import { Mesh } from "@/lib/p2p/mesh";
 import { sendOnMesh } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
+import { ComposerDraft } from "@/lib/ui/composer-draft";
 import { ComposerGlyph } from "@/lib/ui/composer-glyph";
 import { notesSyncedCopy } from "@/lib/ui/copy";
 import { CreateVaultFlow } from "@/lib/ui/create-vault";
+import { expandEmojiShortcodes } from "@/lib/ui/emoji-shortcodes";
 import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
 import { HoverTip } from "@/lib/ui/hover-tip";
 import { Landing } from "@/lib/ui/landing";
 import { CatMark, DeleteMark, OpenMark, PreviewMark, SyncMark, WifiMark } from "@/lib/ui/marks";
 import { mergeRemoteItems } from "@/lib/ui/merge-items";
+import { NoteMarkdown } from "@/lib/ui/note-markdown";
 import { NoteReader, type NoteReaderState } from "@/lib/ui/note-reader";
 import { textNeedsReader } from "@/lib/ui/note-size";
 import { Panel } from "@/lib/ui/panel";
@@ -489,7 +492,7 @@ export default function Page() {
 				return;
 			}
 			const stored = await loadVault();
-			const trimmed = plain.trim();
+			const trimmed = expandEmojiShortcodes(plain).trim();
 			if (!stored || !trimmed) {
 				return;
 			}
@@ -917,7 +920,9 @@ export default function Page() {
 			const target = event.target;
 			if (
 				target instanceof HTMLElement &&
-				target.closest("textarea, input, [contenteditable], .palette-layer, .preview-layer")
+				target.closest(
+					"textarea, input, [contenteditable], .palette-layer, .preview-layer, .emoji-suggest",
+				)
 			) {
 				return;
 			}
@@ -1134,25 +1139,11 @@ export default function Page() {
 			<div className="stage">
 				<div className="composer">
 					<p className="sheet-label">{ephemeral ? "Live only" : "New paste"}</p>
-					<textarea
-						aria-label={ephemeral ? "Live only" : "New paste"}
+					<ComposerDraft
 						value={draft}
-						placeholder="Type or paste"
-						enterKeyHint="enter"
-						autoComplete="off"
-						autoCorrect="on"
-						onChange={(e) => setDraft(e.target.value)}
-						onKeyDown={(event) => {
-							if (
-								event.key === "Enter" &&
-								(event.metaKey || event.ctrlKey) &&
-								!event.nativeEvent.isComposing
-							) {
-								event.preventDefault();
-								void onSend();
-							}
-						}}
-						rows={4}
+						label={ephemeral ? "Live only" : "New paste"}
+						onChange={setDraft}
+						onSend={() => void onSend()}
 					/>
 					<div className="composer-foot">
 						{draftLines > 8 ? <p className="field-hint">{draftLines} lines</p> : null}
@@ -1343,10 +1334,12 @@ export default function Page() {
 																	className="body"
 																	onClick={() => activateItem(item)}
 																>
-																	{item.ephemeral ? (
-																		<WifiMark className="note-live-mark" size={14} decorative />
-																	) : null}
-																	{item.text}
+																	<span className="note-md-row">
+																		{item.ephemeral ? (
+																			<WifiMark className="note-live-mark" size={14} decorative />
+																		) : null}
+																		<NoteMarkdown text={item.text} links={false} />
+																	</span>
 																</button>
 															)}
 															<span className="log-actions">
