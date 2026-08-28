@@ -1,4 +1,4 @@
-import { itemCreateRequestSchema } from "@meownow/protocol";
+import { itemCreateRequestSchema, itemUpdateRequestSchema } from "@meownow/protocol";
 import { expect, test } from "vitest";
 import {
 	type CachedItem,
@@ -8,6 +8,7 @@ import {
 	releaseHeld,
 	shouldAutoFlush,
 	toCreatePayload,
+	toUpdatePayload,
 	unsynced,
 } from "./outbox";
 
@@ -29,17 +30,27 @@ function item(over: Partial<CachedItem> & Pick<CachedItem, "id">): CachedItem {
 	};
 }
 
-test("unsynced is queued and held, newest first", () => {
+test("unsynced is queued, held, and dirty, newest first", () => {
 	const rows = [
 		item({ id: idA, state: "synced", createdAt: "2026-08-25T12:00:03.000Z" }),
 		item({ id: idB, state: "held", createdAt: "2026-08-25T12:00:01.000Z" }),
 		item({ id: idC, state: "queued", createdAt: "2026-08-25T12:00:02.000Z" }),
+		item({
+			id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+			state: "dirty",
+			createdAt: "2026-08-25T12:00:04.000Z",
+		}),
 	];
-	expect(unsynced(rows).map((row) => row.id)).toEqual([idC, idB]);
+	expect(unsynced(rows).map((row) => row.id)).toEqual([
+		"dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+		idC,
+		idB,
+	]);
 });
 
-test("auto-flush is only queued notes while sync is on and online", () => {
+test("auto-flush is queued or dirty notes while sync is on and online", () => {
 	expect(shouldAutoFlush({ syncEnabled: true, online: true, state: "queued" })).toBe(true);
+	expect(shouldAutoFlush({ syncEnabled: true, online: true, state: "dirty" })).toBe(true);
 	expect(shouldAutoFlush({ syncEnabled: true, online: true, state: "held" })).toBe(false);
 	expect(shouldAutoFlush({ syncEnabled: false, online: true, state: "queued" })).toBe(false);
 	expect(shouldAutoFlush({ syncEnabled: true, online: false, state: "queued" })).toBe(false);
@@ -88,4 +99,18 @@ test("create payload is the wire item, not cache metadata", () => {
 	});
 	expect(payload).not.toHaveProperty("createdAt");
 	expect(payload).not.toHaveProperty("state");
+});
+
+test("update payload is a new seal without id or expiry", () => {
+	const row = item({ id: idA, kind: "link", state: "dirty" });
+	const payload = toUpdatePayload(row);
+	expect(itemUpdateRequestSchema.parse(payload)).toEqual({
+		kind: "link",
+		ciphertext: "YQ",
+		metaCiphertext: "YQ",
+		iv: "YQ",
+		byteSize: 1,
+	});
+	expect(payload).not.toHaveProperty("id");
+	expect(payload).not.toHaveProperty("expiresAt");
 });
