@@ -11,6 +11,15 @@ import {
 } from "./emoji-shortcodes";
 import { EmojiSuggest } from "./emoji-suggest";
 
+function fitComposerHeight(area: HTMLTextAreaElement): void {
+	if (window.matchMedia("(min-width: 960px)").matches) {
+		area.style.height = "";
+		return;
+	}
+	area.style.height = "auto";
+	area.style.height = `${area.scrollHeight}px`;
+}
+
 export function ComposerDraft({
 	value,
 	label,
@@ -41,6 +50,24 @@ export function ComposerDraft({
 		pendingCaret.current = null;
 		area.setSelectionRange(caret, caret);
 	}, [value]);
+
+	useLayoutEffect(() => {
+		const area = areaRef.current;
+		if (!area || area.value !== value) {
+			return;
+		}
+		fitComposerHeight(area);
+	}, [value]);
+
+	useEffect(() => {
+		const area = areaRef.current;
+		if (!area) {
+			return;
+		}
+		const onResize = () => fitComposerHeight(area);
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, []);
 
 	useLayoutEffect(() => {
 		const area = areaRef.current;
@@ -88,7 +115,7 @@ export function ComposerDraft({
 				enterKeyHint="enter"
 				autoComplete="off"
 				autoCorrect="on"
-				rows={4}
+				rows={3}
 				onChange={(event) => {
 					const next = event.target.value;
 					const caret = event.target.selectionStart;
