@@ -832,11 +832,16 @@ h1 {
 }
 
 .ack {
+	display: flex;
 	flex-direction: row;
 	align-items: center;
 	gap: 0.5rem;
 	margin-top: 1rem;
 	color: var(--ink);
+}
+
+.account-sync .ack + .ack {
+	margin-top: 0.55rem;
 }
 
 .pair-choice {
@@ -1990,7 +1995,16 @@ li {
 	border-radius: var(--radius-xs);
 	display: block;
 	overflow: visible;
+	cursor: text;
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.log-item .body.is-action,
+.log-item .file-body {
 	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 .log-item .body.is-clamped {
@@ -2271,6 +2285,7 @@ li {
 	border-radius: 0;
 	text-decoration: none;
 	background: transparent;
+	cursor: pointer;
 }
 
 .note-md a:hover,
@@ -2402,6 +2417,7 @@ li {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	overflow: hidden;
+	cursor: default;
 }
 
 .landing-log .log-item .ttl {
