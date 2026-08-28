@@ -21,7 +21,7 @@ Invite-only. Passkeys, no passwords. Each account is that person's devices — n
 
 | | |
 |---|---|
-| Text, links, images, files | Text ≤ 64 KB. A stored file ≤ 100 MB. |
+| Text, links, images, files | Notes are markdown in this browser; the store is ciphertext of the source. Type `:smile:` for emoji. Text ≤ 64 KB. A stored file ≤ 100 MB. |
 | Sealed on the device | AES-256-GCM in the page. Filename, type, and preview go in the same envelope. |
 | The server is a courier | It sees owner, size, time, and kind. Not the text, the name, or the picture. |
 | Live only | Skip the store. Needs another device that is live. A refresh drops it. |
