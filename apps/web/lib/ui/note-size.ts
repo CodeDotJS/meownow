@@ -1,4 +1,4 @@
-/** Matches the tray `-webkit-line-clamp` on `.log-item .body`. */
+/** Matches the tray clamp on `.log-item .body.is-clamped`. */
 export const NOTE_CLAMP_LINES = 4;
 
 /** About four tray lines of a long paragraph with no breaks. */
