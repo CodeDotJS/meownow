@@ -220,6 +220,23 @@ export function OpenMark({ className, size = 15, label = "Open", decorative = fa
 	);
 }
 
+export function EditMark({ className, size = 15, label = "Edit", decorative = false }: MarkProps) {
+	return (
+		<MarkSvg
+			className={className}
+			size={size}
+			label={label}
+			decorative={decorative}
+			viewBox="0 0 24 24"
+		>
+			<path
+				fill="currentColor"
+				d="M15.4 4.3c.6-.6 1.5-.6 2.1 0l2.2 2.2c.6.6.6 1.5 0 2.1L9.1 19.2H4.8v-4.3L15.4 4.3Zm1.5 1.6-1.1-1.1-8.8 8.8v1.1h1.1l8.8-8.8Z"
+			/>
+		</MarkSvg>
+	);
+}
+
 export function PreviewMark({
 	className,
 	size = 15,
