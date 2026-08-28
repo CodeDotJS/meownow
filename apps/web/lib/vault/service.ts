@@ -14,6 +14,7 @@ import {
 	FILE_MAX_BYTES,
 	HUB_WS_TTL_MS,
 	type ItemCreateRequest,
+	type ItemUpdateRequest,
 	mintHubTicket,
 	mintPairingCode,
 	PAIRING_TTL_MS,
@@ -187,6 +188,33 @@ export class VaultService {
 		const user = await this.requireUser(sessionToken);
 		await this.vault.deleteItem(user.id, id);
 		await this.hub.publish(user.id, { v: 1, type: "item.deleted", id });
+	}
+
+	async updateItem(sessionToken: string | undefined, id: string, patch: ItemUpdateRequest) {
+		const ctx = await this.requireCtx(sessionToken);
+		if (!ctx.user.hasVault) {
+			throw new AuthError("vault_missing", 409);
+		}
+		const now = this.now();
+		this.assertItemCipher(patch.ciphertext);
+		const allowed = await this.limits.take("send", ctx.user.id);
+		if (!allowed) {
+			throw new AuthError("rate_limited", 429);
+		}
+		const result = await this.vault.updateTextItem(ctx.user.id, id, patch, now);
+		if (result === "missing") {
+			throw new AuthError("not_found", 404);
+		}
+		if (result === "not_text" || result === "expired") {
+			throw new AuthError(result === "expired" ? "item_expired" : "item_invalid", 400);
+		}
+		const { ownerId: _ownerId, createdAt, ...rest } = result;
+		const record = {
+			...rest,
+			createdAt: createdAt.toISOString(),
+		};
+		await this.hub.publish(ctx.user.id, { v: 1, type: "item.updated", item: record });
+		return record;
 	}
 
 	async hubTicket(sessionToken: string | undefined) {
@@ -678,11 +706,15 @@ export class VaultService {
 		return ctx;
 	}
 
-	private assertLiveItem(item: ItemCreateRequest, now: Date): void {
-		const cipher = fromBase64Url(item.ciphertext);
+	private assertItemCipher(ciphertext: string): void {
+		const cipher = fromBase64Url(ciphertext);
 		if (cipher.byteLength > TEXT_CIPHERTEXT_MAX_BYTES) {
 			throw new AuthError("item_invalid", 400);
 		}
+	}
+
+	private assertLiveItem(item: ItemCreateRequest, now: Date): void {
+		this.assertItemCipher(item.ciphertext);
 		const expiresAt = Date.parse(item.expiresAt);
 		if (Number.isNaN(expiresAt) || expiresAt <= now.getTime()) {
 			throw new AuthError("item_expired", 400);
