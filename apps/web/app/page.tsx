@@ -4,7 +4,7 @@ import { decrypt, encrypt } from "@meownow/crypto";
 import { BLOB_TTL_MS, TEXT_PLAIN_MAX_BYTES, TEXT_TTL_MS, type WsEnvelope } from "@meownow/protocol";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deleteJson, errorCode, getJson, postJson } from "@/lib/client/http";
+import { deleteJson, errorCode, getJson, patchJson, postJson } from "@/lib/client/http";
 import { ephemeralLivePath } from "@/lib/p2p/ephemeral";
 import { Mesh } from "@/lib/p2p/mesh";
 import { sendOnMesh } from "@/lib/p2p/send";
@@ -18,7 +18,15 @@ import { expandEmojiShortcodes } from "@/lib/ui/emoji-shortcodes";
 import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
 import { HoverTip } from "@/lib/ui/hover-tip";
 import { Landing } from "@/lib/ui/landing";
-import { CatMark, DeleteMark, OpenMark, PreviewMark, SyncMark, WifiMark } from "@/lib/ui/marks";
+import {
+	CatMark,
+	DeleteMark,
+	EditMark,
+	OpenMark,
+	PreviewMark,
+	SyncMark,
+	WifiMark,
+} from "@/lib/ui/marks";
 import { mergeRemoteItems } from "@/lib/ui/merge-items";
 import { NoteMarkdown } from "@/lib/ui/note-markdown";
 import { NoteReader, type NoteReaderState } from "@/lib/ui/note-reader";
@@ -48,7 +56,7 @@ import {
 	upsertSyncedFromRemote,
 } from "@/lib/vault/item-cache";
 import { type CachedItem, type OutboxState, unsynced } from "@/lib/vault/outbox";
-import { persistIntent } from "@/lib/vault/persist-intent";
+import { editIntent, persistIntent } from "@/lib/vault/persist-intent";
 import { downloadBlobItem, openBlobPreview, sendBlobFile } from "@/lib/vault/upload-client";
 import { b64urlToBytes, bytesToB64url } from "@/lib/vault/wire";
 
@@ -145,6 +153,13 @@ function applySyncState(rows: Shown[], cached: CachedItem[]): Shown[] {
 	});
 }
 
+function replaceShown(current: Shown[], row: Shown): Shown[] {
+	if (current.some((entry) => entry.id === row.id)) {
+		return current.map((entry) => (entry.id === row.id ? { ...entry, ...row } : entry));
+	}
+	return [row, ...current];
+}
+
 function flushStatus(result: FlushResult): string | null {
 	if (result.flushed > 0) {
 		return notesSyncedCopy(result.flushed);
@@ -175,6 +190,7 @@ export default function Page() {
 	const [preview, setPreview] = useState<FilePreviewState | null>(null);
 	const [note, setNote] = useState<NoteReaderState | null>(null);
 	const [syncingId, setSyncingId] = useState<string | null>(null);
+	const [editingId, setEditingId] = useState<string | null>(null);
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
@@ -394,6 +410,7 @@ export default function Page() {
 								setSelectedId((current) => (current === dc.id ? null : current));
 								return;
 							}
+							const existing = itemsRef.current.find((row) => row.id === dc.item.id);
 							void openItem({
 								id: dc.item.id,
 								kind: dc.item.kind,
@@ -402,12 +419,19 @@ export default function Page() {
 								iv: dc.item.iv,
 								wrappedKey: dc.item.wrappedKey,
 								byteSize: dc.item.byteSize,
-								createdAt: new Date().toISOString(),
+								createdAt:
+									dc.type === "item.updated"
+										? (existing?.createdAt ?? new Date().toISOString())
+										: new Date().toISOString(),
 								expiresAt: dc.item.expiresAt,
 							}).then((shown) => {
 								const row = dc.ephemeral ? { ...shown, ephemeral: true } : shown;
 								setItems((current) =>
-									current.some((entry) => entry.id === row.id) ? current : [row, ...current],
+									dc.type === "item.updated"
+										? replaceShown(current, row)
+										: current.some((entry) => entry.id === row.id)
+											? current
+											: [row, ...current],
 								);
 							});
 						},
@@ -430,6 +454,34 @@ export default function Page() {
 						setItems((current) =>
 							current.some((entry) => entry.id === row.id) ? current : [row, ...current],
 						);
+					});
+				}
+				if (envelope.type === "item.updated") {
+					void openItem(envelope.item).then(async (shown) => {
+						const row = envelope.ephemeral ? { ...shown, ephemeral: true } : shown;
+						if (
+							!envelope.ephemeral &&
+							(envelope.item.kind === "text" || envelope.item.kind === "link") &&
+							envelope.item.ciphertext
+						) {
+							await putCachedItem(
+								asCached(
+									{
+										id: envelope.item.id,
+										kind: envelope.item.kind,
+										ciphertext: envelope.item.ciphertext,
+										metaCiphertext: envelope.item.metaCiphertext,
+										iv: envelope.item.iv,
+										byteSize: envelope.item.byteSize ?? 0,
+										expiresAt: envelope.item.expiresAt,
+									},
+									envelope.item.createdAt,
+									"synced",
+								),
+							);
+							pendingRef.current.delete(envelope.item.id);
+						}
+						setItems((current) => replaceShown(current, { ...row, syncState: undefined }));
 					});
 				}
 				if (envelope.type === "item.deleted") {
@@ -603,6 +655,155 @@ export default function Page() {
 		[ephemeral],
 	);
 
+	const cancelEdit = useCallback(() => {
+		setEditingId(null);
+		setDraft("");
+	}, []);
+
+	const startEdit = useCallback(
+		(item: Shown) => {
+			if (item.kind === "image" || item.kind === "file" || item.text === UNREADABLE) {
+				return;
+			}
+			if (editingId === item.id) {
+				cancelEdit();
+				return;
+			}
+			setEditingId(item.id);
+			setDraft(item.text);
+			setSelectedId(item.id);
+			setNote(null);
+			setPreview(null);
+			window.setTimeout(() => {
+				document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
+			}, 0);
+		},
+		[cancelEdit, editingId],
+	);
+
+	const saveEdit = useCallback(async () => {
+		const id = editingId;
+		const item = id ? itemsRef.current.find((row) => row.id === id) : undefined;
+		if (!id || !item || sendingRef.current) {
+			return;
+		}
+		const stored = await loadVault();
+		const trimmed = expandEmojiShortcodes(draft).trim();
+		if (!stored || !trimmed) {
+			return;
+		}
+		const bytes = new TextEncoder().encode(trimmed);
+		if (bytes.byteLength > TEXT_PLAIN_MAX_BYTES) {
+			setStatus("item_invalid");
+			return;
+		}
+		sendingRef.current = true;
+		setSending(true);
+		try {
+			const kind = /^https?:\/\//i.test(trimmed) ? ("link" as const) : ("text" as const);
+			const sealed = await encrypt(stored.vaultKey, bytes, { itemId: id, kind });
+			const meta = await encrypt(stored.vaultKey, new TextEncoder().encode("{}"), {
+				itemId: id,
+				kind,
+			});
+			const payload = {
+				id,
+				kind,
+				ciphertext: bytesToB64url(sealed.bytes),
+				metaCiphertext: bytesToB64url(meta.bytes),
+				iv: bytesToB64url(sealed.iv),
+				byteSize: sealed.bytes.byteLength,
+				expiresAt: item.expiresAt,
+			};
+			const next: Shown = {
+				...item,
+				text: trimmed,
+				kind,
+				ciphertext: payload.ciphertext,
+				metaCiphertext: payload.metaCiphertext,
+				iv: payload.iv,
+				byteSize: payload.byteSize,
+			};
+			const intent = editIntent({
+				ephemeral: Boolean(item.ephemeral),
+				posted: item.syncState !== "queued" && item.syncState !== "held",
+				syncEnabled: (await getItemCacheMeta()).syncEnabled,
+				online: navigator.onLine,
+			});
+			setStatus(null);
+			setDraft("");
+			setEditingId(null);
+			setItems((current) => replaceShown(current, next));
+			await sendOnMesh(meshRef.current?.links() ?? [], {
+				v: 1,
+				type: "item.updated",
+				ephemeral: Boolean(item.ephemeral),
+				item: payload,
+			});
+			if (intent === "live") {
+				hubSendRef.current({
+					v: 1,
+					type: "item.updated",
+					ephemeral: true,
+					item: { ...payload, createdAt: item.createdAt },
+				});
+				return;
+			}
+			if (intent === "rewrite") {
+				const state = item.syncState === "held" ? ("held" as const) : ("queued" as const);
+				await putCachedItem(asCached(payload, item.createdAt, state));
+				setItems((current) =>
+					current.map((row) => (row.id === id ? { ...row, syncState: state } : row)),
+				);
+				return;
+			}
+			const record = asCached(payload, item.createdAt, intent === "dirty" ? "dirty" : "synced");
+			if (intent === "dirty") {
+				await putCachedItem(record);
+				pendingRef.current.add(id);
+				setItems((current) =>
+					current.map((row) => (row.id === id ? { ...row, syncState: "dirty" } : row)),
+				);
+				return;
+			}
+			const res = await patchJson(`/api/items/${id}`, {
+				kind: payload.kind,
+				ciphertext: payload.ciphertext,
+				metaCiphertext: payload.metaCiphertext,
+				iv: payload.iv,
+				byteSize: payload.byteSize,
+			});
+			if (res.ok) {
+				await putCachedItem({ ...record, state: "synced" });
+				pendingRef.current.delete(id);
+				setItems((current) =>
+					current.map((row) => (row.id === id ? { ...row, syncState: undefined } : row)),
+				);
+				return;
+			}
+			if (res.status === 0) {
+				await putCachedItem({ ...record, state: "dirty" });
+				pendingRef.current.add(id);
+				setItems((current) =>
+					current.map((row) => (row.id === id ? { ...row, syncState: "dirty" } : row)),
+				);
+				return;
+			}
+			setItems((current) => replaceShown(current, item));
+			setDraft(trimmed);
+			setEditingId(id);
+			setStatus(errorCode(res.data));
+		} catch {
+			setItems((current) => replaceShown(current, item));
+			setStatus("request_failed");
+			setDraft(trimmed);
+			setEditingId(id);
+		} finally {
+			sendingRef.current = false;
+			setSending(false);
+		}
+	}, [draft, editingId]);
+
 	useEffect(() => {
 		if (!me || !hasLocal) {
 			return;
@@ -749,6 +950,10 @@ export default function Page() {
 			if (note?.id === id) {
 				setNote(null);
 			}
+			if (editingId === id) {
+				setEditingId(null);
+				setDraft("");
+			}
 			setItems((current) => current.filter((row) => row.id !== id));
 			setSelectedId((current) => (current === id ? null : current));
 			setUndo(restorable(item) ? item : null);
@@ -760,7 +965,7 @@ export default function Page() {
 			forgetWaitRef.current = wait;
 			await wait;
 		},
-		[commitForget, note, preview],
+		[commitForget, editingId, note, preview],
 	);
 
 	const onUndoForget = useCallback(async () => {
@@ -967,6 +1172,10 @@ export default function Page() {
 
 	async function onSend() {
 		dismissHint();
+		if (editingId) {
+			await saveEdit();
+			return;
+		}
 		await sendPlain(draft);
 	}
 
@@ -1076,9 +1285,7 @@ export default function Page() {
 
 	const draftLines = draft.split("\n").length;
 	const visible = items.filter((item) => isLiveItem(item.expiresAt, now));
-	const waiting = visible.filter(
-		(item) => item.syncState === "queued" || item.syncState === "held",
-	);
+	const waiting = visible.filter((item) => item.syncState);
 
 	if (!ready) {
 		return (
@@ -1138,63 +1345,78 @@ export default function Page() {
 			) : null}
 			<div className="stage">
 				<div className="composer">
-					<p className="sheet-label">{ephemeral ? "Live only" : "New paste"}</p>
+					<p className="sheet-label">
+						{editingId ? "Edit paste" : ephemeral ? "Live only" : "New paste"}
+					</p>
 					<ComposerDraft
 						value={draft}
-						label={ephemeral ? "Live only" : "New paste"}
+						label={editingId ? "Edit paste" : ephemeral ? "Live only" : "New paste"}
 						onChange={setDraft}
 						onSend={() => void onSend()}
 					/>
 					<div className="composer-foot">
 						{draftLines > 8 ? <p className="field-hint">{draftLines} lines</p> : null}
 						<div className="composer-bar">
-							<HoverTip label={sending ? "Sending" : "Send"} place="above">
+							<HoverTip
+								label={sending ? (editingId ? "Saving" : "Sending") : editingId ? "Save" : "Send"}
+								place="above"
+							>
 								<button
 									className="composer-icon"
 									type="button"
 									disabled={sending}
-									aria-label={sending ? "Sending" : "Send"}
+									aria-label={
+										sending ? (editingId ? "Saving" : "Sending") : editingId ? "Save" : "Send"
+									}
 									onClick={() => void onSend()}
 								>
 									<ComposerGlyph name="send" />
 								</button>
 							</HoverTip>
-							<HoverTip label="Ephemeral" place="above">
-								<button
-									type="button"
-									className={ephemeral ? "composer-icon is-on" : "composer-icon"}
-									aria-pressed={ephemeral}
-									aria-label="Ephemeral"
-									onClick={() => setEphemeral((on) => !on)}
-								>
-									<ComposerGlyph name="ephemeral" pop={ephemeral} />
+							{editingId ? (
+								<button type="button" className="quiet" onClick={cancelEdit}>
+									Cancel
 								</button>
-							</HoverTip>
-							{me.canUpload ? (
+							) : (
 								<>
-									<input
-										ref={fileRef}
-										className="file-hidden"
-										type="file"
-										onChange={(event) => {
-											void onFile(event.target.files);
-											event.target.value = "";
-										}}
-									/>
-									<HoverTip label="File" place="above">
+									<HoverTip label="Ephemeral" place="above">
 										<button
 											type="button"
-											className="composer-icon"
-											aria-label="File"
-											onClick={() => fileRef.current?.click()}
+											className={ephemeral ? "composer-icon is-on" : "composer-icon"}
+											aria-pressed={ephemeral}
+											aria-label="Ephemeral"
+											onClick={() => setEphemeral((on) => !on)}
 										>
-											<ComposerGlyph name="file" />
+											<ComposerGlyph name="ephemeral" pop={ephemeral} />
 										</button>
 									</HoverTip>
+									{me.canUpload ? (
+										<>
+											<input
+												ref={fileRef}
+												className="file-hidden"
+												type="file"
+												onChange={(event) => {
+													void onFile(event.target.files);
+													event.target.value = "";
+												}}
+											/>
+											<HoverTip label="File" place="above">
+												<button
+													type="button"
+													className="composer-icon"
+													aria-label="File"
+													onClick={() => fileRef.current?.click()}
+												>
+													<ComposerGlyph name="file" />
+												</button>
+											</HoverTip>
+										</>
+									) : null}
 								</>
-							) : null}
+							)}
 						</div>
-						{ephemeral ? (
+						{ephemeral && !editingId ? (
 							<p className="field-hint is-center">
 								Skip the store. Needs another device that is live.
 							</p>
@@ -1331,7 +1553,9 @@ export default function Page() {
 															) : (
 																<button
 																	type="button"
-																	className="body"
+																	className={
+																		textNeedsReader(item.text) ? "body is-clamped" : "body"
+																	}
 																	onClick={() => activateItem(item)}
 																>
 																	<span className="note-md-row">
@@ -1369,7 +1593,28 @@ export default function Page() {
 																		</button>
 																	</HoverTip>
 																) : null}
-																{item.syncState === "queued" || item.syncState === "held" ? (
+																{item.kind !== "image" &&
+																item.kind !== "file" &&
+																item.text !== UNREADABLE ? (
+																	<HoverTip
+																		label={editingId === item.id ? "Cancel" : "Edit"}
+																		place="above"
+																	>
+																		<button
+																			type="button"
+																			className={
+																				editingId === item.id
+																					? "act act-icon is-on"
+																					: "act act-icon"
+																			}
+																			aria-label={editingId === item.id ? "Cancel" : "Edit"}
+																			onClick={() => startEdit(item)}
+																		>
+																			<EditMark size={15} decorative />
+																		</button>
+																	</HoverTip>
+																) : null}
+																{item.syncState ? (
 																	<HoverTip label="Sync" place="above">
 																		<button
 																			type="button"
@@ -1441,6 +1686,12 @@ export default function Page() {
 				onCopy={() => {
 					if (note) {
 						void onCopy(note.text, note.id);
+					}
+				}}
+				onEdit={() => {
+					const item = itemsRef.current.find((row) => row.id === note?.id);
+					if (item) {
+						startEdit(item);
 					}
 				}}
 			/>
