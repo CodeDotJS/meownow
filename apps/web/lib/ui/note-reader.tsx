@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { CatMark } from "./marks";
+import { NoteMarkdown } from "./note-markdown";
 import { noteLineCount } from "./note-size";
 import { PixelStamp } from "./pixel-avatar";
 
@@ -66,7 +67,9 @@ export function NoteReader({
 						)}
 					</button>
 				</div>
-				<pre className="note-read">{note.text}</pre>
+				<div className="note-read">
+					<NoteMarkdown text={note.text} links />
+				</div>
 				<nav className="note-read-go">
 					<button ref={copyRef} type="button" className="select" onClick={onCopy}>
 						Copy
