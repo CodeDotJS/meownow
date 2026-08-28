@@ -2150,6 +2150,13 @@ li {
 	font-size: 1.08rem;
 }
 
+.note-md-h4,
+.note-md-h5,
+.note-md-h6 {
+	font-size: 0.98rem;
+	font-weight: 600;
+}
+
 .note-md-quote {
 	padding: 0 0 0 0.65rem;
 	border-left: 2px solid var(--rule);
@@ -2161,6 +2168,10 @@ li {
 	padding: 0;
 	list-style: none;
 	counter-reset: note-md;
+}
+
+.note-md-list > li > .note-md-list {
+	grid-column: 2;
 }
 
 .note-md-list > li {
