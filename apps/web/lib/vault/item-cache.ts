@@ -17,12 +17,28 @@ export type LastMe = {
 export type ItemCacheMeta = {
 	syncEnabled: boolean;
 	lastMe: LastMe | null;
+	/** Fold long notes behind Open. Off shows the full source. */
+	clipLongNotes: boolean;
+	/** Make the note body copy on tap. Off lets you select text and open links. */
+	tapNoteToCopy: boolean;
 };
 
 export const DEFAULT_ITEM_CACHE_META: ItemCacheMeta = {
 	syncEnabled: true,
 	lastMe: null,
+	clipLongNotes: false,
+	tapNoteToCopy: false,
 };
+
+export function asItemCacheMeta(value: unknown): ItemCacheMeta {
+	const rec = value && typeof value === "object" ? (value as Partial<ItemCacheMeta>) : {};
+	return {
+		syncEnabled: rec.syncEnabled ?? DEFAULT_ITEM_CACHE_META.syncEnabled,
+		lastMe: rec.lastMe ?? null,
+		clipLongNotes: rec.clipLongNotes === true,
+		tapNoteToCopy: rec.tapNoteToCopy === true,
+	};
+}
 
 export type ItemCacheStore = {
 	getMeta(): Promise<ItemCacheMeta>;
@@ -59,7 +75,7 @@ export async function getItemCacheMeta(): Promise<ItemCacheMeta> {
 		req.onerror = () => reject(req.error);
 	});
 	db.close();
-	return record ?? { ...DEFAULT_ITEM_CACHE_META };
+	return asItemCacheMeta(record);
 }
 
 export async function setItemCacheMeta(meta: ItemCacheMeta): Promise<void> {
