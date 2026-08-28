@@ -12,7 +12,7 @@ import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session
 import { Status } from "@/lib/ui/status";
 import { setSyncEnabled } from "@/lib/vault/flush";
 import { clearVault } from "@/lib/vault/idb";
-import { clearItemCache, getItemCacheMeta } from "@/lib/vault/item-cache";
+import { clearItemCache, getItemCacheMeta, setItemCacheMeta } from "@/lib/vault/item-cache";
 
 export default function AccountPage() {
 	const { ready, me } = useBrowserSession();
@@ -22,9 +22,15 @@ export default function AccountPage() {
 	const [status, setStatus] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [syncEnabled, setSyncOn] = useState(true);
+	const [clipLongNotes, setClipLongNotes] = useState(false);
+	const [tapNoteToCopy, setTapNoteToCopy] = useState(false);
 
 	useEffect(() => {
-		void getItemCacheMeta().then((meta) => setSyncOn(meta.syncEnabled));
+		void getItemCacheMeta().then((meta) => {
+			setSyncOn(meta.syncEnabled);
+			setClipLongNotes(meta.clipLongNotes);
+			setTapNoteToCopy(meta.tapNoteToCopy);
+		});
 	}, []);
 
 	useEffect(() => {
@@ -78,6 +84,17 @@ export default function AccountPage() {
 		}
 	}
 
+	async function onTrayPref(patch: { clipLongNotes?: boolean; tapNoteToCopy?: boolean }) {
+		if (patch.clipLongNotes !== undefined) {
+			setClipLongNotes(patch.clipLongNotes);
+		}
+		if (patch.tapNoteToCopy !== undefined) {
+			setTapNoteToCopy(patch.tapNoteToCopy);
+		}
+		const meta = await getItemCacheMeta();
+		await setItemCacheMeta({ ...meta, ...patch });
+	}
+
 	async function onDelete(event: FormEvent) {
 		event.preventDefault();
 		if (confirm !== handle) {
@@ -125,6 +142,28 @@ export default function AccountPage() {
 							onChange={(event) => void onSyncToggle(event.target.checked)}
 						/>
 						Sync to other devices
+					</label>
+				</section>
+				<section className="account-sync">
+					<h2>Clipboard</h2>
+					<p>These stay on this browser.</p>
+					<label className="ack">
+						<input
+							className="ack-box"
+							type="checkbox"
+							checked={clipLongNotes}
+							onChange={(event) => void onTrayPref({ clipLongNotes: event.target.checked })}
+						/>
+						Clip long notes
+					</label>
+					<label className="ack">
+						<input
+							className="ack-box"
+							type="checkbox"
+							checked={tapNoteToCopy}
+							onChange={(event) => void onTrayPref({ tapNoteToCopy: event.target.checked })}
+						/>
+						Tap a note to copy
 					</label>
 				</section>
 				<form className="account-leave" onSubmit={(event) => void onDelete(event)}>
