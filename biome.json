@@ -15,7 +15,8 @@
 			"!**/.wrangler",
 			"!**/dist",
 			"!**/packages/db/migrations",
-			"!**/apps/web/public/marks"
+			"!**/apps/web/public/marks",
+			"!**/apps/web/lib/ui/emoji-shortcodes.json"
 		]
 	},
 	"formatter": {
