@@ -1,6 +1,7 @@
 import type {
 	ItemCreateRequest,
 	ItemRecord,
+	ItemUpdateRequest,
 	PairingWrapRequest,
 	PublicJwk,
 	WrappedKeyWire,
@@ -74,6 +75,12 @@ export type VaultStore = {
 	}): Promise<"ok" | "missing" | "complete">;
 	deletePairing(id: string): Promise<void>;
 	createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void>;
+	updateTextItem(
+		ownerId: string,
+		id: string,
+		patch: ItemUpdateRequest,
+		now: Date,
+	): Promise<StoredItem | "missing" | "not_text" | "expired">;
 	listItems(ownerId: string): Promise<StoredItem[]>;
 	deleteItem(ownerId: string, id: string): Promise<boolean>;
 	savePushSubscription(input: {
