@@ -2,7 +2,7 @@ export type TaskPart =
 	| { type: "text"; value: string; at: number }
 	| { type: "box"; checked: boolean; at: number };
 
-const MARK = /\[([ xX])\]/g;
+const MARK = /\[([ xX]?)\]/g;
 
 export function splitTaskMarks(text: string): TaskPart[] {
 	const parts: TaskPart[] = [];
@@ -15,8 +15,8 @@ export function splitTaskMarks(text: string): TaskPart[] {
 		if (index > last) {
 			parts.push({ type: "text", value: text.slice(last, index), at: last });
 		}
-		const mark = match[1];
-		parts.push({ type: "box", checked: mark !== " ", at: index });
+		const mark = match[1] ?? "";
+		parts.push({ type: "box", checked: mark === "x" || mark === "X", at: index });
 		last = index + match[0].length;
 	}
 	if (parts.length === 0) {
