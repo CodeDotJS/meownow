@@ -223,6 +223,7 @@ If you add a custom domain later, change `APP_URL` on both sides and redeploy bo
 2. Text and links do not need file permission. Images and files do. A member requests space from the menu; an admin grants 25–100 MB on **Requests**.
 3. Pair a second browser from **Add a device** / **Show a code**. Both sides check a six-digit fingerprint. The 12 words are only if every device is gone (`/recover`).
 4. Sync lives on **Account**. It is per browser.
+5. After a deploy, a cat chip asks this browser to reload. A normal reload is enough.
 
 | Kind | Where | How long |
 |---|---|---|
