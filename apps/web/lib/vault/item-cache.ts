@@ -21,6 +21,8 @@ export type ItemCacheMeta = {
 	clipLongNotes: boolean;
 	/** Make the note body copy on tap. Off lets you select text and open links. */
 	tapNoteToCopy: boolean;
+	/** Tab inserts four spaces in the composer. Off lets Tab leave the field. */
+	tabIndent: boolean;
 };
 
 export const DEFAULT_ITEM_CACHE_META: ItemCacheMeta = {
@@ -28,6 +30,7 @@ export const DEFAULT_ITEM_CACHE_META: ItemCacheMeta = {
 	lastMe: null,
 	clipLongNotes: false,
 	tapNoteToCopy: false,
+	tabIndent: true,
 };
 
 export function asItemCacheMeta(value: unknown): ItemCacheMeta {
@@ -37,6 +40,7 @@ export function asItemCacheMeta(value: unknown): ItemCacheMeta {
 		lastMe: rec.lastMe ?? null,
 		clipLongNotes: rec.clipLongNotes === true,
 		tapNoteToCopy: rec.tapNoteToCopy === true,
+		tabIndent: rec.tabIndent !== false,
 	};
 }
 
