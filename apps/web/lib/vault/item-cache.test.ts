@@ -113,6 +113,7 @@ test("old meta without tray prefs stays unclipped and does not tap-copy", () => 
 		lastMe: null,
 		clipLongNotes: false,
 		tapNoteToCopy: false,
+		tabIndent: true,
 	});
 	expect(
 		asItemCacheMeta({
@@ -120,6 +121,7 @@ test("old meta without tray prefs stays unclipped and does not tap-copy", () => 
 			lastMe: null,
 			clipLongNotes: true,
 			tapNoteToCopy: true,
-		}).clipLongNotes,
-	).toBe(true);
+			tabIndent: false,
+		}).tabIndent,
+	).toBe(false);
 });
