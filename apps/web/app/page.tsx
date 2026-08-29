@@ -194,6 +194,7 @@ export default function Page() {
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [clipLongNotes, setClipLongNotes] = useState(false);
 	const [tapNoteToCopy, setTapNoteToCopy] = useState(false);
+	const [tabIndent, setTabIndent] = useState(true);
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
@@ -222,6 +223,7 @@ export default function Page() {
 		void getItemCacheMeta().then((meta) => {
 			setClipLongNotes(meta.clipLongNotes);
 			setTapNoteToCopy(meta.tapNoteToCopy);
+			setTabIndent(meta.tabIndent);
 		});
 	}, []);
 
@@ -1374,6 +1376,7 @@ export default function Page() {
 					<ComposerDraft
 						value={draft}
 						label={editingId ? "Edit paste" : ephemeral ? "Live only" : "New paste"}
+						tabIndent={tabIndent}
 						onChange={setDraft}
 						onSend={() => void onSend()}
 					/>
