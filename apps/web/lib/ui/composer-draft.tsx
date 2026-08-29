@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { textareaCaretOffset } from "./caret-rect";
+import { applyComposerIndent } from "./composer-indent";
 import {
 	closeShortcodeAtCaret,
 	type EmojiHit,
@@ -23,16 +24,18 @@ function fitComposerHeight(area: HTMLTextAreaElement): void {
 export function ComposerDraft({
 	value,
 	label,
+	tabIndent,
 	onChange,
 	onSend,
 }: {
 	value: string;
 	label: string;
+	tabIndent: boolean;
 	onChange: (next: string) => void;
 	onSend: () => void;
 }) {
 	const areaRef = useRef<HTMLTextAreaElement>(null);
-	const pendingCaret = useRef<number | null>(null);
+	const pendingRange = useRef<{ start: number; end: number } | null>(null);
 	const [query, setQuery] = useState<{ start: number; query: string; caret: number } | null>(null);
 	const [active, setActive] = useState(0);
 	const [box, setBox] = useState<{ left: number; top: number; below: boolean } | null>(null);
@@ -42,13 +45,13 @@ export function ComposerDraft({
 	const queryName = query?.query ?? "";
 
 	useLayoutEffect(() => {
-		const caret = pendingCaret.current;
+		const range = pendingRange.current;
 		const area = areaRef.current;
-		if (caret === null || !area || area.value !== value) {
+		if (!range || !area || area.value !== value) {
 			return;
 		}
-		pendingCaret.current = null;
-		area.setSelectionRange(caret, caret);
+		pendingRange.current = null;
+		area.setSelectionRange(range.start, range.end);
 	}, [value]);
 
 	useLayoutEffect(() => {
@@ -89,11 +92,11 @@ export function ComposerDraft({
 		}
 	}, [queryName]);
 
-	function apply(next: string, caret: number): void {
-		pendingCaret.current = caret;
+	function apply(next: string, start: number, end = start): void {
+		pendingRange.current = { start, end };
 		onChange(next);
-		const token = shortcodeQueryAt(next, caret);
-		setQuery(token ? { ...token, caret } : null);
+		const token = shortcodeQueryAt(next, end);
+		setQuery(token ? { ...token, caret: end } : null);
 	}
 
 	function pick(hit: EmojiHit): void {
@@ -156,6 +159,30 @@ export function ComposerDraft({
 							}
 							return;
 						}
+					}
+					if (
+						tabIndent &&
+						event.key === "Tab" &&
+						!event.metaKey &&
+						!event.ctrlKey &&
+						!event.altKey &&
+						!event.nativeEvent.isComposing
+					) {
+						event.preventDefault();
+						const area = areaRef.current;
+						if (!area) {
+							return;
+						}
+						const next = applyComposerIndent(
+							{
+								text: value,
+								start: area.selectionStart,
+								end: area.selectionEnd,
+							},
+							event.shiftKey ? "out" : "in",
+						);
+						apply(next.text, next.start, next.end);
+						return;
 					}
 					if (
 						event.key === "Enter" &&
