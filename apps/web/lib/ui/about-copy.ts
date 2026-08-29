@@ -109,7 +109,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-install",
 		q: "Should I install it?",
-		a: "The tab is enough. Install from the browser menu for the home screen. Open it once online so the app can still load without a network.",
+		a: "The tab is enough. Install from the browser menu for the home screen. Open it once online so the app can still load without a network. When a newer build is waiting, a cat chip asks you to reload.",
 	},
 	{
 		id: "about-share",
