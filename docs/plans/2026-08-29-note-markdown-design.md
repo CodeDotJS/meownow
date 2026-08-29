@@ -26,7 +26,7 @@ The tray clamp is max-height, not `-webkit-line-clamp`, because block markdown b
 
 ## Emoji
 
-GitHub gemoji aliases, plus tags when they do not collide with an alias, so `:laugh:` works. Typing `:[name]` opens a short list above the caret. Arrow keys, Tab/Enter insert, Escape dismisses. A closing `:name:` in prose becomes the character as you type. Fenced and inline code are left alone. Chrome stays emoji-free; notes may contain emoji.
+GitHub gemoji aliases, plus tags when they do not collide with an alias, so `:laugh:` works. Typing `:[name]` opens a short list above the caret. Arrow keys, Tab/Enter insert, Escape dismisses. When that list is closed, Tab inserts four spaces (Shift+Tab peels them) unless Account turns Tab indents off. Space still indents. A closing `:name:` in prose becomes the character as you type. Fenced and inline code are left alone. Chrome stays emoji-free; notes may contain emoji.
 
 Cap remains 64 KB of **source**.
 
