@@ -425,7 +425,7 @@ Verified current free-tier ceilings:
 | Realtime | Cloudflare Worker + Durable Object (Hibernation API) | — |
 | Client state | React state on the clipboard page | TanStack Query and Zustand are not required for live fan-out or the tray |
 | Local cache | IndexedDB (`meownow-items`), same helper style as the vault | Offline reads of ciphertext. Dexie is not required. Search and pin UI are not built |
-| Service worker | **Serwist** | `next-pwa` is unmaintained |
+| Service worker | **Serwist** | `next-pwa` is unmaintained. A cat chip asks for a normal reload when a newer worker is ready |
 | Styling | Tailwind v4 + CSS custom properties for tokens | — |
 | Primitives | Radix directly, styled by hand | shadcn defaults are exactly the look you don't want |
 | Lint/format | **Biome** | One tool, no ESLint+Prettier config war |
@@ -466,13 +466,13 @@ The product is a paste buffer on light paper. It is not a marketing kit and it d
 
 **Type.** Outfit is the product face: chrome, paste, timestamps, handles, forms, admin. Martian Mono is only for pairing codes, the 6-digit fingerprint, and the 12-word phrase. Never Inter.
 
-**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. From 960px the signed-in clipboard is two panes in one sheet: write on the left, the tray on the right. The tray is a timeline: a day marker, then clock times in the gutter. Below that it is one column; on a phone the composer sits at the bottom. Newest at top. ⌘K on a keyboard, Menu on a phone. TTL hairline under each item. Chrome carries one pairing entry pointing at `/pair`, labelled for what this browser most likely is. Forget is visible on every width. Inputs stay at 16px so iOS does not zoom.
+**Layout.** Floating top bar. Landing is an asymmetric split (copy left, demo sheet right) that stacks under 768px. From 960px the signed-in clipboard is two panes in one sheet: write on the left, the tray on the right. The tray is a timeline: a day marker, then clock times in the gutter. Below that it is one column; on a phone the composer sits at the bottom. Newest at top. ⌘K on a keyboard, Menu on a phone. TTL hairline under each item. Chrome carries one pairing entry pointing at `/pair`, labelled for what this browser most likely is. Forget is visible on every width. Inputs stay at 16px so iOS does not zoom. When a newer service worker is ready, a cat chip asks for a reload. It does not reload on its own. On a phone the chip sits under the chrome so it does not cover the composer.
 
 **Live sync.** The hub socket is the source of truth. Refetch the item list on first load, on hub `hello`, when the tab wakes, and when the browser comes back online. Poll HTTP only while the socket is down, at least 15s apart. Do not poll every few seconds while live. A signed-in chrome shows a green or red dot next to Menu; the live label is on hover, not in the tray.
 
-**Motion.** Short ease-out on enter and press (`scale(0.98)`). New items may ease ~220ms. Grain is a fixed overlay. Respect `prefers-reduced-motion`.
+**Motion.** Short ease-out on enter and press (`scale(0.98)`). New items may ease ~220ms. Grain is a fixed overlay. The update chip's cat may bob. Respect `prefers-reduced-motion`.
 
-**Copy.** Short. No emoji in chrome. The cat lives in the icon and the empty state. Composer Send / Ephemeral / File use the send, wifi, and folder marks on light chips, with a hover label. Do not fill those chips with ink. Forget is a delete mark, Open is an expand mark, Copy is overlapping rectangles, Edit is a pencil mark, and Sync is a loading mark, all on the same row as the note, vertically centered with the text. The About questions open/close chip may use native platform emoji. First-run copy names the next action in plain language. Do not say “vault” on a screen a guest has to complete.
+**Copy.** Short. No emoji in chrome. The cat lives in the icon, the empty state, and the update chip. Composer Send / Ephemeral / File use the send, wifi, and folder marks on light chips, with a hover label. Do not fill those chips with ink. Forget is a delete mark, Open is an expand mark, Copy is overlapping rectangles, Edit is a pencil mark, and Sync is a loading mark, all on the same row as the note, vertically centered with the text. The About questions open/close chip may use native platform emoji. First-run copy names the next action in plain language. Do not say “vault” on a screen a guest has to complete.
 
 **Notes.** The composer is a textarea of markdown source, including `:name:` emoji shortcodes. The ciphertext is that source after shortcodes resolve to Unicode — never HTML. This browser lexes and renders after decrypt (headings h1–h6, lists, emphasis, code, tables, links). Copy still yields the source. Link hrefs are `http` / `https` / `mailto` only; markdown images are alt text; HTML in the source stays text. Emoji may appear in a note and in the composer suggestion list. They must not appear in chrome. A text or link note can be replaced in place: same id, new IV, new ciphertext, `item.updated` on the hub and DataChannel. `expires_at` and `created_at` stay. Files and images are not edited. Live-only notes replace over the hub or mesh and are still not stored. Tray notes are not clipped unless this browser turns Clip long notes on in Account; Open stays for that fold. Copy is a mark on the row. Tap a note to copy is off unless Account turns it on, so you can select part of a note and open links. Tab inserts four spaces in the composer unless Account turns Tab indents off; Shift+Tab peels them. Spaces always indent.
 
@@ -493,7 +493,7 @@ Each milestone is independently shippable and independently testable.
 | 2 | Auth: invites, passkeys, sessions, admin bootstrap | Unused invite is the only way in |
 | 3 | Vault: generation, QR device pairing with fingerprint confirmation, recovery phrase | Second device joins and reads item created on first |
 | 4 | Text/link items: create, encrypt, store, WS fan-out, TTL, decrypt, copy | Two browsers stay in sync live |
-| 5 | PWA: manifest, Serwist, Share Target, shortcuts, offline shell, Web Push | Android share sheet lands content in meownow |
+| 5 | PWA: manifest, Serwist, Share Target, shortcuts, offline shell, Web Push, update chip | Android share sheet lands content in meownow. A newer worker shows a cat chip; Reload is a tap |
 | 5b | Offline tray: ciphertext cache, Sync on/off | A browser with keys opens the clipboard with no network; Sync-on flushes queued text/links; Sync-off waits for Sync / Sync all |
 | 6 | Uploads: request/approve flow, capability tokens, Worker gate, chunked encrypted upload, quota accounting | Non-approved user provably cannot write to R2 |
 | 7 | P2P: signalling, DataChannel, LAN detection, ephemeral send | LAN transfer measurably faster than server path |
