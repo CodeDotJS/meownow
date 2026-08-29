@@ -24,12 +24,14 @@ export default function AccountPage() {
 	const [syncEnabled, setSyncOn] = useState(true);
 	const [clipLongNotes, setClipLongNotes] = useState(false);
 	const [tapNoteToCopy, setTapNoteToCopy] = useState(false);
+	const [tabIndent, setTabIndent] = useState(true);
 
 	useEffect(() => {
 		void getItemCacheMeta().then((meta) => {
 			setSyncOn(meta.syncEnabled);
 			setClipLongNotes(meta.clipLongNotes);
 			setTapNoteToCopy(meta.tapNoteToCopy);
+			setTabIndent(meta.tabIndent);
 		});
 	}, []);
 
@@ -84,12 +86,19 @@ export default function AccountPage() {
 		}
 	}
 
-	async function onTrayPref(patch: { clipLongNotes?: boolean; tapNoteToCopy?: boolean }) {
+	async function onTrayPref(patch: {
+		clipLongNotes?: boolean;
+		tapNoteToCopy?: boolean;
+		tabIndent?: boolean;
+	}) {
 		if (patch.clipLongNotes !== undefined) {
 			setClipLongNotes(patch.clipLongNotes);
 		}
 		if (patch.tapNoteToCopy !== undefined) {
 			setTapNoteToCopy(patch.tapNoteToCopy);
+		}
+		if (patch.tabIndent !== undefined) {
+			setTabIndent(patch.tabIndent);
 		}
 		const meta = await getItemCacheMeta();
 		await setItemCacheMeta({ ...meta, ...patch });
@@ -164,6 +173,15 @@ export default function AccountPage() {
 							onChange={(event) => void onTrayPref({ tapNoteToCopy: event.target.checked })}
 						/>
 						Tap a note to copy
+					</label>
+					<label className="ack">
+						<input
+							className="ack-box"
+							type="checkbox"
+							checked={tabIndent}
+							onChange={(event) => void onTrayPref({ tabIndent: event.target.checked })}
+						/>
+						Tab indents
 					</label>
 				</section>
 				<form className="account-leave" onSubmit={(event) => void onDelete(event)}>
