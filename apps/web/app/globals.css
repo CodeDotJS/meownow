@@ -1327,6 +1327,7 @@ button:disabled {
 	scrollbar-gutter: stable;
 	font-family: inherit;
 	font-size: 1.125rem;
+	tab-size: 4;
 	line-height: 1.5;
 	caret-color: var(--ink);
 	box-shadow: none;
