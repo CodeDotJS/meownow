@@ -48,6 +48,17 @@ const serwist = new Serwist({
 
 serwist.addEventListeners();
 
+self.addEventListener("message", (event) => {
+	const data: unknown = event.data;
+	if (data === "SKIP_WAITING") {
+		void self.skipWaiting();
+		return;
+	}
+	if (typeof data === "object" && data !== null && "type" in data && data.type === "SKIP_WAITING") {
+		void self.skipWaiting();
+	}
+});
+
 self.addEventListener("fetch", (event) => {
 	const url = new URL(event.request.url);
 	if (event.request.method === "POST" && url.pathname === "/share") {
