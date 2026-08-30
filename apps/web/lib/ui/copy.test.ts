@@ -41,6 +41,8 @@ describe("statusCopy", () => {
 			"Files need Sync on. They cannot wait on this browser.",
 		);
 		expect(statusCopy("sync_needs_network")).toBe("Need a network to sync.");
+		expect(statusCopy("play_cap")).toBe("That's five. Forget one, or join with an invite.");
+		expect(statusCopy("play_too_large")).toBe("That item is too large or empty.");
 		expect(notesSyncedCopy(1)).toBe("1 note synced");
 		expect(notesSyncedCopy(3)).toBe("3 notes synced");
 	});
