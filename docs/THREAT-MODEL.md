@@ -18,7 +18,7 @@ The server sees: owner, size, timestamps, kind, opaque ciphertext, wrapped keys,
 
 Passkeys are origin-bound discoverable credentials. There is no password. Invite tokens are 32 random bytes shown once; only `sha256(token)` is stored. Sessions are opaque 256-bit cookies (`httpOnly; Secure; SameSite=Lax; Path=/`), hashed at rest, sliding 30 days, hard-capped at 90. Mutating routes require both SameSite and a matching `Origin`.
 
-Membership is invite-only. There is no numeric seat cap. An unused, unexpired, unrevoked invite is the only way to create a member. Guests may leave an email and an optional note at `/ask`; that write is rate-limited, stores no IP, and never creates a seat. An admin still has to mint and send a `/join?t=` link.
+Membership is invite-only. There is no numeric seat cap. An unused, unexpired, unrevoked invite is the only way to create a member. `/play` is not a member and does not write Neon, R2, or the hub. Guests may leave an email and an optional note at `/ask`; that write is rate-limited, stores no IP, and never creates a seat. An admin still has to mint and send a `/join?t=` link.
 
 The seeded admin has no passkey. First enroll is invite-less and gated by `ADMIN_ENROLL_SECRET`. Anyone who knows that secret can bind the first admin device; after a device exists the route is closed.
 
@@ -41,6 +41,10 @@ Text and link items persist as ciphertext with a 30-day TTL and a 64 KB cap. Aft
 The signed-in page registers `/sw.js` (classic worker). The service worker (Serwist) intercepts Android Share Target POSTs, writes the shared text to a local IndexedDB inbox, and redirects home. The signed-in client encrypts and POSTs ciphertext like any other item. The origin never sees the share body. Web Push payloads are only `New item from {displayName}`; the client fetches and decrypts on open. `VAPID_PRIVATE_KEY` is required to send; it is not in the original env list. iOS has no Share Target; do not add a plaintext clipboard ingest route. A newer build is detected with `registration.update()`, `updatefound`, and `controllerchange` — not a version document from the server. Reload is a tap on the cat chip, not an automatic navigation.
 
 `/api/` and Worker upload/download paths are network-only in the service worker. The clipboard cache (`meownow-items`) stores ciphertext envelopes plus this-browser Sync and tray preferences and a `lastMe` snapshot so chrome can render when `/api/auth/me` is unreachable. Plaintext is still not on the server. `lastMe` is not a session and does not authorize writes. Device compromise remains out of scope.
+
+## Playground (milestone 10)
+
+`/play` is a look-and-feel tray for a browser with no session and no local vault. Notes live in a separate IndexedDB (`meownow-play`), not `meownow-items`. They are ordinary local records, not a vault. They never go to Neon, R2, or the hub. A guest `POST /api/items` (or upload, or hub ticket) is still denied. Cap is five current notes in the write helper; Forget frees a slot. That cap is UX in this page, not authorization. A person who edits this browser's IndexedDB can keep more rows here and still cannot write the store or become a member. Do not move the cap to Neon to "enforce" it. When a vault exists on this browser, drop `meownow-play` — do not POST those notes. No Share Target into the playground. Clearing site data wipes it. XSS on the origin can read that DB; that stays the same device-compromise class, out of scope. Do not log note text.
 
 ## Uploads (milestone 6)
 
