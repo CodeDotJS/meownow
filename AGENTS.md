@@ -42,7 +42,7 @@ Storage: Neon Postgres for metadata and small ciphertext. Cloudflare R2 for blob
 
 - **The server is untrusted.** It must never see plaintext content, filenames, MIME types, or previews. If an approach requires plaintext server-side, stop and flag it.
 - **All authorization is server-side.** UI gating is convenience, never enforcement. A user without `can_upload` must be unable to write a byte to R2 even with a hand-crafted request.
-- **Membership is invite-only.** There is no public signup and no numeric seat cap. An unused invite is the only way in. Flag free-tier cost if invites grow past a small group.
+- **Membership is invite-only.** There is no public signup and no numeric seat cap. An unused invite is the only way in. Flag free-tier cost if invites grow past a small group. `/play` is not a seat; those notes never leave this browser.
 - **No passwords.** Passkeys plus a recovery phrase. Never add a fallback.
 - **Zero recurring cost.** Everything stays inside free tiers. Flag anything that would exceed one before building it.
 
