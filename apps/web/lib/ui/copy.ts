@@ -54,6 +54,10 @@ const LOCAL: Record<string, string> = {
 	file_needs_network: "Need a network to send a file.",
 	file_needs_sync: "Files need Sync on. They cannot wait on this browser.",
 	sync_needs_network: "Need a network to sync.",
+	play_cap: "That's five. Forget one, or join with an invite.",
+	play_too_large: "That item is too large or empty.",
+	play_empty: "Type a note first.",
+	send_failed: "Could not send that.",
 };
 
 export function notesSyncedCopy(count: number): string {
