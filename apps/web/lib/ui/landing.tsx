@@ -2,6 +2,7 @@
 
 import { useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
+import { SIGNED_OUT_HERO } from "@/lib/play/hero";
 import { DemoLog } from "./demo-log";
 import { InstallHint } from "./install-hint";
 import { playLandingMotion } from "./landing-motion";
@@ -10,7 +11,6 @@ import { SiteFooter } from "./site-footer";
 export function Landing({ hasLocal }: { hasLocal: boolean }) {
 	const reduce = useReducedMotion();
 	const rootRef = useRef<HTMLElement>(null);
-
 	useEffect(() => {
 		const root = rootRef.current;
 		if (!root || reduce) {
@@ -38,9 +38,11 @@ export function Landing({ hasLocal }: { hasLocal: boolean }) {
 							ask them for an invite link.
 						</p>
 						<nav className="hero-fade stack">
-							<a className="select" href="/login">
-								Continue with passkey
-							</a>
+							{SIGNED_OUT_HERO.map((action) => (
+								<a key={action.href} className="select" href={action.href}>
+									{action.label}
+								</a>
+							))}
 						</nav>
 						{hasLocal ? (
 							<p className="hero-fade hint">
