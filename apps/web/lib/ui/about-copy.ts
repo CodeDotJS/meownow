@@ -29,7 +29,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-in",
 		q: "How do I get in?",
-		a: "An admin sends an invite link. There is no public signup and no password. Ask on the home page only leaves an email — it does not get you in.",
+		a: "An admin sends an invite link. There is no public signup and no password. Ask on the home page only leaves an email — it does not get you in. Playground on the home page is five notes in this browser. That is not a seat.",
 	},
 	{
 		id: "about-passkey",
