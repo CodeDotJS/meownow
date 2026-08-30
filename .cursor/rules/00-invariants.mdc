@@ -7,7 +7,7 @@ alwaysApply: true
 
 - The server is untrusted. It must never see plaintext content, filenames, MIME types, or previews. If an approach requires plaintext server-side, stop and flag it.
 - All authorization is server-side. UI gating is convenience, never enforcement. A user without `can_upload` must be unable to write a byte to R2 even with a hand-crafted request.
-- Membership is invite-only. There is no public signup and no numeric seat cap. An unused invite is the only way in.
+- Membership is invite-only. There is no public signup and no numeric seat cap. An unused invite is the only way in. `/play` is not a member: notes stay in this browser and never go to Neon, R2, or the hub.
 - No passwords. Passkeys plus a recovery phrase. Never add a fallback.
 - Zero recurring cost. Stay inside free tiers. Flag anything that would exceed one before building it.
 
