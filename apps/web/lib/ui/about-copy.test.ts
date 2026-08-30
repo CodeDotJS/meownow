@@ -20,6 +20,7 @@ test("keeps the original join topics as questions", () => {
 		expect.arrayContaining(["about-in", "about-passkey", "about-pair", "about-words", "about-ttl"]),
 	);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-in")?.q).toMatch(/get in/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-in")?.a).toMatch(/this browser/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-passkey")?.a).toMatch(/passkey/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-words")?.a).toMatch(/twelve words/i);
 });
