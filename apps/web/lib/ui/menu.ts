@@ -36,6 +36,12 @@ export function menuActions(me: MenuMe | null, hasLocal: boolean): PaletteAction
 		return [
 			{ id: "about", label: "About", hint: "What this is", href: "/about" },
 			{
+				id: "play",
+				label: "Playground",
+				hint: "Five notes in this browser",
+				href: "/play",
+			},
+			{
 				id: "login",
 				label: "Sign in",
 				hint: hasLocal
