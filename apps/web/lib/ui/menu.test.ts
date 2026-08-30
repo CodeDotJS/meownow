@@ -11,12 +11,13 @@ const member: MenuMe = {
 describe("menuActions", () => {
 	test("guest menu is onboarding, not the product", () => {
 		const ids = menuActions(null, false).map((row) => row.id);
-		expect(ids).toEqual(["about", "login", "join", "ask", "pair", "recover", "enroll"]);
+		expect(ids).toEqual(["about", "play", "login", "join", "ask", "pair", "recover", "enroll"]);
 	});
 
 	test("a browser that already has keys still lists recover and first admin", () => {
 		expect(menuActions(null, true).map((row) => row.id)).toEqual([
 			"about",
+			"play",
 			"login",
 			"join",
 			"ask",
