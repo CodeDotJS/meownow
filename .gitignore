@@ -18,3 +18,4 @@ coverage
 skills-lock.json
 **/public/sw.js
 **/public/swe-worker*
+apps/twa/
