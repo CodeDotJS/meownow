@@ -8,6 +8,8 @@ import {
 	subscribeTransportNotice,
 	type TransportNotice,
 } from "@/lib/client/transport-notice";
+import { discardPlayIfLocal } from "@/lib/play/hero";
+import { idbPlayStore } from "@/lib/play/store";
 import { markStandalone } from "@/lib/pwa/standalone";
 import { subscribeHub } from "@/lib/vault/hub-live";
 import { statusCopy } from "./copy";
@@ -46,6 +48,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 			const session = await hydrateBrowserSession();
 			setMe(session.me ? asMenuMe(session.me) : null);
 			setHasLocal(session.hasLocal);
+			void discardPlayIfLocal(session.hasLocal, idbPlayStore);
 		})();
 	}, [pathname]);
 
@@ -107,9 +110,14 @@ export function AppFrame({ children }: { children: ReactNode }) {
 						About
 					</a>
 					{me ? null : (
-						<a className="chrome-add" href="/login">
-							Sign in
-						</a>
+						<>
+							<a className="chrome-add" href="/play">
+								Playground
+							</a>
+							<a className="chrome-add" href="/login">
+								Sign in
+							</a>
+						</>
 					)}
 					{me?.role === "admin" ? (
 						<a className="chrome-add chrome-desk" href="/invites">
