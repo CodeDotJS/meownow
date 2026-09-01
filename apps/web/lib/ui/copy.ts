@@ -56,6 +56,7 @@ const LOCAL: Record<string, string> = {
 	sync_needs_network: "Need a network to sync.",
 	play_cap: "That's five. Forget one, or join with an invite.",
 	play_too_large: "That item is too large or empty.",
+	play_not_image: "Paste a photo, not a file.",
 	play_empty: "Type a note first.",
 	send_failed: "Could not send that.",
 };
