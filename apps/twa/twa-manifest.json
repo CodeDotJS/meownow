@@ -1,78 +1,78 @@
 {
-  "packageId": "app.vercel.meownow",
-  "host": "meownow.vercel.app",
-  "name": "meownow",
-  "launcherName": "meownow",
-  "display": "standalone",
-  "themeColor": "#EEF0F3",
-  "themeColorDark": "#EEF0F3",
-  "navigationColor": "#EEF0F3",
-  "navigationColorDark": "#EEF0F3",
-  "navigationDividerColor": "#000000",
-  "navigationDividerColorDark": "#000000",
-  "backgroundColor": "#EEF0F3",
-  "enableNotifications": true,
-  "startUrl": "/",
-  "iconUrl": "https://meownow.vercel.app/icons/icon-512.png",
-  "maskableIconUrl": "https://meownow.vercel.app/icons/icon-512-maskable.png",
-  "splashScreenFadeOutDuration": 300,
-  "signingKey": {
-    "path": "./android.keystore",
-    "alias": "android"
-  },
-  "appVersionName": "1",
-  "appVersionCode": 1,
-  "shortcuts": [
-    {
-      "name": "Clipboard",
-      "shortName": "Paste",
-      "url": "/",
-      "chosenIconUrl": "https://meownow.vercel.app/icons/icon-192.png"
-    },
-    {
-      "name": "Show a code",
-      "shortName": "Show",
-      "url": "/pair/show",
-      "chosenIconUrl": "https://meownow.vercel.app/icons/icon-192.png"
-    },
-    {
-      "name": "Add a device",
-      "shortName": "Add",
-      "url": "/pair/scan",
-      "chosenIconUrl": "https://meownow.vercel.app/icons/icon-192.png"
-    }
-  ],
-  "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://meownow.vercel.app/manifest.webmanifest",
-  "fallbackType": "customtabs",
-  "features": {},
-  "alphaDependencies": {
-    "enabled": false
-  },
-  "enableSiteSettingsShortcut": true,
-  "isChromeOSOnly": false,
-  "isMetaQuest": false,
-  "fullScopeUrl": "https://meownow.vercel.app/",
-  "minSdkVersion": 23,
-  "shareTarget": {
-    "action": "https://meownow.vercel.app/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url"
-    }
-  },
-  "orientation": "any",
-  "fingerprints": [
-    {
-      "name": "sideload",
-      "value": "64:8F:6D:9B:08:34:FA:E2:CC:56:A5:21:A4:B8:D6:84:8A:3E:B4:70:E0:95:5E:61:A7:76:8E:8A:D6:E9:03:CA"
-    }
-  ],
-  "additionalTrustedOrigins": [],
-  "retainedBundles": [],
-  "displayOverride": [],
-  "appVersion": "1"
+	"packageId": "app.vercel.meownow",
+	"host": "meownow.vercel.app",
+	"name": "meownow",
+	"launcherName": "meownow",
+	"display": "standalone",
+	"themeColor": "#EEF0F3",
+	"themeColorDark": "#EEF0F3",
+	"navigationColor": "#EEF0F3",
+	"navigationColorDark": "#EEF0F3",
+	"navigationDividerColor": "#000000",
+	"navigationDividerColorDark": "#000000",
+	"backgroundColor": "#EEF0F3",
+	"enableNotifications": true,
+	"startUrl": "/",
+	"iconUrl": "https://meownow.vercel.app/icons/icon-512.png",
+	"maskableIconUrl": "https://meownow.vercel.app/icons/icon-512-maskable.png",
+	"splashScreenFadeOutDuration": 300,
+	"signingKey": {
+		"path": "./android.keystore",
+		"alias": "android"
+	},
+	"appVersionName": "1",
+	"appVersionCode": 1,
+	"shortcuts": [
+		{
+			"name": "Clipboard",
+			"shortName": "Paste",
+			"url": "/",
+			"chosenIconUrl": "https://meownow.vercel.app/icons/icon-192.png"
+		},
+		{
+			"name": "Show a code",
+			"shortName": "Show",
+			"url": "/pair/show",
+			"chosenIconUrl": "https://meownow.vercel.app/icons/icon-192.png"
+		},
+		{
+			"name": "Add a device",
+			"shortName": "Add",
+			"url": "/pair/scan",
+			"chosenIconUrl": "https://meownow.vercel.app/icons/icon-192.png"
+		}
+	],
+	"generatorApp": "bubblewrap-cli",
+	"webManifestUrl": "https://meownow.vercel.app/manifest.webmanifest",
+	"fallbackType": "customtabs",
+	"features": {},
+	"alphaDependencies": {
+		"enabled": false
+	},
+	"enableSiteSettingsShortcut": true,
+	"isChromeOSOnly": false,
+	"isMetaQuest": false,
+	"fullScopeUrl": "https://meownow.vercel.app/",
+	"minSdkVersion": 23,
+	"shareTarget": {
+		"action": "https://meownow.vercel.app/share",
+		"method": "POST",
+		"enctype": "multipart/form-data",
+		"params": {
+			"title": "title",
+			"text": "text",
+			"url": "url"
+		}
+	},
+	"orientation": "any",
+	"fingerprints": [
+		{
+			"name": "sideload",
+			"value": "64:8F:6D:9B:08:34:FA:E2:CC:56:A5:21:A4:B8:D6:84:8A:3E:B4:70:E0:95:5E:61:A7:76:8E:8A:D6:E9:03:CA"
+		}
+	],
+	"additionalTrustedOrigins": [],
+	"retainedBundles": [],
+	"displayOverride": [],
+	"appVersion": "1"
 }
