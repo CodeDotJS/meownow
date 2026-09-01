@@ -27,3 +27,19 @@ export function mergeRemoteItems<T extends MergeableItem>(
 	}
 	return [...byId.values()].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
+
+/** Keep on-screen in-flight writes when a refresh rebuilds the pending set. */
+export function nextPendingIds(
+	previous: Iterable<string>,
+	shownIds: Iterable<string>,
+	cachedUnsynced: Iterable<string>,
+): Set<string> {
+	const shown = new Set(shownIds);
+	const next = new Set(cachedUnsynced);
+	for (const id of previous) {
+		if (shown.has(id)) {
+			next.add(id);
+		}
+	}
+	return next;
+}
