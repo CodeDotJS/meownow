@@ -10,6 +10,7 @@ import { Mesh } from "@/lib/p2p/mesh";
 import { sendOnMesh } from "@/lib/p2p/send";
 import { takeIncomingShare } from "@/lib/pwa/inbox";
 import { registerPush } from "@/lib/pwa/register-push";
+import { filesFromClipboard } from "@/lib/ui/clipboard-files";
 import { ComposerDraft } from "@/lib/ui/composer-draft";
 import { ComposerGlyph } from "@/lib/ui/composer-glyph";
 import { notesSyncedCopy } from "@/lib/ui/copy";
@@ -852,26 +853,6 @@ export default function Page() {
 		if (!me || !hasLocal) {
 			return;
 		}
-		function onPaste(event: ClipboardEvent) {
-			const target = event.target;
-			if (target instanceof HTMLElement && target.closest("textarea, input, [contenteditable]")) {
-				return;
-			}
-			const text = event.clipboardData?.getData("text/plain");
-			if (!text?.trim()) {
-				return;
-			}
-			event.preventDefault();
-			void sendPlain(text);
-		}
-		document.addEventListener("paste", onPaste);
-		return () => document.removeEventListener("paste", onPaste);
-	}, [me, hasLocal, sendPlain]);
-
-	useEffect(() => {
-		if (!me || !hasLocal) {
-			return;
-		}
 		void registerPush();
 	}, [me, hasLocal]);
 
@@ -1255,79 +1236,108 @@ export default function Page() {
 		}
 	}
 
-	async function onFile(files: FileList | null) {
-		const file = files?.[0];
-		if (!file) {
-			return;
-		}
-		dismissHint();
-		if (!navigator.onLine) {
-			setStatus("file_needs_network");
-			return;
-		}
-		if (!(await getItemCacheMeta()).syncEnabled) {
-			setStatus("file_needs_sync");
-			return;
-		}
-		const id = crypto.randomUUID();
-		const kind = file.type.startsWith("image/") ? ("image" as const) : ("file" as const);
-		const previewUrl =
-			kind === "image" && file.type !== "image/svg+xml" ? URL.createObjectURL(file) : undefined;
-		const createdAt = new Date().toISOString();
-		const expiresAt = new Date(Date.now() + BLOB_TTL_MS).toISOString();
-		pendingRef.current.add(id);
-		setStatus(null);
-		setItems((current) => [
-			{
+	const onFile = useCallback(
+		async (files: FileList | File[] | null) => {
+			const file = files?.[0];
+			if (!file) {
+				return;
+			}
+			dismissHint();
+			if (!navigator.onLine) {
+				setStatus("file_needs_network");
+				return;
+			}
+			if (!(await getItemCacheMeta()).syncEnabled) {
+				setStatus("file_needs_sync");
+				return;
+			}
+			const id = crypto.randomUUID();
+			const kind = file.type.startsWith("image/") ? ("image" as const) : ("file" as const);
+			const previewUrl =
+				kind === "image" && file.type !== "image/svg+xml" ? URL.createObjectURL(file) : undefined;
+			const createdAt = new Date().toISOString();
+			const expiresAt = new Date(Date.now() + BLOB_TTL_MS).toISOString();
+			pendingRef.current.add(id);
+			setStatus(null);
+			setItems((current) => [
+				{
+					id,
+					text: file.name.trim() || (kind === "image" ? "image.png" : "file"),
+					kind,
+					previewUrl,
+					uploadProgress: 0.04,
+					createdAt,
+					expiresAt,
+				},
+				...current.filter((row) => row.id !== id),
+			]);
+			setSelectedId(id);
+			const result = await sendBlobFile(file, {
 				id,
-				text: file.name,
-				kind,
-				previewUrl,
-				uploadProgress: 0.04,
-				createdAt,
-				expiresAt,
-			},
-			...current.filter((row) => row.id !== id),
-		]);
-		setSelectedId(id);
-		const result = await sendBlobFile(file, {
-			id,
-			onProgress: (fraction) => {
-				setItems((current) =>
-					current.map((row) => (row.id === id ? { ...row, uploadProgress: fraction } : row)),
-				);
-			},
-		});
-		if ("error" in result) {
-			pendingRef.current.delete(id);
-			setItems((current) => current.filter((row) => row.id !== id));
-			if (previewUrl) {
-				URL.revokeObjectURL(previewUrl);
+				onProgress: (fraction) => {
+					setItems((current) =>
+						current.map((row) => (row.id === id ? { ...row, uploadProgress: fraction } : row)),
+					);
+				},
+			});
+			if ("error" in result) {
+				pendingRef.current.delete(id);
+				setItems((current) => current.filter((row) => row.id !== id));
+				if (previewUrl) {
+					URL.revokeObjectURL(previewUrl);
+				}
+				setStatus(result.error);
+				return;
 			}
-			setStatus(result.error);
+			if (!itemsRef.current.some((row) => row.id === id)) {
+				pendingRef.current.delete(id);
+				if (previewUrl) {
+					URL.revokeObjectURL(previewUrl);
+				}
+				return;
+			}
+			pendingRef.current.delete(id);
+			setItems((current) =>
+				current.map((row) =>
+					row.id === id
+						? {
+								...row,
+								...result,
+								previewUrl: row.previewUrl ?? previewUrl,
+								uploadProgress: undefined,
+							}
+						: row,
+				),
+			);
+		},
+		[dismissHint],
+	);
+
+	useEffect(() => {
+		if (!me || !hasLocal) {
 			return;
 		}
-		if (!itemsRef.current.some((row) => row.id === id)) {
-			pendingRef.current.delete(id);
-			if (previewUrl) {
-				URL.revokeObjectURL(previewUrl);
+		function onPaste(event: ClipboardEvent) {
+			const files = filesFromClipboard(event.clipboardData);
+			if (files[0]) {
+				event.preventDefault();
+				void onFile(files);
+				return;
 			}
-			return;
+			const target = event.target;
+			if (target instanceof HTMLElement && target.closest("textarea, input, [contenteditable]")) {
+				return;
+			}
+			const text = event.clipboardData?.getData("text/plain");
+			if (!text?.trim()) {
+				return;
+			}
+			event.preventDefault();
+			void sendPlain(text);
 		}
-		pendingRef.current.delete(id);
-		setItems((current) =>
-			current.map((row) =>
-				row.id === id
-					? {
-							...row,
-							...result,
-							previewUrl: row.previewUrl ?? previewUrl,
-							uploadProgress: undefined,
-						}
-					: row,
-			),
-		);
-	}
+		document.addEventListener("paste", onPaste);
+		return () => document.removeEventListener("paste", onPaste);
+	}, [me, hasLocal, sendPlain, onFile]);
 
 	const draftLines = draft.split("\n").length;
 	const visible = items.filter((item) => isLiveItem(item.expiresAt, now));
