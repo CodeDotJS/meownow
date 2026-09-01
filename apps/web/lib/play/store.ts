@@ -1,13 +1,15 @@
 export const PLAY_DB = "meownow-play";
 export const PLAY_CAP = 5;
+export const PLAY_IMAGE_MAX_BYTES = 12 * 1024 * 1024;
 
 const RECORDS = "records";
 
 export type PlayNote = {
 	id: string;
 	text: string;
-	kind: "text" | "link";
+	kind: "text" | "link" | "image";
 	createdAt: string;
+	blob?: Blob;
 };
 
 export type PlayStore = {
