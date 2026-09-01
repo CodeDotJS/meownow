@@ -38,12 +38,22 @@ const serwist = new Serwist({
 		entries: [
 			{
 				url: "/~offline",
-				matcher({ request }) {
+				matcher({ request, url }) {
+					if (url.pathname === "/share") {
+						return false;
+					}
 					return request.mode === "navigate" || request.destination === "document";
 				},
 			},
 		],
 	},
+});
+
+self.addEventListener("fetch", (event) => {
+	const url = new URL(event.request.url);
+	if (event.request.method === "POST" && url.pathname === "/share") {
+		event.respondWith(handleShare(event.request));
+	}
 });
 
 serwist.addEventListeners();
@@ -56,13 +66,6 @@ self.addEventListener("message", (event) => {
 	}
 	if (typeof data === "object" && data !== null && "type" in data && data.type === "SKIP_WAITING") {
 		void self.skipWaiting();
-	}
-});
-
-self.addEventListener("fetch", (event) => {
-	const url = new URL(event.request.url);
-	if (event.request.method === "POST" && url.pathname === "/share") {
-		event.respondWith(handleShare(event.request));
 	}
 });
 
