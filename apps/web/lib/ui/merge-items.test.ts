@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { mergeRemoteItems } from "./merge-items";
+import { mergeRemoteItems, nextPendingIds } from "./merge-items";
 
 test("keeps a just-sent note when an older fetch comes back first", () => {
 	const pending = new Set(["new"]);
@@ -32,6 +32,11 @@ test("keeps three held notes the server has not seen, and a tombstone still wins
 		{ tombstones: ["gone"], pending },
 	);
 	expect(merged.map((row) => row.id)).toEqual(["a", "b", "c", "old"]);
+});
+
+test("a refresh keeps an in-flight upload that is still on screen", () => {
+	const next = nextPendingIds(["uploading"], ["uploading", "old"], []);
+	expect([...next]).toEqual(["uploading"]);
 });
 
 test("keeps an ephemeral note that the server never stored", () => {
