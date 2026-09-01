@@ -1,23 +1,28 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { idbPlayStore, PLAY_CAP, type PlayNote } from "@/lib/play/store";
 import {
+	addPlayImage,
 	addPlayNote,
 	forgetPlayNote,
+	isPlayImageFile,
 	PlayCapError,
+	PlayNotImageError,
 	PlayTooLargeError,
 	playCountLabel,
 	replacePlayNote,
 } from "@/lib/play/write";
+import { filesFromClipboard } from "./clipboard-files";
 import { ComposerDraft } from "./composer-draft";
 import { ComposerGlyph } from "./composer-glyph";
 import { expandEmojiShortcodes } from "./emoji-shortcodes";
+import { FilePreview, type FilePreviewState } from "./file-preview";
 import { HoverTip } from "./hover-tip";
-import { CatMark, CopyMark, DeleteMark, EditMark } from "./marks";
+import { CatMark, CopyMark, DeleteMark, EditMark, PreviewMark } from "./marks";
 import { NoteMarkdown } from "./note-markdown";
-import { PixelStamp } from "./pixel-avatar";
+import { PixelStamp, PixelThumb } from "./pixel-avatar";
 import { PlayCapDialog } from "./play-cap-dialog";
 import { Status } from "./status";
 import { formatClockTime, groupByDay } from "./time";
@@ -28,6 +33,9 @@ function playStatus(error: unknown): string {
 	}
 	if (error instanceof PlayTooLargeError) {
 		return "play_too_large";
+	}
+	if (error instanceof PlayNotImageError) {
+		return "play_not_image";
 	}
 	if (error instanceof Error && error.message === "empty") {
 		return "play_empty";
@@ -45,6 +53,10 @@ export function PlayBoard() {
 	const [copiedId, setCopiedId] = useState<string | null>(null);
 	const [now, setNow] = useState(() => Date.now());
 	const [capOpen, setCapOpen] = useState(false);
+	const [preview, setPreview] = useState<FilePreviewState | null>(null);
+	const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+	const previewUrlsRef = useRef<Record<string, string>>({});
+	const fileRef = useRef<HTMLInputElement>(null);
 
 	const refresh = useCallback(async () => {
 		setNotes(await idbPlayStore.list());
@@ -75,6 +87,76 @@ export function PlayBoard() {
 		return () => window.clearTimeout(timer);
 	}, [status]);
 
+	useEffect(() => {
+		const keep = new Set(
+			notes.filter((note) => note.kind === "image" && note.blob).map((note) => note.id),
+		);
+		const next: Record<string, string> = {};
+		for (const [id, url] of Object.entries(previewUrlsRef.current)) {
+			if (keep.has(id)) {
+				next[id] = url;
+			} else {
+				URL.revokeObjectURL(url);
+			}
+		}
+		for (const note of notes) {
+			if (note.kind === "image" && note.blob && !next[note.id]) {
+				next[note.id] = URL.createObjectURL(note.blob);
+			}
+		}
+		previewUrlsRef.current = next;
+		setPreviewUrls(next);
+	}, [notes]);
+
+	useEffect(() => {
+		return () => {
+			for (const url of Object.values(previewUrlsRef.current)) {
+				URL.revokeObjectURL(url);
+			}
+		};
+	}, []);
+
+	const finishWrite = useCallback(async () => {
+		const next = await idbPlayStore.list();
+		setNotes(next);
+		if (next.length >= PLAY_CAP) {
+			setCapOpen(true);
+		}
+	}, []);
+
+	const onImage = useCallback(
+		async (file: File) => {
+			setSending(true);
+			setStatus(null);
+			try {
+				await addPlayImage(idbPlayStore, file);
+				await finishWrite();
+			} catch (error) {
+				if (error instanceof PlayCapError) {
+					setCapOpen(true);
+				} else {
+					setStatus(playStatus(error));
+				}
+			} finally {
+				setSending(false);
+			}
+		},
+		[finishWrite],
+	);
+
+	useEffect(() => {
+		function onPaste(event: ClipboardEvent) {
+			const image = filesFromClipboard(event.clipboardData).find(isPlayImageFile);
+			if (!image) {
+				return;
+			}
+			event.preventDefault();
+			void onImage(image);
+		}
+		document.addEventListener("paste", onPaste);
+		return () => document.removeEventListener("paste", onPaste);
+	}, [onImage]);
+
 	async function onSend() {
 		const text = expandEmojiShortcodes(draft);
 		setSending(true);
@@ -87,11 +169,7 @@ export function PlayBoard() {
 				await addPlayNote(idbPlayStore, text);
 			}
 			setDraft("");
-			const next = await idbPlayStore.list();
-			setNotes(next);
-			if (next.length >= PLAY_CAP) {
-				setCapOpen(true);
-			}
+			await finishWrite();
 		} catch (error) {
 			if (error instanceof PlayCapError) {
 				setCapOpen(true);
@@ -104,6 +182,9 @@ export function PlayBoard() {
 	}
 
 	function startEdit(note: PlayNote) {
+		if (note.kind === "image") {
+			return;
+		}
 		if (editingId === note.id) {
 			setEditingId(null);
 			setDraft("");
@@ -113,10 +194,32 @@ export function PlayBoard() {
 		setDraft(note.text);
 	}
 
+	function openPreview(note: PlayNote) {
+		const url = previewUrls[note.id];
+		if (!url || note.kind !== "image") {
+			return;
+		}
+		setPreview({ url, filename: note.text, kind: "image" });
+	}
+
+	function downloadPreview() {
+		if (!preview) {
+			return;
+		}
+		const link = document.createElement("a");
+		link.href = preview.url;
+		link.download = preview.filename;
+		link.click();
+	}
+
 	async function onForget(id: string) {
 		if (editingId === id) {
 			setEditingId(null);
 			setDraft("");
+		}
+		const url = previewUrls[id];
+		if (preview && url && preview.url === url) {
+			setPreview(null);
 		}
 		await forgetPlayNote(idbPlayStore, id);
 		await refresh();
@@ -180,7 +283,34 @@ export function PlayBoard() {
 								>
 									Cancel
 								</button>
-							) : null}
+							) : (
+								<>
+									<input
+										ref={fileRef}
+										className="file-hidden"
+										type="file"
+										accept="image/*"
+										onChange={(event) => {
+											const file = event.target.files?.[0];
+											event.target.value = "";
+											if (file) {
+												void onImage(file);
+											}
+										}}
+									/>
+									<HoverTip label="Image" place="above">
+										<button
+											className="composer-icon"
+											type="button"
+											disabled={sending}
+											aria-label="Image"
+											onClick={() => fileRef.current?.click()}
+										>
+											<ComposerGlyph name="file" />
+										</button>
+									</HoverTip>
+								</>
+							)}
 						</div>
 					</div>
 				</div>
@@ -219,71 +349,107 @@ export function PlayBoard() {
 									</h2>
 									<ul className="log-day-items">
 										<AnimatePresence initial={false}>
-											{group.items.map((item) => (
-												<motion.li
-													key={item.id}
-													layout={!reduceMotion}
-													initial={reduceMotion ? false : { opacity: 0, y: -10 }}
-													animate={{ opacity: 1, y: 0 }}
-													exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-													transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-													className="log-item"
-												>
-													<span className="gutter">
-														<span className="gutter-time">{formatClockTime(item.createdAt)}</span>
-														{copiedId === item.id ? (
-															<CatMark className="time-mark is-copied" size={24} decorative />
-														) : (
-															<PixelStamp seed={item.createdAt} />
-														)}
-													</span>
-													<span className="rail" aria-hidden />
-													<div className="log-main">
-														<div className="body">
-															<span className="note-md-row">
-																<NoteMarkdown text={item.text} links />
+											{group.items.map((item) => {
+												const isImage = item.kind === "image";
+												return (
+													<motion.li
+														key={item.id}
+														layout={!reduceMotion}
+														initial={reduceMotion ? false : { opacity: 0, y: -10 }}
+														animate={{ opacity: 1, y: 0 }}
+														exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+														transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+														className={isImage ? "log-item has-file" : "log-item"}
+													>
+														<span className="gutter">
+															<span className="gutter-time">{formatClockTime(item.createdAt)}</span>
+															{copiedId === item.id ? (
+																<CatMark className="time-mark is-copied" size={24} decorative />
+															) : (
+																<PixelStamp seed={item.createdAt} />
+															)}
+														</span>
+														<span className="rail" aria-hidden />
+														<div className="log-main">
+															{isImage ? (
+																<button
+																	type="button"
+																	className="body file-body"
+																	onClick={() => openPreview(item)}
+																>
+																	<PixelThumb seed={item.id} label={item.text} />
+																	<span className="file-copy">
+																		<span className="file-name">
+																			<span>{item.text}</span>
+																		</span>
+																		<span className="file-meta">Image</span>
+																	</span>
+																</button>
+															) : (
+																<div className="body">
+																	<span className="note-md-row">
+																		<NoteMarkdown text={item.text} links />
+																	</span>
+																</div>
+															)}
+															<span className="log-actions">
+																{isImage ? (
+																	<HoverTip label="Preview" place="above">
+																		<button
+																			type="button"
+																			className="act act-icon"
+																			aria-label="Preview"
+																			onClick={() => openPreview(item)}
+																		>
+																			<PreviewMark size={15} decorative />
+																		</button>
+																	</HoverTip>
+																) : (
+																	<>
+																		<HoverTip label="Copy" place="above">
+																			<button
+																				type="button"
+																				className="act act-icon"
+																				aria-label="Copy"
+																				onClick={() => void onCopy(item.text, item.id)}
+																			>
+																				<CopyMark size={15} decorative />
+																			</button>
+																		</HoverTip>
+																		<HoverTip
+																			label={editingId === item.id ? "Cancel" : "Edit"}
+																			place="above"
+																		>
+																			<button
+																				type="button"
+																				className={
+																					editingId === item.id
+																						? "act act-icon is-on"
+																						: "act act-icon"
+																				}
+																				aria-label={editingId === item.id ? "Cancel" : "Edit"}
+																				onClick={() => startEdit(item)}
+																			>
+																				<EditMark size={15} decorative />
+																			</button>
+																		</HoverTip>
+																	</>
+																)}
+																<HoverTip label="Forget" place="above">
+																	<button
+																		type="button"
+																		className="act act-icon"
+																		aria-label="Forget"
+																		onClick={() => void onForget(item.id)}
+																	>
+																		<DeleteMark size={15} decorative />
+																	</button>
+																</HoverTip>
 															</span>
 														</div>
-														<span className="log-actions">
-															<HoverTip label="Copy" place="above">
-																<button
-																	type="button"
-																	className="act act-icon"
-																	aria-label="Copy"
-																	onClick={() => void onCopy(item.text, item.id)}
-																>
-																	<CopyMark size={15} decorative />
-																</button>
-															</HoverTip>
-															<HoverTip
-																label={editingId === item.id ? "Cancel" : "Edit"}
-																place="above"
-															>
-																<button
-																	type="button"
-																	className={
-																		editingId === item.id ? "act act-icon is-on" : "act act-icon"
-																	}
-																	aria-label={editingId === item.id ? "Cancel" : "Edit"}
-																	onClick={() => startEdit(item)}
-																>
-																	<EditMark size={15} decorative />
-																</button>
-															</HoverTip>
-															<HoverTip label="Forget" place="above">
-																<button
-																	type="button"
-																	className="act act-icon"
-																	aria-label="Forget"
-																	onClick={() => void onForget(item.id)}
-																>
-																	<DeleteMark size={15} decorative />
-																</button>
-															</HoverTip>
-														</span>
-													</div>
-												</motion.li>
-											))}
+													</motion.li>
+												);
+											})}
 										</AnimatePresence>
 									</ul>
 								</section>
@@ -293,6 +459,11 @@ export function PlayBoard() {
 				</div>
 			</div>
 			<PlayCapDialog open={capOpen} onClose={() => setCapOpen(false)} />
+			<FilePreview
+				preview={preview}
+				onClose={() => setPreview(null)}
+				onDownload={downloadPreview}
+			/>
 		</main>
 	);
 }
