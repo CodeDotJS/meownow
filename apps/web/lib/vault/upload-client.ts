@@ -10,7 +10,9 @@ import {
 import { BLOB_TTL_MS, FILE_MAX_BYTES } from "@meownow/protocol";
 import { errorCode, postJson } from "../client/http";
 import { compressBlobPlaintext, decompressBlobPlaintext } from "./blob-compress";
+import { edgeChunkUrl } from "./edge-chunk-url";
 import { loadVault } from "./idb";
+import { emptyPlaintextError, shouldKeepOriginalImageBytes } from "./upload-bytes";
 import { blobUploadProgress } from "./upload-progress";
 import { b64urlToBytes, bytesToB64url, wrapFromWire, wrapToWire } from "./wire";
 
@@ -47,11 +49,14 @@ export async function sendBlobFile(
 	}
 	options.onProgress?.(blobUploadProgress("read"));
 	const bytes = await readForUpload(file);
-	if (bytes.byteLength > FILE_MAX_BYTES) {
+	if (emptyPlaintextError(bytes) || bytes.byteLength > FILE_MAX_BYTES) {
 		return { error: "item_invalid" };
 	}
 	options.onProgress?.(blobUploadProgress("compress"));
 	const packed = compressBlobPlaintext(bytes);
+	if (emptyPlaintextError(packed.bytes)) {
+		return { error: "item_invalid" };
+	}
 	const id = options.id ?? crypto.randomUUID();
 	const kind = file.type.startsWith("image/") ? ("image" as const) : ("file" as const);
 	const fileKey = await generateFileKey();
@@ -214,7 +219,7 @@ async function putChunk(
 	}
 	const { token } = ticket.data as { token: string };
 	try {
-		const res = await fetch(`${uploadUrl}?chunk=${encodeURIComponent(chunk)}`, {
+		const res = await fetch(edgeChunkUrl(uploadUrl, chunk), {
 			method: "PUT",
 			headers: {
 				authorization: `Bearer ${token}`,
@@ -238,7 +243,7 @@ async function getChunk(blobId: string, chunk: string): Promise<Uint8Array | nul
 	}
 	const { token, url } = ticket.data as { token: string; url: string };
 	try {
-		const res = await fetch(`${url}?chunk=${encodeURIComponent(chunk)}`, {
+		const res = await fetch(edgeChunkUrl(url, chunk), {
 			headers: { authorization: `Bearer ${token}` },
 		});
 		if (!res.ok) {
@@ -267,7 +272,7 @@ async function readForUpload(file: File): Promise<Uint8Array> {
 		const blob = await new Promise<Blob | null>((resolve) => {
 			canvas.toBlob((next) => resolve(next), "image/png");
 		});
-		if (!blob) {
+		if (shouldKeepOriginalImageBytes(bitmap, blob) || !blob) {
 			return new Uint8Array(await file.arrayBuffer());
 		}
 		return new Uint8Array(await blob.arrayBuffer());
