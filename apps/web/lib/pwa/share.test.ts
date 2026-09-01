@@ -18,3 +18,13 @@ test("share target accepts plain text and rejects empty payloads", () => {
 	expect(sharePayloadFromForm(text)).toEqual({ text: "hello from android", kind: "text" });
 	expect(sharePayloadFromForm(new FormData())).toBeNull();
 });
+
+test("share target pulls an Instagram link out of mixed text", () => {
+	const form = new FormData();
+	form.set("title", "username");
+	form.set("text", "Check this out https://www.instagram.com/p/AbC123/ more words");
+	expect(sharePayloadFromForm(form)).toEqual({
+		text: "https://www.instagram.com/p/AbC123/",
+		kind: "link",
+	});
+});
