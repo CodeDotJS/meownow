@@ -1,0 +1,15 @@
+[
+	{
+		"relation": [
+			"delegate_permission/common.handle_all_urls",
+			"delegate_permission/common.get_login_creds"
+		],
+		"target": {
+			"namespace": "android_app",
+			"package_name": "app.vercel.meownow",
+			"sha256_cert_fingerprints": [
+				"64:8F:6D:9B:08:34:FA:E2:CC:56:A5:21:A4:B8:D6:84:8A:3E:B4:70:E0:95:5E:61:A7:76:8E:8A:D6:E9:03:CA"
+			]
+		}
+	}
+]
