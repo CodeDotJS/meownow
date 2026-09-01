@@ -260,6 +260,50 @@ test("upload with a valid token writes ciphertext under the server key", async (
 	expect(blobs.puts).toEqual([`${r2Key}/0`]);
 });
 
+test("download returns a stored chunk and 404s a missing one", async () => {
+	const keys = await generateCapabilityKeyPair();
+	const blobs = Object.assign(memoryR2(), { publicJwk: keys.publicJwk });
+	const r2Key = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+	const claims = {
+		v: 1 as const,
+		userId,
+		key: r2Key,
+		maxBytes: 1024,
+		blobId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+		exp: Math.floor(Date.now() / 1000) + 60,
+	};
+	const uploadJwt = await mintCapabilityToken(keys.privateJwk, { ...claims, purpose: "upload" });
+	const downloadJwt = await mintCapabilityToken(keys.privateJwk, {
+		...claims,
+		purpose: "download",
+	});
+	const put = await handleRequest(
+		new Request("https://edge.meownow.test/upload?chunk=0", {
+			method: "PUT",
+			headers: { authorization: `Bearer ${uploadJwt}`, "content-length": "3" },
+			body: new Uint8Array([9, 8, 7]),
+		}),
+		env([], blobs),
+	);
+	expect(put.status).toBe(204);
+	const hit = await handleRequest(
+		new Request("https://edge.meownow.test/dl?chunk=0", {
+			headers: { authorization: `Bearer ${downloadJwt}` },
+		}),
+		env([], blobs),
+	);
+	expect(hit.status).toBe(200);
+	expect(new Uint8Array(await hit.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
+	const miss = await handleRequest(
+		new Request("https://edge.meownow.test/dl?chunk=1", {
+			headers: { authorization: `Bearer ${downloadJwt}` },
+		}),
+		env([], blobs),
+	);
+	expect(miss.status).toBe(404);
+	expect(await miss.text()).toBe("not found");
+});
+
 test("upload over the token byte cap is rejected", async () => {
 	const keys = await generateCapabilityKeyPair();
 	const blobs = Object.assign(memoryR2(), { publicJwk: keys.publicJwk });
