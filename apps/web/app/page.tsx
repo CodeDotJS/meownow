@@ -28,7 +28,7 @@ import {
 	SyncMark,
 	WifiMark,
 } from "@/lib/ui/marks";
-import { mergeRemoteItems } from "@/lib/ui/merge-items";
+import { mergeRemoteItems, nextPendingIds } from "@/lib/ui/merge-items";
 import { NoteMarkdown } from "@/lib/ui/note-markdown";
 import { NoteReader, type NoteReaderState } from "@/lib/ui/note-reader";
 import { textNeedsReader } from "@/lib/ui/note-size";
@@ -210,6 +210,14 @@ export default function Page() {
 	const reduceMotion = useReducedMotion();
 	itemsRef.current = items;
 
+	const adoptPending = useCallback((cached: CachedItem[]) => {
+		pendingRef.current = nextPendingIds(
+			pendingRef.current,
+			itemsRef.current.map((row) => row.id),
+			unsynced(cached).map((row) => row.id),
+		);
+	}, []);
+
 	useEffect(() => {
 		void (async () => {
 			const session = await hydrateBrowserSession();
@@ -306,7 +314,7 @@ export default function Page() {
 			if (seq !== refreshSeqRef.current) {
 				return;
 			}
-			pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+			adoptPending(cached);
 			const opened: Shown[] = [];
 			for (const row of cached) {
 				opened.push({
@@ -331,7 +339,7 @@ export default function Page() {
 		const list = (res.data as { items: ItemRow[] }).items;
 		await upsertSyncedFromRemote(list);
 		const cached = await pruneExpiredCachedItems();
-		pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+		adoptPending(cached);
 		const opened: Shown[] = [];
 		for (const item of list) {
 			if (isLiveItem(item.expiresAt)) {
@@ -353,7 +361,7 @@ export default function Page() {
 				cached,
 			),
 		);
-	}, [openItem]);
+	}, [adoptPending, openItem]);
 
 	const runFlush = useCallback(async () => {
 		if (flushingRef.current) {
@@ -363,7 +371,7 @@ export default function Page() {
 		try {
 			const result = await flushQueuedItems();
 			const cached = await getCachedItems();
-			pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+			adoptPending(cached);
 			setItems((current) => applySyncState(current, cached));
 			const notice = flushStatus(result);
 			if (notice) {
@@ -372,7 +380,7 @@ export default function Page() {
 		} finally {
 			flushingRef.current = false;
 		}
-	}, []);
+	}, [adoptPending]);
 
 	useEffect(() => {
 		if (!me || !hasLocal) {
@@ -380,7 +388,7 @@ export default function Page() {
 		}
 		void (async () => {
 			const cached = await pruneExpiredCachedItems();
-			pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+			adoptPending(cached);
 			const opened: Shown[] = [];
 			for (const row of cached) {
 				opened.push({
@@ -400,7 +408,7 @@ export default function Page() {
 			void refreshItems();
 			void runFlush();
 		})();
-	}, [me, hasLocal, openItem, refreshItems, runFlush]);
+	}, [adoptPending, me, hasLocal, openItem, refreshItems, runFlush]);
 
 	useEffect(() => {
 		if (!me || !hasLocal) {
@@ -820,11 +828,24 @@ export default function Page() {
 		if (!me || !hasLocal) {
 			return;
 		}
-		void takeIncomingShare().then((incoming) => {
+		async function pullShare() {
+			const incoming = await takeIncomingShare();
 			if (incoming) {
 				void sendPlain(incoming.text);
 			}
-		});
+		}
+		void pullShare();
+		function onWake() {
+			if (document.visibilityState === "visible") {
+				void pullShare();
+			}
+		}
+		document.addEventListener("visibilitychange", onWake);
+		window.addEventListener("pageshow", onWake);
+		return () => {
+			document.removeEventListener("visibilitychange", onWake);
+			window.removeEventListener("pageshow", onWake);
+		};
 	}, [me, hasLocal, sendPlain]);
 
 	useEffect(() => {
@@ -1206,7 +1227,7 @@ export default function Page() {
 
 	async function applyCacheToTray() {
 		const cached = await getCachedItems();
-		pendingRef.current = new Set(unsynced(cached).map((row) => row.id));
+		adoptPending(cached);
 		setItems((current) => applySyncState(current, cached));
 	}
 
