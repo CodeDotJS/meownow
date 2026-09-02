@@ -9,6 +9,7 @@ import { notesSyncedCopy } from "@/lib/ui/copy";
 import { Panel } from "@/lib/ui/panel";
 import { PixelAvatar } from "@/lib/ui/pixel-avatar";
 import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
+import { SHEET_FOCUS, type SheetFocus } from "@/lib/ui/sheet-focus";
 import { Status } from "@/lib/ui/status";
 import { setSyncEnabled } from "@/lib/vault/flush";
 import { clearVault } from "@/lib/vault/idb";
@@ -25,6 +26,7 @@ export default function AccountPage() {
 	const [clipLongNotes, setClipLongNotes] = useState(false);
 	const [tapNoteToCopy, setTapNoteToCopy] = useState(false);
 	const [tabIndent, setTabIndent] = useState(true);
+	const [sheetFocus, setSheetFocus] = useState<SheetFocus>("both");
 
 	useEffect(() => {
 		void getItemCacheMeta().then((meta) => {
@@ -32,6 +34,7 @@ export default function AccountPage() {
 			setClipLongNotes(meta.clipLongNotes);
 			setTapNoteToCopy(meta.tapNoteToCopy);
 			setTabIndent(meta.tabIndent);
+			setSheetFocus(meta.sheetFocus);
 		});
 	}, []);
 
@@ -90,6 +93,7 @@ export default function AccountPage() {
 		clipLongNotes?: boolean;
 		tapNoteToCopy?: boolean;
 		tabIndent?: boolean;
+		sheetFocus?: SheetFocus;
 	}) {
 		if (patch.clipLongNotes !== undefined) {
 			setClipLongNotes(patch.clipLongNotes);
@@ -99,6 +103,9 @@ export default function AccountPage() {
 		}
 		if (patch.tabIndent !== undefined) {
 			setTabIndent(patch.tabIndent);
+		}
+		if (patch.sheetFocus !== undefined) {
+			setSheetFocus(patch.sheetFocus);
 		}
 		const meta = await getItemCacheMeta();
 		await setItemCacheMeta({ ...meta, ...patch });
@@ -183,6 +190,24 @@ export default function AccountPage() {
 						/>
 						Tab indents
 					</label>
+					<p>Show write, the tray, or both. This browser only. ⌘\ or Ctrl \ cycles.</p>
+					<div className="focus-picks">
+						{SHEET_FOCUS.map((value) => (
+							<label
+								key={value}
+								className={sheetFocus === value ? "focus-pick is-on" : "focus-pick"}
+							>
+								<input
+									className="file-hidden"
+									type="radio"
+									name="sheet-focus"
+									checked={sheetFocus === value}
+									onChange={() => void onTrayPref({ sheetFocus: value })}
+								/>
+								{value === "both" ? "Both" : value === "write" ? "Write" : "Tray"}
+							</label>
+						))}
+					</div>
 				</section>
 				<form className="account-leave" onSubmit={(event) => void onDelete(event)}>
 					<h2>Delete account</h2>
