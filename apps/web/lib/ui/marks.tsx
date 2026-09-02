@@ -276,6 +276,23 @@ export function PreviewMark({
 	);
 }
 
+export function PaneMark({ className, size = 15, label = "Panes", decorative = false }: MarkProps) {
+	return (
+		<MarkSvg
+			className={className}
+			size={size}
+			label={label}
+			decorative={decorative}
+			viewBox="0 0 24 24"
+		>
+			<path
+				fill="currentColor"
+				d="M4.2 5.2h6.2c.7 0 1.2.5 1.2 1.2v11.2c0 .7-.5 1.2-1.2 1.2H4.2c-.7 0-1.2-.5-1.2-1.2V6.4c0-.7.5-1.2 1.2-1.2Zm9.4 0h6.2c.7 0 1.2.5 1.2 1.2v11.2c0 .7-.5 1.2-1.2 1.2h-6.2c-.7 0-1.2-.5-1.2-1.2V6.4c0-.7.5-1.2 1.2-1.2Z"
+			/>
+		</MarkSvg>
+	);
+}
+
 export function SyncMark({ className, size = 15, label = "Sync", decorative = false }: MarkProps) {
 	return (
 		<MarkSvg
