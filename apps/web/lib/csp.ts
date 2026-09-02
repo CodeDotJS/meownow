@@ -7,6 +7,8 @@ export function contentSecurityPolicy(input: {
 	const edge = connectSrc(input.edgeOrigin, input.hubOrigin);
 	const evalSrc = input.isDev ? " 'unsafe-eval'" : "";
 	const upgrade = input.isDev ? "" : " upgrade-insecure-requests;";
+	/** Next HMR and React DevTools assign scripts as strings. Enforce sinks only in production. */
+	const trustedTypesFor = input.isDev ? "" : ` require-trusted-types-for 'script';`;
 	return [
 		`default-src 'self';`,
 		`script-src 'nonce-${input.nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${evalSrc};`,
@@ -20,8 +22,8 @@ export function contentSecurityPolicy(input: {
 		`base-uri 'none';`,
 		`form-action 'self';`,
 		`frame-ancestors 'none';`,
-		`require-trusted-types-for 'script';`,
 		`trusted-types default nextjs nextjs#bundler goog#html wasm-js meownow#sw 'allow-duplicates';`,
+		trustedTypesFor,
 		upgrade,
 	]
 		.join(" ")
