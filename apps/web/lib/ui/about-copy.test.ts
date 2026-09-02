@@ -21,6 +21,7 @@ test("keeps the original join topics as questions", () => {
 	);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-in")?.q).toMatch(/get in/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-in")?.a).toMatch(/this browser/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-in")?.a).toMatch(/image/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-passkey")?.a).toMatch(/passkey/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-words")?.a).toMatch(/twelve words/i);
 });
@@ -68,6 +69,9 @@ test("splits unique questions into two equal columns", () => {
 	expect(ABOUT_FAQ.find((row) => row.id === "about-share")?.a).toMatch(/android/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-kinds")?.a).toMatch(/markdown/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-kinds")?.a).toMatch(/ciphertext/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-kinds")?.a).toMatch(/paste a photo/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-two")?.a).toMatch(/⌘\\/);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-sync")?.a).toMatch(/panes/i);
 });
 
 test("says the server cannot read plaintext", () => {
