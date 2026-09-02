@@ -17,6 +17,7 @@ import { notesSyncedCopy } from "@/lib/ui/copy";
 import { CreateVaultFlow } from "@/lib/ui/create-vault";
 import { expandEmojiShortcodes } from "@/lib/ui/emoji-shortcodes";
 import { FilePreview, type FilePreviewState } from "@/lib/ui/file-preview";
+import { HeadProgressBar } from "@/lib/ui/head-progress-bar";
 import { HoverTip } from "@/lib/ui/hover-tip";
 import { Landing } from "@/lib/ui/landing";
 import {
@@ -37,6 +38,8 @@ import { Panel } from "@/lib/ui/panel";
 import { PixelStamp, PixelThumb } from "@/lib/ui/pixel-avatar";
 import { OFFLINE_POLL_MS, shouldHttpPoll } from "@/lib/ui/reconcile";
 import { hydrateBrowserSession, peekBrowserSession } from "@/lib/ui/session-cache";
+import { type SheetFocus, sheetFocusClass } from "@/lib/ui/sheet-focus";
+import { SheetFocusToggle } from "@/lib/ui/sheet-focus-toggle";
 import { Status } from "@/lib/ui/status";
 import { formatClockTime, groupByDay, isLiveItem, ttlRemain, ttlWarn } from "@/lib/ui/time";
 import {
@@ -196,6 +199,7 @@ export default function Page() {
 	const [clipLongNotes, setClipLongNotes] = useState(false);
 	const [tapNoteToCopy, setTapNoteToCopy] = useState(false);
 	const [tabIndent, setTabIndent] = useState(true);
+	const [sheetFocus, setSheetFocus] = useState<SheetFocus>("both");
 	const meshRef = useRef<Mesh | null>(null);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const itemsRef = useRef<Shown[]>([]);
@@ -233,6 +237,7 @@ export default function Page() {
 			setClipLongNotes(meta.clipLongNotes);
 			setTapNoteToCopy(meta.tapNoteToCopy);
 			setTabIndent(meta.tabIndent);
+			setSheetFocus(meta.sheetFocus);
 		});
 	}, []);
 
@@ -1130,6 +1135,13 @@ export default function Page() {
 		[clipLongNotes, dismissHint, onCopy, openPreview, tapNoteToCopy],
 	);
 
+	const onSheetFocus = useCallback((next: SheetFocus) => {
+		setSheetFocus(next);
+		void getItemCacheMeta().then((meta) => {
+			void setItemCacheMeta({ ...meta, sheetFocus: next });
+		});
+	}, []);
+
 	useEffect(() => {
 		if (!me || !hasLocal) {
 			return;
@@ -1399,7 +1411,7 @@ export default function Page() {
 					Copy from the mark next to a note. Paste on this page to send.
 				</p>
 			) : null}
-			<div className="stage">
+			<div className={`stage ${sheetFocusClass(sheetFocus)}`}>
 				<div className="composer">
 					<p className="sheet-label">
 						{editingId ? "Edit paste" : ephemeral ? "Live only" : "New paste"}
@@ -1482,7 +1494,7 @@ export default function Page() {
 					</div>
 				</div>
 				<div className="tray">
-					<div className="log-head">
+					<div className="log-head" aria-busy={sending}>
 						<p className="sheet-label">On the clipboard</p>
 						<div className="log-head-meta">
 							{waiting.length > 1 ? (
@@ -1506,7 +1518,9 @@ export default function Page() {
 								<span className="clip-count-num">{visible.length}</span>
 								<span className="clip-count-word">{visible.length === 1 ? "note" : "notes"}</span>
 							</p>
+							<SheetFocusToggle focus={sheetFocus} onChange={onSheetFocus} />
 						</div>
+						<HeadProgressBar busy={sending} />
 					</div>
 					{undo || status ? (
 						<div className="tray-notice">
