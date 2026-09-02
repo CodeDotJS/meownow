@@ -11,6 +11,7 @@ import {
 	suggestEmoji,
 } from "./emoji-shortcodes";
 import { EmojiSuggest } from "./emoji-suggest";
+import { emojiSuggestBelow, emojiSuggestListHeight } from "./emoji-suggest-place";
 
 function fitComposerHeight(area: HTMLTextAreaElement): void {
 	if (window.matchMedia("(min-width: 960px)").matches) {
@@ -82,9 +83,14 @@ export function ComposerDraft({
 		const rect = area.getBoundingClientRect();
 		const left = Math.min(Math.max(8, rect.left + caret.left), window.innerWidth - 16);
 		const caretTop = rect.top + caret.top;
-		const below = caretTop < 132;
+		const below = emojiSuggestBelow({
+			caretTop,
+			caretHeight: caret.height,
+			listHeight: emojiSuggestListHeight(hits.length),
+			viewHeight: window.innerHeight,
+		});
 		setBox({ left, top: below ? caretTop + caret.height : caretTop, below });
-	}, [open, query, value]);
+	}, [hits.length, open, query, value]);
 
 	useEffect(() => {
 		if (queryName.length >= 0) {
