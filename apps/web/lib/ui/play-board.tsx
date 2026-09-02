@@ -19,11 +19,19 @@ import { ComposerDraft } from "./composer-draft";
 import { ComposerGlyph } from "./composer-glyph";
 import { expandEmojiShortcodes } from "./emoji-shortcodes";
 import { FilePreview, type FilePreviewState } from "./file-preview";
+import { HeadProgressBar } from "./head-progress-bar";
 import { HoverTip } from "./hover-tip";
 import { CatMark, CopyMark, DeleteMark, EditMark, PreviewMark } from "./marks";
 import { NoteMarkdown } from "./note-markdown";
 import { PixelStamp, PixelThumb } from "./pixel-avatar";
 import { PlayCapDialog } from "./play-cap-dialog";
+import {
+	readPlaySheetFocus,
+	type SheetFocus,
+	sheetFocusClass,
+	writePlaySheetFocus,
+} from "./sheet-focus";
+import { SheetFocusToggle } from "./sheet-focus-toggle";
 import { Status } from "./status";
 import { formatClockTime, groupByDay } from "./time";
 
@@ -57,6 +65,7 @@ export function PlayBoard() {
 	const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
 	const previewUrlsRef = useRef<Record<string, string>>({});
 	const fileRef = useRef<HTMLInputElement>(null);
+	const [sheetFocus, setSheetFocus] = useState<SheetFocus>("both");
 
 	const refresh = useCallback(async () => {
 		setNotes(await idbPlayStore.list());
@@ -64,6 +73,7 @@ export function PlayBoard() {
 
 	useEffect(() => {
 		void refresh();
+		setSheetFocus(readPlaySheetFocus());
 	}, [refresh]);
 
 	useEffect(() => {
@@ -157,6 +167,11 @@ export function PlayBoard() {
 		return () => document.removeEventListener("paste", onPaste);
 	}, [onImage]);
 
+	const onSheetFocus = useCallback((next: SheetFocus) => {
+		setSheetFocus(next);
+		writePlaySheetFocus(next);
+	}, []);
+
 	async function onSend() {
 		const text = expandEmojiShortcodes(draft);
 		setSending(true);
@@ -243,7 +258,7 @@ export function PlayBoard() {
 		<main className="clipboard">
 			<h1 className="file-hidden">Playground</h1>
 			<p className="hint clip-hint">Five notes in this browser. An invite unlocks the rest.</p>
-			<div className="stage">
+			<div className={`stage ${sheetFocusClass(sheetFocus)}`}>
 				<div className="composer">
 					<p className="sheet-label">{editingId ? "Edit paste" : "New paste"}</p>
 					<ComposerDraft
@@ -312,17 +327,20 @@ export function PlayBoard() {
 								</>
 							)}
 						</div>
+						<Status value={status} />
 					</div>
 				</div>
 				<div className="tray">
-					<div className="log-head">
+					<div className="log-head" aria-busy={sending}>
 						<p className="sheet-label">On the clipboard</p>
 						<div className="log-head-meta">
 							<p className="clip-count">
 								<span className="clip-count-num">{playCountLabel(notes.length)}</span>
 								<span className="clip-count-word">{notes.length === 1 ? "note" : "notes"}</span>
 							</p>
+							<SheetFocusToggle focus={sheetFocus} onChange={onSheetFocus} />
 						</div>
+						<HeadProgressBar busy={sending} />
 					</div>
 					{status ? (
 						<div className="tray-notice">
