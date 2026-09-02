@@ -29,7 +29,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-in",
 		q: "How do I get in?",
-		a: "An admin sends an invite link. There is no public signup and no password. Ask on the home page only leaves an email — it does not get you in. Playground on the home page is five notes in this browser. That is not a seat.",
+		a: "An admin sends an invite link. There is no public signup and no password. Ask on the home page only leaves an email — it does not get you in. Playground on the home page is five text, link, or image notes in this browser. That is not a seat.",
 	},
 	{
 		id: "about-passkey",
@@ -54,7 +54,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-kinds",
 		q: "What can I send?",
-		a: "Text, links, images, and files. Notes are markdown in this browser; what is stored is still ciphertext of the source. Type :smile: for emoji. Text stays under 64 KB. A stored file can be up to 100 MB.",
+		a: "Text, links, images, and files. Paste a photo on the page. Notes are markdown in this browser; what is stored is still ciphertext of the source. Type :smile: for emoji. Edit a text or link in place. Text stays under 64 KB. A stored file can be up to 100 MB.",
 	},
 	{
 		id: "about-ttl",
@@ -89,7 +89,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-sync",
 		q: "What does Sync do?",
-		a: "On, the default, writes sealed text and links to the store when a network exists, and queues them here when it does not. Other devices see a queued note after this browser is back online. Off holds new text and links here until you tap Sync. Turning it off does not pull stored notes back. Files and images never wait. Account holds the switch.",
+		a: "On, the default, writes sealed text and links to the store when a network exists, and queues them here when it does not. Other devices see a queued note after this browser is back online. Off holds new text and links here until you tap Sync. Turning it off does not pull stored notes back. Files and images never wait. Account on this browser also holds clip long notes, tap to copy, Tab indents, and which panes show.",
 	},
 	{
 		id: "about-offline",
@@ -104,7 +104,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-two",
 		q: "Do I need another device?",
-		a: "One browser can hold a tray. Paste on a phone or laptop needs that browser paired.",
+		a: "One browser can hold a tray. This browser can show write, the notes, or both — ⌘\\ or Ctrl \\ cycles. Paste on a phone or laptop needs that browser paired.",
 	},
 	{
 		id: "about-install",
