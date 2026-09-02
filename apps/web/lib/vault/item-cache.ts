@@ -23,6 +23,8 @@ export type ItemCacheMeta = {
 	tapNoteToCopy: boolean;
 	/** Tab inserts four spaces in the composer. Off lets Tab leave the field. */
 	tabIndent: boolean;
+	/** Collapse the clipboard sheet. Both is the default. */
+	sheetFocus: "both" | "write" | "tray";
 };
 
 export const DEFAULT_ITEM_CACHE_META: ItemCacheMeta = {
@@ -31,6 +33,7 @@ export const DEFAULT_ITEM_CACHE_META: ItemCacheMeta = {
 	clipLongNotes: false,
 	tapNoteToCopy: false,
 	tabIndent: true,
+	sheetFocus: "both",
 };
 
 export function asItemCacheMeta(value: unknown): ItemCacheMeta {
@@ -41,6 +44,7 @@ export function asItemCacheMeta(value: unknown): ItemCacheMeta {
 		clipLongNotes: rec.clipLongNotes === true,
 		tapNoteToCopy: rec.tapNoteToCopy === true,
 		tabIndent: rec.tabIndent !== false,
+		sheetFocus: rec.sheetFocus === "write" || rec.sheetFocus === "tray" ? rec.sheetFocus : "both",
 	};
 }
 
