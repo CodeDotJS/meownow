@@ -38,4 +38,7 @@ test("dev CSP still allows JS eval for Next HMR", () => {
 	const policy = contentSecurityPolicy({ nonce: "dev", isDev: true });
 	expect(policy).toContain("'unsafe-eval'");
 	expect(policy).toContain("'wasm-unsafe-eval'");
+	expect(policy).toContain("trusted-types default nextjs");
+	expect(policy).not.toContain("require-trusted-types-for");
+	expect(policy).not.toContain("upgrade-insecure-requests");
 });
