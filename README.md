@@ -21,11 +21,13 @@ Invite-only. Passkeys, no passwords. Each account is that person's devices — n
 
 | | |
 |---|---|
-| Text, links, images, files | Notes are markdown in this browser; the store is ciphertext of the source. Type `:smile:` for emoji. Edit a text or link in place; the 30-day clock stays. Text ≤ 64 KB. A stored file ≤ 100 MB. |
+| Text, links, images, files | Notes are markdown in this browser; the store is ciphertext of the source. Type `:smile:` for emoji. Paste a photo on the page. Edit a text or link in place; the 30-day clock stays. Text ≤ 64 KB. A stored file ≤ 100 MB. |
 | Sealed on the device | AES-256-GCM in the page. Filename, type, and preview go in the same envelope. |
 | The server is a courier | It sees owner, size, time, and kind. Not the text, the name, or the picture. |
 | Live only | Skip the store. Needs another device that is live. A refresh drops it. |
 | Sync | On (default) writes text and links when a network exists, and queues them here when it does not. Off holds them on this browser until you tap Sync. Files never wait. |
+| This browser | Account holds Sync, clip long notes, tap to copy, Tab indents, and which panes show. ⌘\\ / Ctrl \\ cycles write, the tray, or both. |
+| Playground | `/play`. Five text, link, or image notes in this browser. Not a seat. Join drops that store. |
 | Offline | After this browser has the clipboard and has loaded once online: open and write text and links. Files need a network. |
 | Install | Optional. Puts the app on the home screen. Android can share text and links into it. iOS cannot — paste here. |
 
@@ -219,10 +221,10 @@ If you add a custom domain later, change `APP_URL` on both sides and redeploy bo
 
 ## After it is up
 
-1. Sign in. Open **Invites**. Send a `/join?t=` link. An unused invite is the only way in. **Ask** on the home page only leaves an email. **Playground** is `/play`: five notes in this browser, not a seat.
+1. Sign in. Open **Invites**. Send a `/join?t=` link. An unused invite is the only way in. **Ask** on the home page only leaves an email. **Playground** is `/play`: five text, link, or image notes in this browser, not a seat.
 2. Text and links do not need file permission. Images and files do. A member requests space from the menu; an admin grants 25–100 MB on **Requests**.
 3. Pair a second browser from **Add a device** / **Show a code**. Both sides check a six-digit fingerprint. The 12 words are only if every device is gone (`/recover`).
-4. Sync lives on **Account**. It is per browser.
+4. **Account** is per browser: Sync, how notes open, and which panes show.
 5. After a deploy, a cat chip asks this browser to reload. A normal reload is enough.
 
 | Kind | Where | How long |
