@@ -114,6 +114,7 @@ test("old meta without tray prefs stays unclipped and does not tap-copy", () => 
 		clipLongNotes: false,
 		tapNoteToCopy: false,
 		tabIndent: true,
+		sheetFocus: "both",
 	});
 	expect(
 		asItemCacheMeta({
@@ -122,6 +123,9 @@ test("old meta without tray prefs stays unclipped and does not tap-copy", () => 
 			clipLongNotes: true,
 			tapNoteToCopy: true,
 			tabIndent: false,
-		}).tabIndent,
-	).toBe(false);
+			sheetFocus: "write",
+		}),
+	).toMatchObject({ tabIndent: false, sheetFocus: "write" });
+	expect(asItemCacheMeta({ sheetFocus: "tray" }).sheetFocus).toBe("tray");
+	expect(asItemCacheMeta({ sheetFocus: "wide" }).sheetFocus).toBe("both");
 });
