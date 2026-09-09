@@ -59,6 +59,7 @@ const LOCAL: Record<string, string> = {
 	play_not_image: "Paste a photo, not a file.",
 	play_empty: "Type a note first.",
 	send_failed: "Could not send that.",
+	deadlines_reset: "Deadlines are thirty days from today.",
 };
 
 export function notesSyncedCopy(count: number): string {
