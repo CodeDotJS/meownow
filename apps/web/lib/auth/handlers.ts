@@ -247,6 +247,10 @@ export function createHandlers(deps: HandlerDeps) {
 				return json({ ok: true });
 			}),
 		getItems: (request: Request) => run(async () => json(await vault.listItems(sid(request)))),
+		postItemExpiry: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				return json(await vault.resetItemExpiry(sid(request)));
+			}),
 		deleteItem: (request: Request, id: string) =>
 			mutating(request, deps.env, async () => {
 				await vault.deleteItem(sid(request), id);
