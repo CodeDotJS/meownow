@@ -59,7 +59,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-ttl",
 		q: "How long do things stay?",
-		a: "Text and links last thirty days. Images and files last seven. At the deadline they leave the tray, then the store. There is no keep-forever control. Live only is gone on refresh.",
+		a: "Text and links last thirty days. Images and files last seven. At the deadline they leave the tray, then the store. Account can reset every stored note to thirty days from today. If you do not, they leave at their deadline. There is no keep-forever control. Live only is gone on refresh.",
 	},
 	{
 		id: "about-live",
