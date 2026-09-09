@@ -105,6 +105,7 @@ export type {
 export {
 	asPublicJwk,
 	itemCreateRequestSchema,
+	itemExpiryResetResponseSchema,
 	itemKindSchema,
 	itemListResponseSchema,
 	itemRecordSchema,
