@@ -82,6 +82,7 @@ export type VaultStore = {
 		now: Date,
 	): Promise<StoredItem | "missing" | "not_text" | "expired">;
 	listItems(ownerId: string): Promise<StoredItem[]>;
+	resetItemExpiry(ownerId: string, expiresAt: Date): Promise<number>;
 	deleteItem(ownerId: string, id: string): Promise<boolean>;
 	savePushSubscription(input: {
 		deviceId: string;
