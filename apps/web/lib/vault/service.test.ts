@@ -21,6 +21,7 @@ import {
 	asPublicJwk,
 	generateCapabilityKeyPair,
 	R2_STORAGE_CEILING_BYTES,
+	TEXT_TTL_MS,
 } from "@meownow/protocol";
 import { expect, test } from "vitest";
 import { createHandlers } from "../auth/handlers";
@@ -431,6 +432,78 @@ test("push subscribe without a session is denied", async () => {
 			keys: { p256dh: "p", auth: "a" },
 		}),
 	).rejects.toMatchObject({ code: "unauthorized" });
+});
+
+test("resetItemExpiry without a session is denied", async () => {
+	const store = new MemoryAuthStore();
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn: mockWebAuthn() });
+	await expect(vaultApi.resetItemExpiry(undefined)).rejects.toMatchObject({
+		code: "unauthorized",
+	});
+});
+
+test("resetItemExpiry sets every stored kind for this user to thirty days from now", async () => {
+	const now = new Date("2026-09-09T12:00:00.000Z");
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn, now: () => now });
+	const vaultApi = new VaultService({
+		env,
+		auth: store,
+		vault: store,
+		webauthn,
+		now: () => now,
+	});
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const ownerId = [...store.users.values()][0]?.id ?? "";
+	const otherId = "11111111-1111-4111-8111-111111111111";
+	const soon = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
+	const otherExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+	store.items.push(
+		{
+			id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+			kind: "text",
+			ciphertext: "YQ",
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 1,
+			expiresAt: soon,
+			ownerId,
+			createdAt: now,
+		},
+		{
+			id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+			kind: "image",
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 4,
+			expiresAt: soon,
+			ownerId,
+			createdAt: now,
+		},
+		{
+			id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+			kind: "text",
+			ciphertext: "YQ",
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 1,
+			expiresAt: otherExpiry,
+			ownerId: otherId,
+			createdAt: now,
+		},
+	);
+	const result = await vaultApi.resetItemExpiry(enrolled.sessionToken);
+	const deadline = new Date(now.getTime() + TEXT_TTL_MS).toISOString();
+	expect(result).toEqual({ ok: true, expiresAt: deadline, updated: 2 });
+	expect(store.items.find((row) => row.id.startsWith("aa"))?.expiresAt).toBe(deadline);
+	expect(store.items.find((row) => row.id.startsWith("bb"))?.expiresAt).toBe(deadline);
+	expect(store.items.find((row) => row.id.startsWith("cc"))?.expiresAt).toBe(otherExpiry);
 });
 
 test("deleteItem without a session is denied", async () => {
