@@ -731,6 +731,17 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		});
 	}
 
+	async resetItemExpiry(ownerId: string, expiresAt: Date): Promise<number> {
+		return this.withDb(async (db) => {
+			const rows = await db
+				.update(items)
+				.set({ expiresAt })
+				.where(eq(items.ownerId, ownerId))
+				.returning({ id: items.id });
+			return rows.length;
+		});
+	}
+
 	async deleteItem(ownerId: string, id: string): Promise<boolean> {
 		return this.withDb(async (db) => {
 			const deleted = await db
