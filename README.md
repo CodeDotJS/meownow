@@ -26,7 +26,7 @@ Invite-only. Passkeys, no passwords. Each account is that person's devices — n
 | The server is a courier | It sees owner, size, time, and kind. Not the text, the name, or the picture. |
 | Live only | Skip the store. Needs another device that is live. A refresh drops it. |
 | Sync | On (default) writes text and links when a network exists, and queues them here when it does not. Off holds them on this browser until you tap Sync. Files never wait. |
-| This browser | Account holds Sync, clip long notes, tap to copy, Tab indents, and which panes show. ⌘\\ / Ctrl \\ cycles write, the tray, or both. |
+| This browser | Account holds Sync, clip long notes, tap to copy, Tab indents, which panes show, and Reset deadlines (thirty days from today for stored notes). ⌘\\ / Ctrl \\ cycles write, the tray, or both. |
 | Playground | `/play`. Five text, link, or image notes in this browser. Not a seat. Join drops that store. |
 | Offline | After this browser has the clipboard and has loaded once online: open and write text and links. Files need a network. |
 | Install | Optional. Puts the app on the home screen. Android can share text and links into it. iOS cannot — paste here. |
@@ -224,7 +224,7 @@ If you add a custom domain later, change `APP_URL` on both sides and redeploy bo
 1. Sign in. Open **Invites**. Send a `/join?t=` link. An unused invite is the only way in. **Ask** on the home page only leaves an email. **Playground** is `/play`: five text, link, or image notes in this browser, not a seat.
 2. Text and links do not need file permission. Images and files do. A member requests space from the menu; an admin grants 25–100 MB on **Requests**.
 3. Pair a second browser from **Add a device** / **Show a code**. Both sides check a six-digit fingerprint. The 12 words are only if every device is gone (`/recover`).
-4. **Account** is per browser: Sync, how notes open, and which panes show.
+4. **Account** is per browser: Sync, how notes open, and which panes show. **Reset deadlines** sets every stored note for that account to 30 days from today. New notes still last 30 / 7. If you do not reset, they leave at their deadline.
 5. After a deploy, a cat chip asks this browser to reload. A normal reload is enough.
 
 | Kind | Where | How long |
