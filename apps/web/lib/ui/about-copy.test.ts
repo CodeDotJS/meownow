@@ -41,6 +41,7 @@ test("names live-only delivery and real TTLs", () => {
 	expect(copy).not.toMatch(/\bpin\b/);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-ttl")?.a).toMatch(/images and files/i);
 	expect(ABOUT_FAQ.find((row) => row.id === "about-ttl")?.a).toMatch(/deadline/i);
+	expect(ABOUT_FAQ.find((row) => row.id === "about-ttl")?.a).toMatch(/reset/i);
 	expect(
 		ABOUT_FAQ.some((row) => row.id === "about-live" && /skip the store/.test(row.a.toLowerCase())),
 	).toBe(true);
