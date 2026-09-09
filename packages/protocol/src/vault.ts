@@ -118,6 +118,12 @@ export const itemListResponseSchema = z.object({
 	items: z.array(itemRecordSchema),
 });
 
+export const itemExpiryResetResponseSchema = z.object({
+	ok: z.literal(true),
+	expiresAt: z.string(),
+	updated: z.number().int().nonnegative(),
+});
+
 export const pairingQrSchema = z.object({
 	v: z.literal(1),
 	id: z.string().uuid(),
