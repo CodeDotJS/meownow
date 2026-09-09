@@ -111,6 +111,23 @@ export default function AccountPage() {
 		await setItemCacheMeta({ ...meta, ...patch });
 	}
 
+	async function onResetDeadlines() {
+		setBusy(true);
+		setStatus(null);
+		try {
+			const res = await postJson("/api/items/expiry", {});
+			if (!res.ok) {
+				setStatus(errorCode(res.data));
+				return;
+			}
+			setStatus("deadlines_reset");
+		} catch {
+			setStatus("request_failed");
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	async function onDelete(event: FormEvent) {
 		event.preventDefault();
 		if (confirm !== handle) {
@@ -208,6 +225,23 @@ export default function AccountPage() {
 							</label>
 						))}
 					</div>
+				</section>
+				<section className="account-sync">
+					<h2>Deadlines</h2>
+					<p>
+						Stored notes leave on their own schedule. Reset sets every stored note, image, and file
+						to thirty days from today. New notes still follow the usual clocks. If you do not reset,
+						they leave at their deadline.
+					</p>
+					<button
+						className="select"
+						type="button"
+						disabled={busy}
+						onClick={() => void onResetDeadlines()}
+					>
+						{busy ? "Working…" : "Reset deadlines"}
+					</button>
+					<Status value={status} />
 				</section>
 				<form className="account-leave" onSubmit={(event) => void onDelete(event)}>
 					<h2>Delete account</h2>
