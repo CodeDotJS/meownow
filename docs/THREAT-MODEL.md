@@ -34,7 +34,7 @@ Items in this milestone are ciphertext-only create/list so a second device can f
 
 ## Realtime (milestone 4)
 
-Text and link items persist as ciphertext with a 30-day TTL and a 64 KB cap. After a write, Vercel posts an HMAC-ticketed envelope to the Worker. One Durable Object per user vault fans `item.created` / `item.updated` / `item.deleted` to hibernated WebSockets. An edit is `PATCH /api/items/:id` with a new IV and ciphertext on the same row; the server does not see plaintext and does not reset `expires_at`. Tickets are 60-second HMAC tokens minted by the app (`HUB_SECRET`); the Worker verifies them and never sees plaintext. A missing or expired ticket is denied. P2P DataChannel remains milestone 7.
+Text and link items persist as ciphertext with a 30-day TTL and a 64 KB cap. After a write, Vercel posts an HMAC-ticketed envelope to the Worker. One Durable Object per user vault fans `item.created` / `item.updated` / `item.deleted` to hibernated WebSockets. An edit is `PATCH /api/items/:id` with a new IV and ciphertext on the same row; the server does not see plaintext and does not reset `expires_at`. Account `POST /api/items/expiry` sets `expires_at` on that owner's stored rows to now + 30 days and does not touch ciphertext. A session cannot reset another owner's rows. Tickets are 60-second HMAC tokens minted by the app (`HUB_SECRET`); the Worker verifies them and never sees plaintext. A missing or expired ticket is denied. P2P DataChannel remains milestone 7.
 
 ## PWA (milestone 5)
 
