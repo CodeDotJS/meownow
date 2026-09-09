@@ -44,6 +44,7 @@ describe("statusCopy", () => {
 		expect(statusCopy("play_cap")).toBe("That's five. Forget one, or join with an invite.");
 		expect(statusCopy("play_too_large")).toBe("That item is too large or empty.");
 		expect(statusCopy("play_not_image")).toBe("Paste a photo, not a file.");
+		expect(statusCopy("deadlines_reset")).toBe("Deadlines are thirty days from today.");
 		expect(notesSyncedCopy(1)).toBe("1 note synced");
 		expect(notesSyncedCopy(3)).toBe("3 notes synced");
 	});
