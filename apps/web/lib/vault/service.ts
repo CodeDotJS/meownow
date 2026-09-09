@@ -184,6 +184,13 @@ export class VaultService {
 		};
 	}
 
+	async resetItemExpiry(sessionToken: string | undefined) {
+		const user = await this.requireUser(sessionToken);
+		const expiresAt = new Date(this.now().getTime() + TEXT_TTL_MS);
+		const updated = await this.vault.resetItemExpiry(user.id, expiresAt);
+		return { ok: true as const, expiresAt: expiresAt.toISOString(), updated };
+	}
+
 	async deleteItem(sessionToken: string | undefined, id: string) {
 		const user = await this.requireUser(sessionToken);
 		await this.vault.deleteItem(user.id, id);
