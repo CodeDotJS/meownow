@@ -59,7 +59,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-ttl",
 		q: "How long do things stay?",
-		a: "Text and links last thirty days. Images and files last seven. At the deadline they leave the tray, then the store. Account can reset every stored note to thirty days from today. If you do not, they leave at their deadline. There is no keep-forever control. Live only is gone on refresh.",
+		a: "Text and links last thirty days. Images and files last seven. At the deadline they leave the tray, then the store. Reset deadlines on Account sets every stored note, image, and file to thirty days from today. If you do not tap it, they leave at their deadline. There is no keep-forever control. Live only is gone on refresh.",
 	},
 	{
 		id: "about-live",
@@ -89,7 +89,7 @@ export const ABOUT_FAQ = [
 	{
 		id: "about-sync",
 		q: "What does Sync do?",
-		a: "On, the default, writes sealed text and links to the store when a network exists, and queues them here when it does not. Other devices see a queued note after this browser is back online. Off holds new text and links here until you tap Sync. Turning it off does not pull stored notes back. Files and images never wait. Account on this browser also holds clip long notes, tap to copy, Tab indents, and which panes show.",
+		a: "On, the default, writes sealed text and links to the store when a network exists, and queues them here when it does not. Other devices see a queued note after this browser is back online. Off holds new text and links here until you tap Sync. Turning it off does not pull stored notes back. Files and images never wait. Account on this browser also holds clip long notes, tap to copy, Tab indents, which panes show, and Reset deadlines.",
 	},
 	{
 		id: "about-offline",
