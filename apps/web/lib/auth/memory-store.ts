@@ -509,6 +509,19 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 	}
 
+	async resetItemExpiry(ownerId: string, expiresAt: Date): Promise<number> {
+		const iso = expiresAt.toISOString();
+		let updated = 0;
+		for (const item of this.items) {
+			if (item.ownerId !== ownerId) {
+				continue;
+			}
+			item.expiresAt = iso;
+			updated += 1;
+		}
+		return updated;
+	}
+
 	async deleteItem(ownerId: string, id: string): Promise<boolean> {
 		const before = this.items.length;
 		this.items = this.items.filter((item) => !(item.ownerId === ownerId && item.id === id));
