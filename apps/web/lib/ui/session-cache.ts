@@ -39,6 +39,7 @@ export function lastMeFromProfile(profile: {
 	role: "admin" | "member";
 	canUpload: boolean;
 	hasVault: boolean;
+	preserveNotes?: boolean;
 }): LastMe {
 	return {
 		id: profile.id,
@@ -47,6 +48,7 @@ export function lastMeFromProfile(profile: {
 		role: profile.role,
 		canUpload: profile.canUpload,
 		hasVault: profile.hasVault,
+		preserveNotes: profile.preserveNotes === true,
 	};
 }
 
