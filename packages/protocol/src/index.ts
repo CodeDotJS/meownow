@@ -92,6 +92,7 @@ export {
 } from "./upload";
 export type {
 	ItemCreateRequest,
+	ItemPreserveRequest,
 	ItemRecord,
 	ItemUpdateRequest,
 	PairingQr,
@@ -108,6 +109,8 @@ export {
 	itemExpiryResetResponseSchema,
 	itemKindSchema,
 	itemListResponseSchema,
+	itemPreserveRequestSchema,
+	itemPreserveResponseSchema,
 	itemRecordSchema,
 	itemUpdateRequestSchema,
 	PAIRING_TTL_MS,
