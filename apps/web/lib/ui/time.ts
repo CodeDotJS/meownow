@@ -85,7 +85,10 @@ export function formatGutterTime(iso: string, now = Date.now()): string {
 	return `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-export function isLiveItem(expiresAt: string, now = Date.now()): boolean {
+export function isLiveItem(expiresAt: string, now = Date.now(), keep = false): boolean {
+	if (keep) {
+		return true;
+	}
 	const expires = Date.parse(expiresAt);
 	return !Number.isNaN(expires) && expires > now;
 }
