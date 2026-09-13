@@ -66,6 +66,7 @@ describe("isLiveItem", () => {
 		expect(isLiveItem("2026-08-22T12:00:01.000Z", now)).toBe(true);
 		expect(isLiveItem("2026-08-22T12:00:00.000Z", now)).toBe(false);
 		expect(isLiveItem("not-a-date", now)).toBe(false);
+		expect(isLiveItem("2026-08-22T12:00:00.000Z", now, true)).toBe(true);
 	});
 });
 
