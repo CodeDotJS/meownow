@@ -60,6 +60,8 @@ const LOCAL: Record<string, string> = {
 	play_empty: "Type a note first.",
 	send_failed: "Could not send that.",
 	deadlines_reset: "Deadlines are thirty days from today.",
+	keep_notes_on: "Stored notes stay until you turn this off.",
+	keep_notes_off: "Deadlines run again.",
 };
 
 export function notesSyncedCopy(count: number): string {
