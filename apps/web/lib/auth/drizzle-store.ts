@@ -679,6 +679,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 					metaCiphertext: Buffer.from(patch.metaCiphertext, "base64url"),
 					iv: Buffer.from(patch.iv, "base64url"),
 					byteSize: patch.byteSize,
+					createdAt: now,
 				})
 				.where(eq(items.id, id))
 				.returning();
