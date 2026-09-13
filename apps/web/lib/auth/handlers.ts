@@ -10,6 +10,7 @@ import {
 	inviteAskRequestSchema,
 	inviteCreateRequestSchema,
 	itemCreateRequestSchema,
+	itemPreserveRequestSchema,
 	itemUpdateRequestSchema,
 	loginVerifyRequestSchema,
 	openHubTicket,
@@ -250,6 +251,11 @@ export function createHandlers(deps: HandlerDeps) {
 		postItemExpiry: (request: Request) =>
 			mutating(request, deps.env, async () => {
 				return json(await vault.resetItemExpiry(sid(request)));
+			}),
+		postItemPreserve: (request: Request) =>
+			mutating(request, deps.env, async () => {
+				const body = await readBody(request, itemPreserveRequestSchema);
+				return json(await vault.setPreserveNotes(sid(request), body.enabled));
 			}),
 		deleteItem: (request: Request, id: string) =>
 			mutating(request, deps.env, async () => {
