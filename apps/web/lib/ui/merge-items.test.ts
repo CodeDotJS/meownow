@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { mergeRemoteItems, nextPendingIds } from "./merge-items";
+import { mergeRemoteItems, nextPendingIds, replaceAndSort } from "./merge-items";
 
 test("keeps a just-sent note when an older fetch comes back first", () => {
 	const pending = new Set(["new"]);
@@ -37,6 +37,17 @@ test("keeps three held notes the server has not seen, and a tombstone still wins
 test("a refresh keeps an in-flight upload that is still on screen", () => {
 	const next = nextPendingIds(["uploading"], ["uploading", "old"], []);
 	expect([...next]).toEqual(["uploading"]);
+});
+
+test("an edit with a newer createdAt moves the note to the top", () => {
+	const next = replaceAndSort(
+		[
+			{ id: "new", createdAt: "2026-09-13T12:00:00.000Z" },
+			{ id: "old", createdAt: "2026-08-01T08:00:00.000Z" },
+		],
+		{ id: "old", createdAt: "2026-09-13T12:05:00.000Z" },
+	);
+	expect(next.map((row) => row.id)).toEqual(["old", "new"]);
 });
 
 test("keeps an ephemeral note that the server never stored", () => {
