@@ -28,6 +28,13 @@ export function mergeRemoteItems<T extends MergeableItem>(
 	return [...byId.values()].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
+export function replaceAndSort<T extends MergeableItem>(current: T[], row: T): T[] {
+	const next = current.some((entry) => entry.id === row.id)
+		? current.map((entry) => (entry.id === row.id ? { ...entry, ...row } : entry))
+		: [row, ...current];
+	return next.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+}
+
 /** Keep on-screen in-flight writes when a refresh rebuilds the pending set. */
 export function nextPendingIds(
 	previous: Iterable<string>,
