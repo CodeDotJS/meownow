@@ -9,11 +9,17 @@ import { notesSyncedCopy } from "@/lib/ui/copy";
 import { Panel } from "@/lib/ui/panel";
 import { PixelAvatar } from "@/lib/ui/pixel-avatar";
 import { AlreadyHere, SessionLoading, useBrowserSession } from "@/lib/ui/session";
+import { peekBrowserSession, rememberBrowserSession } from "@/lib/ui/session-cache";
 import { SHEET_FOCUS, type SheetFocus } from "@/lib/ui/sheet-focus";
 import { Status } from "@/lib/ui/status";
 import { setSyncEnabled } from "@/lib/vault/flush";
 import { clearVault } from "@/lib/vault/idb";
-import { clearItemCache, getItemCacheMeta, setItemCacheMeta } from "@/lib/vault/item-cache";
+import {
+	clearItemCache,
+	getItemCacheMeta,
+	pruneExpiredCachedItems,
+	setItemCacheMeta,
+} from "@/lib/vault/item-cache";
 
 export default function AccountPage() {
 	const { ready, me } = useBrowserSession();
@@ -27,6 +33,7 @@ export default function AccountPage() {
 	const [tapNoteToCopy, setTapNoteToCopy] = useState(false);
 	const [tabIndent, setTabIndent] = useState(true);
 	const [sheetFocus, setSheetFocus] = useState<SheetFocus>("both");
+	const [preserveNotes, setPreserveNotes] = useState(false);
 
 	useEffect(() => {
 		void getItemCacheMeta().then((meta) => {
@@ -47,7 +54,9 @@ export default function AccountPage() {
 			if (!res.ok) {
 				return;
 			}
-			setProfile(res.data as MeResponse);
+			const next = res.data as MeResponse;
+			setProfile(next);
+			setPreserveNotes(next.preserveNotes);
 		})();
 		void detectDeviceLabel().then(setDeviceLabel);
 	}, [me]);
@@ -109,6 +118,34 @@ export default function AccountPage() {
 		}
 		const meta = await getItemCacheMeta();
 		await setItemCacheMeta({ ...meta, ...patch });
+	}
+
+	async function onPreserveNotes(enabled: boolean) {
+		setPreserveNotes(enabled);
+		setStatus(null);
+		try {
+			const res = await postJson("/api/items/preserve", { enabled });
+			if (!res.ok) {
+				setPreserveNotes(!enabled);
+				setStatus(errorCode(res.data));
+				return;
+			}
+			const meta = await getItemCacheMeta();
+			if (meta.lastMe) {
+				await setItemCacheMeta({ ...meta, lastMe: { ...meta.lastMe, preserveNotes: enabled } });
+			}
+			const session = peekBrowserSession();
+			if (session?.me) {
+				rememberBrowserSession({ ...session, me: { ...session.me, preserveNotes: enabled } });
+			}
+			if (!enabled) {
+				await pruneExpiredCachedItems();
+			}
+			setStatus(enabled ? "keep_notes_on" : "keep_notes_off");
+		} catch {
+			setPreserveNotes(!enabled);
+			setStatus("request_failed");
+		}
 	}
 
 	async function onResetDeadlines() {
@@ -233,6 +270,20 @@ export default function AccountPage() {
 						to thirty days from today. New notes still follow the usual clocks. If you do not reset,
 						they leave at their deadline.
 					</p>
+					{me.role === "admin" ? (
+						<>
+							<label className="ack">
+								<input
+									className="ack-box"
+									type="checkbox"
+									checked={preserveNotes}
+									onChange={(event) => void onPreserveNotes(event.target.checked)}
+								/>
+								Keep stored notes
+							</label>
+							<p>On, notes already stored stay. Off lets their deadlines run again.</p>
+						</>
+					) : null}
 					<button
 						className="select"
 						type="button"
