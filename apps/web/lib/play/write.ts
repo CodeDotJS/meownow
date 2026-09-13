@@ -100,6 +100,7 @@ export async function replacePlayNote(
 		...current,
 		text,
 		kind: playNoteKind(text),
+		createdAt: new Date().toISOString(),
 	};
 	await store.put(note);
 	return note;
