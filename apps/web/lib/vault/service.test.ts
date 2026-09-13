@@ -587,7 +587,7 @@ test("updateItem replaces ciphertext, keeps expiry, and fans item.updated", asyn
 	});
 	const itemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 	const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
-	const created = await vaultApi.createItem(enrolled.sessionToken, {
+	await vaultApi.createItem(enrolled.sessionToken, {
 		id: itemId,
 		kind: "text",
 		ciphertext: wire(new Uint8Array([1, 2, 3])),
@@ -597,6 +597,10 @@ test("updateItem replaces ciphertext, keeps expiry, and fans item.updated", asyn
 		expiresAt,
 	});
 	received.length = 0;
+	const stored = store.items.find((row) => row.id === itemId);
+	if (stored) {
+		stored.createdAt = new Date("2026-08-01T12:00:00.000Z");
+	}
 	const updated = await vaultApi.updateItem(enrolled.sessionToken, itemId, {
 		kind: "link",
 		ciphertext: wire(new Uint8Array([9, 9])),
@@ -604,7 +608,8 @@ test("updateItem replaces ciphertext, keeps expiry, and fans item.updated", asyn
 		iv: wire(new Uint8Array(12).fill(7)),
 		byteSize: 2,
 	});
-	expect(updated.createdAt).toBe(created.createdAt);
+	expect(updated.createdAt).not.toBe("2026-08-01T12:00:00.000Z");
+	expect(Date.parse(updated.createdAt)).toBeGreaterThan(Date.parse("2026-08-01T12:00:00.000Z"));
 	expect(updated.expiresAt).toBe(expiresAt);
 	expect(updated).toMatchObject({
 		id: itemId,
@@ -626,7 +631,7 @@ test("updateItem replaces ciphertext, keeps expiry, and fans item.updated", asyn
 		kind: "link",
 		ciphertext: wire(new Uint8Array([9, 9])),
 		expiresAt,
-		createdAt: created.createdAt,
+		createdAt: updated.createdAt,
 	});
 });
 
