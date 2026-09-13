@@ -42,6 +42,7 @@ export const users = pgTable("users", {
 	canUpload: boolean("can_upload").notNull().default(false),
 	storageQuotaBytes: bigint("storage_quota_bytes", { mode: "number" }).notNull().default(0),
 	storageUsedBytes: bigint("storage_used_bytes", { mode: "number" }).notNull().default(0),
+	preserveNotes: boolean("preserve_notes").notNull().default(false),
 	identityPub: jsonb("identity_pub"),
 	wrappedVaultRecovery: bytea("wrapped_vault_recovery"),
 	recoverySalt: bytea("recovery_salt"),
