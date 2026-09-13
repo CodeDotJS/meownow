@@ -30,7 +30,7 @@ import {
 	TEXT_TTL_MS,
 	type VaultPutRequest,
 } from "@meownow/protocol";
-import { AuthError, type AuthStore, type SessionContext } from "../auth/store";
+import { AuthError, type AuthStore, type SessionContext, type UserRow } from "../auth/store";
 import type { RegistrationResponseJSON } from "../auth/webauthn";
 import { defaultWebAuthn, type WebAuthnPort } from "../auth/webauthn";
 import { type ChallengePayload, challengeExpiry, openChallenge, sealChallenge } from "../challenge";
@@ -40,6 +40,10 @@ import { type HubPort, hubOrigin, silentHub } from "./hub";
 import { type LimitPort, silentLimits } from "./limits";
 import { type PushPort, silentPush } from "./push";
 import type { VaultStore } from "./store";
+
+function keepStored(user: UserRow): boolean {
+	return user.role === "admin" && user.preserveNotes;
+}
 
 export type VaultServiceOptions = {
 	env: WebEnv;
@@ -159,7 +163,7 @@ export class VaultService {
 		if (!allowed) {
 			throw new AuthError("rate_limited", 429);
 		}
-		await this.vault.createItem(ctx.user.id, item, now);
+		await this.vault.createItem(ctx.user.id, item, now, keepStored(ctx.user));
 		const record = { ...item, createdAt: now.toISOString() };
 		await this.hub.publish(ctx.user.id, { v: 1, type: "item.created", item: record });
 		await this.push.notify({
@@ -176,12 +180,18 @@ export class VaultService {
 		const rows = await this.vault.listItems(user.id);
 		return {
 			items: rows
-				.filter((item) => Date.parse(item.expiresAt) > now)
-				.map(({ ownerId: _ownerId, ...item }) => ({
+				.filter((item) => item.pinned || Date.parse(item.expiresAt) > now)
+				.map(({ ownerId: _ownerId, pinned: _pinned, ...item }) => ({
 					...item,
 					createdAt: item.createdAt.toISOString(),
 				})),
 		};
+	}
+
+	async setPreserveNotes(sessionToken: string | undefined, enabled: boolean) {
+		const user = await this.requireAdmin(sessionToken);
+		await this.vault.setPreserveNotes(user.id, enabled);
+		return { ok: true as const, enabled };
 	}
 
 	async resetItemExpiry(sessionToken: string | undefined) {
@@ -431,6 +441,7 @@ export class VaultService {
 				iv: body.iv,
 				wrappedKey: body.wrappedKey,
 				expiresAt: new Date(expiresAt),
+				pinned: keepStored(ctx.user),
 			},
 			now,
 		});
