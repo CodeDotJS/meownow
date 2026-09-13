@@ -62,6 +62,7 @@ function mapUser(row: typeof users.$inferSelect): UserRow {
 		hasVault: row.wrappedVaultRecovery !== null,
 		storageQuotaBytes: row.storageQuotaBytes,
 		storageUsedBytes: row.storageUsedBytes,
+		preserveNotes: row.preserveNotes,
 		suspendedAt: row.suspendedAt,
 	};
 }
@@ -619,7 +620,12 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 		});
 	}
 
-	async createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void> {
+	async createItem(
+		ownerId: string,
+		item: ItemCreateRequest,
+		now: Date,
+		pinned = false,
+	): Promise<void> {
 		await this.withDb(async (db) => {
 			const inserted = await db
 				.insert(items)
@@ -631,6 +637,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 					metaCiphertext: Buffer.from(item.metaCiphertext, "base64url"),
 					iv: Buffer.from(item.iv, "base64url"),
 					byteSize: item.byteSize,
+					pinned,
 					expiresAt: new Date(item.expiresAt),
 					createdAt: now,
 				})
@@ -668,7 +675,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 			if (row.kind !== "text" && row.kind !== "link") {
 				return "not_text";
 			}
-			if (asDate(row.expiresAt).getTime() <= now.getTime()) {
+			if (!row.pinned && asDate(row.expiresAt).getTime() <= now.getTime()) {
 				return "expired";
 			}
 			const [updated] = await db
@@ -698,6 +705,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 				expiresAt: asDate(updated.expiresAt).toISOString(),
 				ownerId: updated.ownerId,
 				createdAt: asDate(updated.createdAt),
+				pinned: updated.pinned,
 			};
 		});
 	}
@@ -722,6 +730,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 								expiresAt: asDate(row.expiresAt).toISOString(),
 								ownerId: row.ownerId,
 								createdAt,
+								pinned: row.pinned,
 							},
 						];
 					} catch {
@@ -729,6 +738,13 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 					}
 				})
 				.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+		});
+	}
+
+	async setPreserveNotes(ownerId: string, enabled: boolean): Promise<void> {
+		await this.withDb(async (db) => {
+			await db.update(users).set({ preserveNotes: enabled }).where(eq(users.id, ownerId));
+			await db.update(items).set({ pinned: enabled }).where(eq(items.ownerId, ownerId));
 		});
 	}
 
@@ -947,6 +963,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 			iv: string;
 			wrappedKey: WrappedKeyWire;
 			expiresAt: Date;
+			pinned?: boolean;
 		};
 		now: Date;
 	}): Promise<"ok" | "quota"> {
@@ -981,6 +998,7 @@ export class DrizzleAuthStore implements AuthStore, VaultStore {
 				byteSize: input.actualBytes,
 				expiresAt: input.item.expiresAt,
 				createdAt: input.now,
+				pinned: Boolean(input.item.pinned),
 			});
 			await tx
 				.update(users)
