@@ -57,8 +57,16 @@ test("forget frees a slot and edit does not consume one", async () => {
 	for (let i = 0; i < PLAY_CAP - 1; i += 1) {
 		await addPlayNote(store, `fill ${i}`);
 	}
+	for (const row of await store.list()) {
+		await store.put({
+			...row,
+			createdAt: row.id === first.id ? "2020-01-01T00:00:00.000Z" : "2020-01-02T00:00:00.000Z",
+		});
+	}
 	const edited = await replacePlayNote(store, first.id, "https://meownow.example");
 	expect(edited.kind).toBe("link");
+	expect(Date.parse(edited.createdAt)).toBeGreaterThan(Date.parse("2020-01-02T00:00:00.000Z"));
+	expect((await store.list())[0]?.id).toBe(first.id);
 	expect((await store.list()).length).toBe(PLAY_CAP);
 	await forgetPlayNote(store, first.id);
 	expect((await store.list()).length).toBe(PLAY_CAP - 1);
