@@ -506,6 +506,128 @@ test("resetItemExpiry sets every stored kind for this user to thirty days from n
 	expect(store.items.find((row) => row.id.startsWith("cc"))?.expiresAt).toBe(otherExpiry);
 });
 
+test("setPreserveNotes without a session is denied", async () => {
+	const store = new MemoryAuthStore();
+	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn: mockWebAuthn() });
+	await expect(vaultApi.setPreserveNotes(undefined, true)).rejects.toMatchObject({
+		code: "unauthorized",
+	});
+});
+
+test("setPreserveNotes is admin only; on keeps a past deadline and off lets it leave", async () => {
+	const now = new Date("2026-09-14T12:00:00.000Z");
+	const store = new MemoryAuthStore();
+	const webauthn = mockWebAuthn();
+	const auth = new AuthService({ env, store, webauthn, now: () => now });
+	const vaultApi = new VaultService({
+		env,
+		auth: store,
+		vault: store,
+		webauthn,
+		now: () => now,
+	});
+	const { challenge } = await auth.adminEnrollOptions({
+		handle: "rishi",
+		secret: env.ADMIN_ENROLL_SECRET,
+		deviceLabel: "one",
+	});
+	const enrolled = await auth.adminEnrollVerify(dummyAttestation, challenge);
+	const ownerId = [...store.users.values()][0]?.id ?? "";
+	const past = new Date(now.getTime() - 60_000).toISOString();
+	const future = new Date(now.getTime() + 60_000).toISOString();
+	store.items.push(
+		{
+			id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+			kind: "text",
+			ciphertext: "YQ",
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 1,
+			expiresAt: past,
+			ownerId,
+			createdAt: now,
+		},
+		{
+			id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+			kind: "text",
+			ciphertext: "YQ",
+			metaCiphertext: "YQ",
+			iv: "YQ",
+			byteSize: 1,
+			expiresAt: future,
+			ownerId,
+			createdAt: now,
+		},
+	);
+
+	const invite = await auth.createInvite(enrolled.sessionToken, undefined);
+	const { challenge: join } = await auth.registerOptions({
+		token: invite.token,
+		handle: "ada",
+		displayName: "Ada",
+		deviceLabel: "phone",
+	});
+	const member = await auth.registerVerify(dummyAttestation, join);
+	await expect(vaultApi.setPreserveNotes(member.sessionToken, true)).rejects.toMatchObject({
+		code: "forbidden",
+		status: 403,
+	});
+	const handlers = createHandlers({ env, store, webauthn });
+	const denied = await handlers.postItemPreserve(
+		new Request("https://meownow.example/api/items/preserve", {
+			method: "POST",
+			headers: {
+				cookie: `sid=${member.sessionToken}`,
+				origin: env.APP_URL,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ enabled: true }),
+		}),
+	);
+	expect(denied.status).toBe(403);
+	expect(await denied.json()).toEqual({ error: "forbidden" });
+
+	expect(await vaultApi.listItems(enrolled.sessionToken)).toMatchObject({
+		items: [{ id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }],
+	});
+	await expect(vaultApi.setPreserveNotes(enrolled.sessionToken, true)).resolves.toEqual({
+		ok: true,
+		enabled: true,
+	});
+	expect(store.users.get(ownerId)?.preserveNotes).toBe(true);
+	expect(store.items.every((row) => row.ownerId !== ownerId || row.pinned)).toBe(true);
+	const kept = await vaultApi.listItems(enrolled.sessionToken);
+	expect(kept.items.map((row) => row.id).sort()).toEqual([
+		"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+		"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+	]);
+	const adminUser = store.users.get(ownerId);
+	if (adminUser) {
+		adminUser.hasVault = true;
+	}
+	const created = await vaultApi.createItem(enrolled.sessionToken, {
+		id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+		kind: "text",
+		ciphertext: "YQ",
+		metaCiphertext: "YQ",
+		iv: "YQ",
+		byteSize: 1,
+		expiresAt: future,
+	});
+	expect(created.id).toBe("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+	expect(store.items.find((row) => row.id === created.id)?.pinned).toBe(true);
+
+	await expect(vaultApi.setPreserveNotes(enrolled.sessionToken, false)).resolves.toEqual({
+		ok: true,
+		enabled: false,
+	});
+	expect(store.users.get(ownerId)?.preserveNotes).toBe(false);
+	expect(store.items.some((row) => row.pinned)).toBe(false);
+	expect(
+		(await vaultApi.listItems(enrolled.sessionToken)).items.map((row) => row.id).sort(),
+	).toEqual(["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "cccccccc-cccc-4ccc-8ccc-cccccccccccc"]);
+});
+
 test("deleteItem without a session is denied", async () => {
 	const store = new MemoryAuthStore();
 	const vaultApi = new VaultService({ env, auth: store, vault: store, webauthn: mockWebAuthn() });
