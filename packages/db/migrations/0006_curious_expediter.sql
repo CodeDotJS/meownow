@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "preserve_notes" boolean DEFAULT false NOT NULL;
