@@ -313,7 +313,7 @@ export default function Page() {
 			if (failed === "vault_missing") {
 				setStatus(failed);
 			}
-			const cached = await pruneExpiredCachedItems();
+			const cached = await pruneExpiredCachedItems(new Date(), Boolean(me?.preserveNotes));
 			if (seq !== refreshSeqRef.current) {
 				return;
 			}
@@ -341,11 +341,12 @@ export default function Page() {
 		}
 		const list = (res.data as { items: ItemRow[] }).items;
 		await upsertSyncedFromRemote(list);
-		const cached = await pruneExpiredCachedItems();
+		const keepNotes = Boolean(me?.preserveNotes);
+		const cached = await pruneExpiredCachedItems(new Date(), keepNotes);
 		adoptPending(cached);
 		const opened: Shown[] = [];
 		for (const item of list) {
-			if (isLiveItem(item.expiresAt)) {
+			if (isLiveItem(item.expiresAt, Date.now(), keepNotes)) {
 				opened.push(await openItem(item));
 			}
 		}
@@ -364,7 +365,7 @@ export default function Page() {
 				cached,
 			),
 		);
-	}, [adoptPending, openItem]);
+	}, [adoptPending, me?.preserveNotes, openItem]);
 
 	const runFlush = useCallback(async () => {
 		if (flushingRef.current) {
@@ -390,7 +391,7 @@ export default function Page() {
 			return;
 		}
 		void (async () => {
-			const cached = await pruneExpiredCachedItems();
+			const cached = await pruneExpiredCachedItems(new Date(), Boolean(me.preserveNotes));
 			adoptPending(cached);
 			const opened: Shown[] = [];
 			for (const row of cached) {
@@ -1347,7 +1348,8 @@ export default function Page() {
 	}, [me, hasLocal, sendPlain, onFile]);
 
 	const draftLines = draft.split("\n").length;
-	const visible = items.filter((item) => isLiveItem(item.expiresAt, now));
+	const keepNotes = Boolean(me?.preserveNotes);
+	const visible = items.filter((item) => isLiveItem(item.expiresAt, now, keepNotes));
 	const waiting = visible.filter((item) => item.syncState);
 
 	if (!ready) {
@@ -1549,8 +1551,10 @@ export default function Page() {
 									<ul className="log-day-items">
 										<AnimatePresence initial={false}>
 											{group.items.map((item) => {
-												const remain = ttlRemain(item.expiresAt, itemTtl(item.kind), now);
-												const warn = ttlWarn(item.expiresAt, now);
+												const remain = keepNotes
+													? 1
+													: ttlRemain(item.expiresAt, itemTtl(item.kind), now);
+												const warn = keepNotes ? false : ttlWarn(item.expiresAt, now);
 												const selected = item.id === selectedId;
 												const locked = item.text === UNREADABLE;
 												const isFile = item.kind === "image" || item.kind === "file";
