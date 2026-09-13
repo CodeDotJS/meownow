@@ -165,6 +165,7 @@ export const meResponseSchema = z.object({
 	hasVault: z.boolean(),
 	storageQuotaBytes: z.number().int().nonnegative(),
 	storageUsedBytes: z.number().int().nonnegative(),
+	preserveNotes: z.boolean(),
 });
 
 export const logoutResponseSchema = z.object({
