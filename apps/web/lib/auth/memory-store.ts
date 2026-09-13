@@ -500,6 +500,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		row.metaCiphertext = patch.metaCiphertext;
 		row.iv = patch.iv;
 		row.byteSize = patch.byteSize;
+		row.createdAt = now;
 		return row;
 	}
 
