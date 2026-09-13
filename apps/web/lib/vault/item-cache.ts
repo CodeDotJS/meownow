@@ -12,6 +12,7 @@ export type LastMe = {
 	role: "admin" | "member";
 	canUpload: boolean;
 	hasVault: boolean;
+	preserveNotes?: boolean;
 };
 
 export type ItemCacheMeta = {
@@ -152,8 +153,14 @@ export const idbItemCache: ItemCacheStore = {
 	clear: clearItemCache,
 };
 
-export async function pruneExpiredCachedItems(now = new Date()): Promise<CachedItem[]> {
+export async function pruneExpiredCachedItems(
+	now = new Date(),
+	keepExpired = false,
+): Promise<CachedItem[]> {
 	const all = await getCachedItems();
+	if (keepExpired) {
+		return all;
+	}
 	const keep = dropExpired(all, now);
 	const keepIds = new Set(keep.map((row) => row.id));
 	for (const row of all) {
