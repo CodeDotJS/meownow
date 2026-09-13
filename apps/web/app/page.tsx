@@ -30,7 +30,7 @@ import {
 	SyncMark,
 	WifiMark,
 } from "@/lib/ui/marks";
-import { mergeRemoteItems, nextPendingIds } from "@/lib/ui/merge-items";
+import { mergeRemoteItems, nextPendingIds, replaceAndSort } from "@/lib/ui/merge-items";
 import { NoteMarkdown } from "@/lib/ui/note-markdown";
 import { NoteReader, type NoteReaderState } from "@/lib/ui/note-reader";
 import { textNeedsReader } from "@/lib/ui/note-size";
@@ -159,10 +159,7 @@ function applySyncState(rows: Shown[], cached: CachedItem[]): Shown[] {
 }
 
 function replaceShown(current: Shown[], row: Shown): Shown[] {
-	if (current.some((entry) => entry.id === row.id)) {
-		return current.map((entry) => (entry.id === row.id ? { ...entry, ...row } : entry));
-	}
-	return [row, ...current];
+	return replaceAndSort(current, row);
 }
 
 function flushStatus(result: FlushResult): string | null {
@@ -436,7 +433,6 @@ export default function Page() {
 								setSelectedId((current) => (current === dc.id ? null : current));
 								return;
 							}
-							const existing = itemsRef.current.find((row) => row.id === dc.item.id);
 							void openItem({
 								id: dc.item.id,
 								kind: dc.item.kind,
@@ -445,10 +441,7 @@ export default function Page() {
 								iv: dc.item.iv,
 								wrappedKey: dc.item.wrappedKey,
 								byteSize: dc.item.byteSize,
-								createdAt:
-									dc.type === "item.updated"
-										? (existing?.createdAt ?? new Date().toISOString())
-										: new Date().toISOString(),
+								createdAt: new Date().toISOString(),
 								expiresAt: dc.item.expiresAt,
 							}).then((shown) => {
 								const row = dc.ephemeral ? { ...shown, ephemeral: true } : shown;
@@ -741,6 +734,7 @@ export default function Page() {
 				byteSize: sealed.bytes.byteLength,
 				expiresAt: item.expiresAt,
 			};
+			const createdAt = new Date().toISOString();
 			const next: Shown = {
 				...item,
 				text: trimmed,
@@ -749,6 +743,7 @@ export default function Page() {
 				metaCiphertext: payload.metaCiphertext,
 				iv: payload.iv,
 				byteSize: payload.byteSize,
+				createdAt,
 			};
 			const intent = editIntent({
 				ephemeral: Boolean(item.ephemeral),
@@ -771,19 +766,19 @@ export default function Page() {
 					v: 1,
 					type: "item.updated",
 					ephemeral: true,
-					item: { ...payload, createdAt: item.createdAt },
+					item: { ...payload, createdAt },
 				});
 				return;
 			}
 			if (intent === "rewrite") {
 				const state = item.syncState === "held" ? ("held" as const) : ("queued" as const);
-				await putCachedItem(asCached(payload, item.createdAt, state));
+				await putCachedItem(asCached(payload, createdAt, state));
 				setItems((current) =>
 					current.map((row) => (row.id === id ? { ...row, syncState: state } : row)),
 				);
 				return;
 			}
-			const record = asCached(payload, item.createdAt, intent === "dirty" ? "dirty" : "synced");
+			const record = asCached(payload, createdAt, intent === "dirty" ? "dirty" : "synced");
 			if (intent === "dirty") {
 				await putCachedItem(record);
 				pendingRef.current.add(id);
