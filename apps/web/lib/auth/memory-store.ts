@@ -63,6 +63,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			hasVault: false,
 			storageQuotaBytes: 524_288_000,
 			storageUsedBytes: 0,
+			preserveNotes: false,
 			suspendedAt: null,
 		});
 		const seat = this.seats[0];
@@ -230,6 +231,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			hasVault: false,
 			storageQuotaBytes: 0,
 			storageUsedBytes: 0,
+			preserveNotes: false,
 			suspendedAt: null,
 		});
 		this.addDevice(input.userId, input.device);
@@ -468,7 +470,12 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		}
 	}
 
-	async createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void> {
+	async createItem(
+		ownerId: string,
+		item: ItemCreateRequest,
+		now: Date,
+		pinned = false,
+	): Promise<void> {
 		const existing = this.items.find((row) => row.id === item.id);
 		if (existing) {
 			if (existing.ownerId !== ownerId) {
@@ -476,7 +483,19 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			}
 			return;
 		}
-		this.items.push({ ...item, ownerId, createdAt: now });
+		this.items.push({ ...item, ownerId, createdAt: now, pinned });
+	}
+
+	async setPreserveNotes(ownerId: string, enabled: boolean): Promise<void> {
+		const user = this.users.get(ownerId);
+		if (user) {
+			user.preserveNotes = enabled;
+		}
+		for (const item of this.items) {
+			if (item.ownerId === ownerId) {
+				item.pinned = enabled;
+			}
+		}
 	}
 
 	async updateTextItem(
@@ -492,7 +511,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 		if (row.kind !== "text" && row.kind !== "link") {
 			return "not_text";
 		}
-		if (Date.parse(row.expiresAt) <= now.getTime()) {
+		if (!row.pinned && Date.parse(row.expiresAt) <= now.getTime()) {
 			return "expired";
 		}
 		row.kind = patch.kind;
@@ -649,6 +668,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			iv: string;
 			wrappedKey: { iv: string; bytes: string };
 			expiresAt: Date;
+			pinned?: boolean;
 		};
 		now: Date;
 	}): Promise<"ok" | "quota"> {
@@ -679,6 +699,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			expiresAt: input.item.expiresAt.toISOString(),
 			ownerId: blob.ownerId,
 			createdAt: input.now,
+			pinned: Boolean(input.item.pinned),
 		});
 		return "ok";
 	}
@@ -717,7 +738,7 @@ export class MemoryAuthStore implements AuthStore, VaultStore {
 			now: now.getTime(),
 			items: this.items.map((item) => ({
 				id: item.id,
-				pinned: false,
+				pinned: Boolean(item.pinned),
 				expiresAt: Date.parse(item.expiresAt),
 				blobId: item.blobId ?? null,
 			})),
