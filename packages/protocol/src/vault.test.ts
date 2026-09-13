@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { itemExpiryResetResponseSchema, itemUpdateRequestSchema } from "./vault";
+import {
+	itemExpiryResetResponseSchema,
+	itemPreserveRequestSchema,
+	itemPreserveResponseSchema,
+	itemUpdateRequestSchema,
+} from "./vault";
 
 test("item update is a new seal and cannot reset expiry", () => {
 	const body = {
@@ -29,4 +34,13 @@ test("expiry reset returns a deadline and a count, not a per-item body", () => {
 	expect(
 		itemExpiryResetResponseSchema.safeParse({ ok: true, expiresAt: body.expiresAt }).success,
 	).toBe(false);
+});
+
+test("preserve is an enabled flag and nothing else", () => {
+	expect(itemPreserveRequestSchema.parse({ enabled: true })).toEqual({ enabled: true });
+	expect(itemPreserveRequestSchema.safeParse({ enabled: true, pinned: true }).success).toBe(false);
+	expect(itemPreserveResponseSchema.parse({ ok: true, enabled: false })).toEqual({
+		ok: true,
+		enabled: false,
+	});
 });
