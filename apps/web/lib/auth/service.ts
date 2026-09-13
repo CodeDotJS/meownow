@@ -546,6 +546,7 @@ export class AuthService {
 				hasVault: ctx.user.hasVault,
 				storageQuotaBytes: ctx.user.storageQuotaBytes,
 				storageUsedBytes: ctx.user.storageUsedBytes,
+				preserveNotes: ctx.user.preserveNotes,
 			},
 			sessionToken: sessionToken ?? "",
 		};
