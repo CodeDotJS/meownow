@@ -124,6 +124,17 @@ export const itemExpiryResetResponseSchema = z.object({
 	updated: z.number().int().nonnegative(),
 });
 
+export const itemPreserveRequestSchema = z
+	.object({
+		enabled: z.boolean(),
+	})
+	.strict();
+
+export const itemPreserveResponseSchema = z.object({
+	ok: z.literal(true),
+	enabled: z.boolean(),
+});
+
 export const pairingQrSchema = z.object({
 	v: z.literal(1),
 	id: z.string().uuid(),
@@ -145,6 +156,7 @@ export type PairingStartRequest = z.infer<typeof pairingStartRequestSchema>;
 export type PairingWrapRequest = z.infer<typeof pairingWrapRequestSchema>;
 export type ItemCreateRequest = z.infer<typeof itemCreateRequestSchema>;
 export type ItemUpdateRequest = z.infer<typeof itemUpdateRequestSchema>;
+export type ItemPreserveRequest = z.infer<typeof itemPreserveRequestSchema>;
 export type ItemRecord = z.infer<typeof itemRecordSchema>;
 export type PairingQr = z.infer<typeof pairingQrSchema>;
 export type PushSubscribeRequest = z.infer<typeof pushSubscribeRequestSchema>;
