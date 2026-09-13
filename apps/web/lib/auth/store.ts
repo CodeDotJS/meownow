@@ -21,6 +21,7 @@ export type UserRow = {
 	hasVault: boolean;
 	storageQuotaBytes: number;
 	storageUsedBytes: number;
+	preserveNotes: boolean;
 	suspendedAt: Date | null;
 };
 
