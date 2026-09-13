@@ -25,7 +25,11 @@ export type PairingRecord = {
 	createdAt: Date;
 };
 
-export type StoredItem = Omit<ItemRecord, "createdAt"> & { ownerId: string; createdAt: Date };
+export type StoredItem = Omit<ItemRecord, "createdAt"> & {
+	ownerId: string;
+	createdAt: Date;
+	pinned?: boolean;
+};
 
 export type UploadRequestRow = {
 	id: string;
@@ -74,7 +78,8 @@ export type VaultStore = {
 		now: Date;
 	}): Promise<"ok" | "missing" | "complete">;
 	deletePairing(id: string): Promise<void>;
-	createItem(ownerId: string, item: ItemCreateRequest, now: Date): Promise<void>;
+	createItem(ownerId: string, item: ItemCreateRequest, now: Date, pinned?: boolean): Promise<void>;
+	setPreserveNotes(ownerId: string, enabled: boolean): Promise<void>;
 	updateTextItem(
 		ownerId: string,
 		id: string,
@@ -132,6 +137,7 @@ export type VaultStore = {
 			iv: string;
 			wrappedKey: WrappedKeyWire;
 			expiresAt: Date;
+			pinned?: boolean;
 		};
 		now: Date;
 	}): Promise<"ok" | "quota">;
